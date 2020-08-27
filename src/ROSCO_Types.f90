@@ -120,9 +120,11 @@ TYPE, PUBLIC :: ControlParameters
     REAL(4), DIMENSION(:), ALLOCATABLE  :: PwC_BldPitchMin              ! Minimum pitch setting for below-rated power control
     REAL(4)                             :: PwC_ConstPwr                 ! Constant Power
     CHARACTER(1024)                     :: PwC_OpenLoopInp              ! File containing open loop power reference value
-    REAL(4), DIMENSION(:), ALLOCATABLE  :: PwC_Time                     ! Time breakpoints for open loop power control
-    REAL(4), DIMENSION(:,:), ALLOCATABLE  :: PwC_R_Time                   ! Power rating (-) at time breakpoints, 2D because Open loop channels are
-
+    REAL(4), DIMENSION(:), ALLOCATABLE      :: PwC_Time                     ! Time breakpoints for open loop power control
+    REAL(4), DIMENSION(:,:), ALLOCATABLE    :: PwC_R_Time                   ! Power rating (-) at time breakpoints, 2D because Open loop channels are
+    REAL(4), DIMENSION(:), ALLOCATABLE      :: PwC_WindSpeed                   ! Power rating (-) at time breakpoints, 2D because Open loop channels are
+    REAL(4), DIMENSION(:,:), ALLOCATABLE    :: PwC_R_WindSpeed                   ! Power rating (-) at time breakpoints, 2D because Open loop channels are
+    
     INTEGER(4)                          :: SD_Mode                      ! Shutdown mode {0: no shutdown procedure, 1: pitch to max pitch at shutdown}
     REAL(4)                             :: SD_MaxPit                    ! Maximum blade pitch angle to initiate shutdown, [rad]
     REAL(4)                             :: SD_CornerFreq                ! Cutoff Frequency for first order low-pass filter for blade pitch angle, [rad/s]
@@ -198,6 +200,7 @@ TYPE, PUBLIC :: LocalVariables
     REAL(4)                             :: WE_Vw_F                      ! Filtered estimated wind speed [m/s]
     REAL(4)                             :: WE_VwI                       ! Integrated wind speed quantity for estimation [m/s]
     REAL(4)                             :: WE_VwIdot                    ! Differentiated integrated wind speed quantity for estimation [m/s]
+    REAL(4)                             :: WE_SlowEst                   ! Slow low pass filtered wind speed
     REAL(4)                             :: VS_LastGenTrqF               ! Differentiated integrated wind speed quantity for estimation [m/s]
     REAL(4)                             :: Y_AccErr                     ! Accumulated yaw error [rad].
     REAL(4)                             :: Y_ErrLPFFast                 ! Filtered yaw error by fast low pass filter [rad].
@@ -240,6 +243,7 @@ TYPE, PUBLIC :: DebugVariables
     REAL(4)                             :: PwC_R                     ! Power reference R [-]
     REAL(4)                             :: Om_tau                    ! Generator speed reference for torque control
     REAL(4)                             :: Om_theta                  ! Generator speed reference for pitch control
+    REAL(4)                             :: WE_SlowEst
 END TYPE DebugVariables
 
 END MODULE ROSCO_Types

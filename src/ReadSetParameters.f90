@@ -211,11 +211,14 @@ CONTAINS
         ELSE IF (CntrPar%PwC_Mode == 2) THEN
             CALL Read_OL_Input(CntrPar%PwC_OpenLoopInp,109,1,CntrPar%PwC_Time,CntrPar%PwC_R_Time)
             PRINT *, 'Implementing open loop power control with R defined in '//TRIM(CntrPar%PwC_OpenLoopInp)
+        ELSE IF (CntrPar%PwC_Mode == 3) THEN
+            CALL Read_OL_Input(CntrPar%PwC_OpenLoopInp,109,1,CntrPar%PwC_WindSpeed,CntrPar%PwC_R_WindSpeed)
+            PRINT *, 'Implementing open loop power control w.r.t. wind speed defined in '//TRIM(CntrPar%PwC_OpenLoopInp)
         END IF
         ! PRINT *, 'Implementing constant power control with R = '//LocalVar%PwC_R
 
-        PRINT *, CntrPar%PwC_Time
-        PRINT *, CntrPar%PwC_R_Time
+        PRINT *, CntrPar%PwC_WindSpeed
+        PRINT *, CntrPar%PwC_R_WindSpeed
         
 
         !------------ SHUTDOWN ------------
@@ -266,12 +269,15 @@ CONTAINS
         ! REAL(4)                                 :: VS_TSRop = 7.5
 
         ! Calculate Power reference
+        LocalVar%WE_SlowEst = SecLPFilter(LocalVar%WE_Vw,LocalVar%DT,0.0628,0.7,LocalVar%iStatus,.FALSE.,objInst%instSecLPF) ! 30 second time constant
         IF (CntrPar%PwC_Mode == 0) THEN
             LocalVar%PwC_R  = 1.0
         ELSEIF (CntrPar%PwC_Mode == 1) THEN  ! constant power
             LocalVar%PwC_R  = CntrPar%PwC_ConstPwr
         ELSEIF (CntrPar%PwC_Mode == 2) THEN  ! open loop power
             LocalVar%PwC_R  = interp1d(CntrPar%PwC_Time,RESHAPE(CntrPar%PwC_R_Time(:,1),(/size(CntrPar%PwC_Time)/)),LocalVar%Time)
+        ELSEIF (CntrPar%PwC_Mode == 3) THEN  ! open loop power vs. wind speed
+                LocalVar%PwC_R  = interp1d(CntrPar%PwC_WindSpeed,RESHAPE(CntrPar%PwC_R_WindSpeed(:,1),(/size(CntrPar%PwC_WindSpeed)/)),LocalVar%WE_SlowEst)
         ENDIF  ! add open loop next
 
         ! ----- Calculate yaw misalignment error -----
@@ -323,6 +329,7 @@ CONTAINS
         DebugVar%PwC_R      = LocalVar%PwC_R
         DebugVar%Om_tau     = VS_RefSpd
         DebugVar%Om_theta   = PC_RefSpd
+        DebugVar%WE_SlowEst = LocalVar%WE_SlowEst
     
     END SUBROUTINE ComputeVariablesSetpoints
     ! -----------------------------------------------------------------------------------

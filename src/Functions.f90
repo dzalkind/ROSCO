@@ -485,7 +485,7 @@ CONTAINS
         DebugOutStr9  = 'WE_b';            DebugOutUni9  = '(deg)';      DebugOutData(9)  = DebugVar%WE_b
         DebugOutStr10  = 'WE_t';            DebugOutUni10  = '(Nm)';      DebugOutData(10)  = DebugVar%WE_t
         DebugOutStr11  = 'WE_w';            DebugOutUni11  = '(rad/s)';      DebugOutData(11)  = DebugVar%WE_w
-        DebugOutStr12  = 'WE_D';            DebugOutUni12  = '()';      DebugOutData(12)  = DebugVar%WE_D
+        DebugOutStr12  = 'WE_Slow';            DebugOutUni12  = '(m/s)';      DebugOutData(12)  = DebugVar%WE_D
         DebugOutStr13  = 'PwC_R';            DebugOutUni13  = '()';      DebugOutData(13)  = DebugVar%PwC_R
         DebugOutStr14  = 'Om_tau';            DebugOutUni14  = '(rad/s)';      DebugOutData(14)  = DebugVar%Om_tau
         DebugOutStr15  = 'Om_theta';            DebugOutUni15  = '(rad/s)';      DebugOutData(15)  = DebugVar%Om_theta

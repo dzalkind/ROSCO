@@ -190,8 +190,8 @@ CONTAINS
                 F(1,1) = A_op
                 F(1,2) = 1.0/(2.0*CntrPar%WE_Jtot) * CntrPar%WE_RhoAir * PI *CntrPar%WE_BladeRadius**2.0 * Cp_op * 3.0 * v_h**2.0 * 1.0/om_r
                 F(1,3) = 1.0/(2.0*CntrPar%WE_Jtot) * CntrPar%WE_RhoAir * PI *CntrPar%WE_BladeRadius**2.0 * Cp_op * 3.0 * v_h**2.0 * 1.0/om_r
-                F(2,2) = PI * v_m/(2.0*L)
-                F(2,3) = PI * v_t/(2.0*L)
+                F(2,2) = -PI * v_m/(2.0*L)
+                F(2,3) = -PI * v_t/(2.0*L)
 
                 ! Update process noise covariance
                 Q(1,1) = 0.00001
@@ -206,7 +206,7 @@ CONTAINS
                 dxh(3,1) = 0.0
                 
                 xh = xh + LocalVar%DT * dxh ! state update
-                P = P + LocalVar%DT*(MATMUL(F,P) + MATMUL(P,TRANSPOSE(F)) + Q - MATMUL(K * R_m, TRANSPOSE(K))) 
+                P = P + LocalVar%DT*(MATMUL(F,P) + MATMUL(P,TRANSPOSE(F)) + Q) !- MATMUL(K * R_m, TRANSPOSE(K))) 
 
                 ! Measurement update
                 S = MATMUL(H,MATMUL(P,TRANSPOSE(H))) + R_m        ! NJA: (H*T*H') \approx 0

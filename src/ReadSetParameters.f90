@@ -244,8 +244,6 @@ CONTAINS
         CntrPar%PC_RtTq99 = CntrPar%VS_RtTq*0.99
         CntrPar%VS_MinOMTq = CntrPar%VS_Rgn2K*CntrPar%VS_MinOMSpd**2
         CntrPar%VS_MaxOMTq = CntrPar%VS_Rgn2K*CntrPar%VS_RefSpd**2
-        CntrPar%VS_Rgn3Pitch = CntrPar%PC_FinePit + CntrPar%PC_Switch
-        
         CLOSE(UnControllerParameters)
         
         !------------------- HOUSEKEEPING -----------------------
@@ -263,10 +261,10 @@ CONTAINS
         TYPE(DebugVariables), INTENT(INOUT)     :: DebugVar
         TYPE(ObjectInstances), INTENT(INOUT)    :: objInst
 
-        REAL(4)                                 :: VS_RefSpd        ! Referece speed for variable speed torque controller, [rad/s] 
-        REAL(4)                                 :: PC_RefSpd        ! Referece speed for pitch controller, [rad/s] 
-        REAL(4)                                 :: Omega_op         ! Optimal TSR-tracking generator speed, [rad/s]
-        ! REAL(4)                                 :: VS_TSRop = 7.5
+        REAL(8)                                 :: VS_RefSpd        ! Referece speed for variable speed torque controller, [rad/s] 
+        REAL(8)                                 :: PC_RefSpd        ! Referece speed for pitch controller, [rad/s] 
+        REAL(8)                                 :: Omega_op         ! Optimal TSR-tracking generator speed, [rad/s]
+        
 
         ! Calculate Power reference
         LocalVar%WE_SlowEst = SecLPFilter(LocalVar%WE_Vw,LocalVar%DT,0.0628,0.7,LocalVar%iStatus,.FALSE.,objInst%instSecLPF) ! 30 second time constant
@@ -324,6 +322,9 @@ CONTAINS
         ! Define transition region setpoint errors
         LocalVar%VS_SpdErrAr = VS_RefSpd - LocalVar%GenSpeedF               ! Current speed error - Region 2.5 PI-control (Above Rated)
         LocalVar%VS_SpdErrBr = CntrPar%VS_MinOMSpd - LocalVar%GenSpeedF     ! Current speed error - Region 1.5 PI-control (Below Rated)
+        
+        ! Region 3 minimum pitch angle for state machine
+        LocalVar%VS_Rgn3Pitch = LocalVar%PC_MinPit + CntrPar%PC_Switch
     
         ! Save Debug Variables
         DebugVar%PwC_R      = LocalVar%PwC_R
@@ -599,8 +600,6 @@ CONTAINS
                      'https://github.com/NREL/ROSCO                                                 '//NEW_LINE('A')// &
                      '------------------------------------------------------------------------------'
 
-                ! print *, 'Version 1.0.1: pretty debug'
-
             CALL ReadControlParameterFileSub(CntrPar, accINFILE, NINT(avrSWAP(50)))
 
             IF (CntrPar%WE_Mode > 0) THEN
@@ -610,16 +609,12 @@ CONTAINS
             LocalVar%TestType = 0
         
             ! Initialize the SAVED variables:
-
-            ! DO K = 1,LocalVar%NumBl
             LocalVar%PitCom = LocalVar%BlPitch ! This will ensure that the variable speed controller picks the correct control region and the pitch controller picks the correct gain on the first call
-            ! END DO
-            
             LocalVar%Y_AccErr = 0.0  ! This will ensure that the accumulated yaw error starts at zero
             LocalVar%Y_YawEndT = -1.0 ! This will ensure that the initial yaw end time is lower than the actual time to prevent initial yawing
             
-            ! Wind speed estimator initialization, we always assume an initial wind speed of 10 m/s
-            LocalVar%WE_Vw = 10
+            ! Wind speed estimator initialization
+            LocalVar%WE_Vw = LocalVar%HorWindV
             LocalVar%WE_VwI = LocalVar%WE_Vw - CntrPar%WE_Gamma*LocalVar%RotSpeed
             
             ! Setpoint Smoother initialization to zero

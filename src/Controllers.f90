@@ -31,7 +31,7 @@ MODULE Controllers
 
 CONTAINS
 !-------------------------------------------------------------------------------------------------------------------------------
-    SUBROUTINE PitchControl(avrSWAP, CntrPar, LocalVar, objInst)
+    SUBROUTINE PitchControl(avrSWAP, CntrPar, LocalVar, objInst, DebugVar)
     ! Blade pitch controller, generally maximizes rotor speed below rated (region 2) and regulates rotor speed above rated (region 3)
     !       PC_State = 0, fix blade pitch to fine pitch angle (PC_FinePit)
     !       PC_State = 1, is gain scheduled PI controller 
@@ -39,16 +39,17 @@ CONTAINS
     !       Individual pitch control
     !       Tower fore-aft damping 
     !       Sine excitation on pitch    
-        USE ROSCO_Types, ONLY : ControlParameters, LocalVariables, ObjectInstances
+        USE ROSCO_Types, ONLY : ControlParameters, LocalVariables, ObjectInstances, DebugVariables
         
         ! Inputs
         TYPE(ControlParameters), INTENT(INOUT)  :: CntrPar
         TYPE(LocalVariables), INTENT(INOUT)     :: LocalVar
         TYPE(ObjectInstances), INTENT(INOUT)    :: objInst
+        TYPE(DebugVariables), INTENT(INOUT)      :: DebugVar
         ! Allocate Variables:
         REAL(C_FLOAT), INTENT(INOUT)    :: avrSWAP(*)   ! The swap array, used to pass data to, and receive data from the DLL controller.
         INTEGER(4)                      :: K            ! Index used for looping through blades.
-        REAL(4), Save                :: PitComT_Last 
+        REAL(8), Save                :: PitComT_Last 
 
         ! ------- Blade Pitch Controller --------
         ! Load PC State
@@ -57,7 +58,7 @@ CONTAINS
         ELSE ! debug mode, fix at fine pitch
             LocalVar%PC_MaxPit = CntrPar%PC_FinePit
         END IF
-        
+
         ! Compute (interpolate) the gains based on previously commanded blade pitch angles and lookup table:
         LocalVar%PC_KP = interp1d(CntrPar%PC_GS_angles, CntrPar%PC_GS_KP, LocalVar%PC_PitComT) ! Proportional gain
         LocalVar%PC_KI = interp1d(CntrPar%PC_GS_angles, CntrPar%PC_GS_KI, LocalVar%PC_PitComT) ! Integral gain
@@ -87,10 +88,10 @@ CONTAINS
         
         ! Pitch Saturation
         IF (CntrPar%PS_Mode == 1) THEN
-            LocalVar%PC_MinPit = PitchSaturation(LocalVar,CntrPar,objInst)
-            LocalVar%PC_MinPit = max(LocalVar%PC_MinPit, CntrPar%PC_MinPit)
+            LocalVar%PC_MinPit = PitchSaturation(LocalVar,CntrPar,objInst,DebugVar)
+            LocalVar%PC_MinPit = max(LocalVar%PC_MinPit, CntrPar%PC_FinePit)
         ELSE
-            LocalVar%PC_MinPit = CntrPar%PC_MinPit
+            LocalVar%PC_MinPit = CntrPar%PC_FinePit
         ENDIF
 
         ! Pitch Saturation due to Power Control
@@ -106,7 +107,7 @@ CONTAINS
 
         ! FloatingFeedback
         IF (CntrPar%Fl_Mode == 1) THEN
-            CALL FloatingFeedback(LocalVar, CntrPar, objInst)
+            LocalVar%Fl_PitCom = FloatingFeedback(LocalVar, CntrPar, objInst)
             LocalVar%PC_PitComT = LocalVar%PC_PitComT + LocalVar%Fl_PitCom
         ENDIF
 
@@ -148,7 +149,7 @@ CONTAINS
         TYPE(ObjectInstances), INTENT(INOUT)    :: objInst
         ! Allocate Variables
         REAL(C_FLOAT), INTENT(INOUT)            :: avrSWAP(*)    ! The swap array, used to pass data to, and receive data from, the DLL controller.
-        REAL(4)                                 :: VS_MaxTq      ! Locally allocated maximum torque saturation limits
+        REAL(8)                                 :: VS_MaxTq      ! Locally allocated maximum torque saturation limits
         
         ! -------- Variable-Speed Torque Controller --------
         ! Define max torque
@@ -199,7 +200,7 @@ CONTAINS
         LocalVar%VS_LastGenTrq = LocalVar%GenTq
         
         ! Set the command generator torque (See Appendix A of Bladed User's Guide):
-        avrSWAP(47) = LocalVar%VS_LastGenTrq   ! Demanded generator torque
+        avrSWAP(47) = MAX(0.0, LocalVar%VS_LastGenTrq)  ! Demanded generator torque, prevent negatives.
     END SUBROUTINE VariableSpeedControl
 !-------------------------------------------------------------------------------------------------------------------------------
     SUBROUTINE YawRateControl(avrSWAP, CntrPar, LocalVar, objInst)
@@ -249,14 +250,14 @@ CONTAINS
         USE ROSCO_Types, ONLY : ControlParameters, LocalVariables, ObjectInstances
         
         ! Local variables
-        REAL(4)                  :: PitComIPC(3), PitComIPCF(3), PitComIPC_1P(3), PitComIPC_2P(3)
+        REAL(8)                  :: PitComIPC(3), PitComIPCF(3), PitComIPC_1P(3), PitComIPC_2P(3)
         INTEGER(4)               :: K                                       ! Integer used to loop through turbine blades
-        REAL(4)                  :: axisTilt_1P, axisYaw_1P, axisYawF_1P    ! Direct axis and quadrature axis outputted by Coleman transform, 1P
-        REAL(4), SAVE            :: IntAxisTilt_1P, IntAxisYaw_1P           ! Integral of the direct axis and quadrature axis, 1P
-        REAL(4)                  :: axisTilt_2P, axisYaw_2P, axisYawF_2P    ! Direct axis and quadrature axis outputted by Coleman transform, 1P
-        REAL(4), SAVE            :: IntAxisTilt_2P, IntAxisYaw_2P           ! Integral of the direct axis and quadrature axis, 1P
-        REAL(4)                  :: IntAxisYawIPC_1P                        ! IPC contribution with yaw-by-IPC component
-        REAL(4)                  :: Y_MErrF, Y_MErrF_IPC                    ! Unfiltered and filtered yaw alignment error [rad]
+        REAL(8)                  :: axisTilt_1P, axisYaw_1P, axisYawF_1P    ! Direct axis and quadrature axis outputted by Coleman transform, 1P
+        REAL(8), SAVE            :: IntAxisTilt_1P, IntAxisYaw_1P           ! Integral of the direct axis and quadrature axis, 1P
+        REAL(8)                  :: axisTilt_2P, axisYaw_2P, axisYawF_2P    ! Direct axis and quadrature axis outputted by Coleman transform, 1P
+        REAL(8), SAVE            :: IntAxisTilt_2P, IntAxisYaw_2P           ! Integral of the direct axis and quadrature axis, 1P
+        REAL(8)                  :: IntAxisYawIPC_1P                        ! IPC contribution with yaw-by-IPC component
+        REAL(8)                  :: Y_MErrF, Y_MErrF_IPC                    ! Unfiltered and filtered yaw alignment error [rad]
         
         TYPE(ControlParameters), INTENT(INOUT)  :: CntrPar
         TYPE(LocalVariables), INTENT(INOUT)     :: LocalVar
@@ -350,7 +351,7 @@ CONTAINS
         
     END SUBROUTINE ForeAftDamping
 !-------------------------------------------------------------------------------------------------------------------------------
-    SUBROUTINE FloatingFeedback(LocalVar, CntrPar, objInst) 
+    REAL FUNCTION FloatingFeedback(LocalVar, CntrPar, objInst) 
     ! FloatingFeedback defines a minimum blade pitch angle based on a lookup table provided by DISON.IN
     !       Fl_Mode = 0, No feedback
     !       Fl_Mode = 1, Proportional feedback of nacelle velocity
@@ -358,16 +359,16 @@ CONTAINS
         IMPLICIT NONE
         ! Inputs
         TYPE(ControlParameters), INTENT(IN)     :: CntrPar
-        TYPE(LocalVariables), INTENT(INOUT)     :: LocalVar 
+        TYPE(LocalVariables), INTENT(IN)     :: LocalVar 
         TYPE(ObjectInstances), INTENT(INOUT)    :: objInst
         ! Allocate Variables 
-        REAL(4)                      :: NacIMU_FA_vel ! Tower fore-aft velocity
+        REAL(8)                      :: NacIMU_FA_vel ! Tower fore-aft velocity
         
         ! Calculate floating contribution to pitch command
         NacIMU_FA_vel = PIController(LocalVar%NacIMU_FA_AccF, 0.0, 1.0, -100.0 , 100.0 ,LocalVar%DT, 0.0, .FALSE., objInst%instPI) ! NJA: should never reach saturation limits....
-        LocalVar%Fl_PitCom = (0.0 - NacIMU_FA_vel) * CntrPar%Fl_Kp !* LocalVar%PC_KP/maxval(CntrPar%PC_GS_KP)
+        FloatingFeedback = (0.0 - NacIMU_FA_vel) * CntrPar%Fl_Kp !* LocalVar%PC_KP/maxval(CntrPar%PC_GS_KP)
 
-    END SUBROUTINE FloatingFeedback
+    END FUNCTION FloatingFeedback
 !-------------------------------------------------------------------------------------------------------------------------------
     SUBROUTINE FlapControl(avrSWAP, CntrPar, LocalVar, objInst)
         ! Yaw rate controller
@@ -383,10 +384,10 @@ CONTAINS
         TYPE(ObjectInstances), INTENT(INOUT)      :: objInst
         ! Internal Variables
         Integer(4)                                :: K
-        REAL(4)                                   :: rootMOOP_F(3)
-        REAL(4)                                   :: RootMyb_Vel(3)
-        REAL(4), SAVE                             :: RootMyb_Last(3)
-        REAL(4)                                   :: RootMyb_VelErr(3)
+        REAL(8)                                   :: rootMOOP_F(3)
+        REAL(8)                                   :: RootMyb_Vel(3)
+        REAL(8), SAVE                             :: RootMyb_Last(3)
+        REAL(8)                                   :: RootMyb_VelErr(3)
 
         ! Flap control
         IF (CntrPar%Flp_Mode >= 1) THEN

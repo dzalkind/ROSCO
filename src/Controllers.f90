@@ -94,6 +94,12 @@ CONTAINS
             LocalVar%PC_MinPit = CntrPar%PC_FinePit
         ENDIF
 
+        ! Pitch Saturation due to Power Control
+        IF (CntrPar%PwC_Mode > 0) THEN
+            LocalVar%PwC_MinPitch   = interp1d(CntrPar%PwC_PwrRating, CntrPar%PwC_BldPitchMin, LocalVar%PwC_R)
+            LocalVar%PC_MinPit      = max(LocalVar%PC_MinPit, LocalVar%PwC_MinPitch)
+        ENDIF
+
         ! Shutdown
         IF (CntrPar%SD_Mode == 1) THEN
             LocalVar%PC_PitComT = Shutdown(LocalVar, CntrPar, objInst)
@@ -114,6 +120,7 @@ CONTAINS
         ! Filter to emulate pitch actuator
         DO K = 1,LocalVar%NumBl ! Loop through all blades, add IPC contribution and limit pitch rate
             LocalVar%PitCom(K) = LocalVar%PC_PitComT + LocalVar%IPC_PitComF(K) + LocalVar%FA_PitCom(K) 
+            LocalVar%PitCom(K) = SecLPFilter(LocalVar%PitCom(K), LocalVar%DT, CntrPar%PC_ActBw, 0.707, LocalVar%iStatus, .FALSE., objInst%instSecLPF)
             LocalVar%PitCom(K) = saturate(LocalVar%PitCom(K), LocalVar%PC_MinPit, CntrPar%PC_MaxPit)                    ! Saturate the overall command using the pitch angle limits
             LocalVar%PitCom(K) = ratelimit(LocalVar%PitCom(K), LocalVar%BlPitch(K), CntrPar%PC_MinRat, CntrPar%PC_MaxRat, LocalVar%DT) ! Saturate the overall command of blade K using the pitch rate limit
         END DO

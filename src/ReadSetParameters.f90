@@ -67,6 +67,7 @@ CONTAINS
         READ(UnControllerParameters, *) CntrPar%SD_Mode        
         READ(UnControllerParameters, *) CntrPar%FL_Mode        
         READ(UnControllerParameters, *) CntrPar%Flp_Mode        
+        READ(UnControllerParameters, *) CntrPar%PwC_Mode        
         READ(UnControllerParameters, *)
 
         !----------------- FILTER CONSTANTS ---------------------
@@ -101,6 +102,7 @@ CONTAINS
         READ(UnControllerParameters, *) CntrPar%PC_RefSpd
         READ(UnControllerParameters, *) CntrPar%PC_FinePit
         READ(UnControllerParameters, *) CntrPar%PC_Switch
+        READ(UnControllerParameters, *) CntrPar%PC_ActBw
         READ(UnControllerParameters, *)
 
         !------------------- IPC CONSTANTS -----------------------
@@ -192,6 +194,33 @@ CONTAINS
         READ(UnControllerParameters, *) CntrPar%PS_BldPitchMin
         READ(UnControllerParameters, *) 
 
+        !------------ POWER CONTROL ------------
+        READ(UnControllerParameters, *)      
+        READ(UnControllerParameters, *) CntrPar%PwC_PwrRating_N  
+        ALLOCATE(CntrPar%PwC_PwrRating(CntrPar%PwC_PwrRating_N))
+        READ(UnControllerParameters, *) CntrPar%PwC_PwrRating
+        ALLOCATE(CntrPar%PwC_BldPitchMin(CntrPar%PwC_PwrRating_N))
+        READ(UnControllerParameters, *) CntrPar%PwC_BldPitchMin
+        READ(UnControllerParameters, *) CntrPar%PwC_ConstPwr
+        READ(UnControllerParameters, *) CntrPar%PwC_OpenLoopInp
+        READ(UnControllerParameters, *) 
+
+        ! Read Open Loop input if CntrPar%PwC_Mode == 2
+        IF (CntrPar%PwC_Mode == 1) THEN
+            PRINT *, 'Implementing power control with constant R'
+        ELSE IF (CntrPar%PwC_Mode == 2) THEN
+            CALL Read_OL_Input(CntrPar%PwC_OpenLoopInp,109,1,CntrPar%PwC_Time,CntrPar%PwC_R_Time)
+            PRINT *, 'Implementing open loop power control with R defined in '//TRIM(CntrPar%PwC_OpenLoopInp)
+        ELSE IF (CntrPar%PwC_Mode == 3) THEN
+            CALL Read_OL_Input(CntrPar%PwC_OpenLoopInp,109,1,CntrPar%PwC_WindSpeed,CntrPar%PwC_R_WindSpeed)
+            PRINT *, 'Implementing open loop power control w.r.t. wind speed defined in '//TRIM(CntrPar%PwC_OpenLoopInp)
+        END IF
+        ! PRINT *, 'Implementing constant power control with R = '//LocalVar%PwC_R
+
+        PRINT *, CntrPar%PwC_WindSpeed
+        PRINT *, CntrPar%PwC_R_WindSpeed
+        
+
         !------------ SHUTDOWN ------------
         READ(UnControllerParameters, *)      
         READ(UnControllerParameters, *) CntrPar%SD_MaxPit  
@@ -223,19 +252,31 @@ CONTAINS
     END SUBROUTINE ReadControlParameterFileSub
     ! -----------------------------------------------------------------------------------
     ! Calculate setpoints for primary control actions    
-    SUBROUTINE ComputeVariablesSetpoints(CntrPar, LocalVar, objInst)
-        USE ROSCO_Types, ONLY : ControlParameters, LocalVariables, ObjectInstances
-        USE Constants
+    SUBROUTINE ComputeVariablesSetpoints(CntrPar, LocalVar, DebugVar, objInst)
+        USE ROSCO_Types, ONLY : ControlParameters, LocalVariables, ObjectInstances, DebugVariables
+        
         ! Allocate variables
         TYPE(ControlParameters), INTENT(INOUT)  :: CntrPar
         TYPE(LocalVariables), INTENT(INOUT)     :: LocalVar
+        TYPE(DebugVariables), INTENT(INOUT)     :: DebugVar
         TYPE(ObjectInstances), INTENT(INOUT)    :: objInst
 
         REAL(8)                                 :: VS_RefSpd        ! Referece speed for variable speed torque controller, [rad/s] 
         REAL(8)                                 :: PC_RefSpd        ! Referece speed for pitch controller, [rad/s] 
         REAL(8)                                 :: Omega_op         ! Optimal TSR-tracking generator speed, [rad/s]
-        ! temp
-        ! REAL(8)                                 :: VS_TSRop = 7.5
+        
+
+        ! Calculate Power reference
+        LocalVar%WE_SlowEst = SecLPFilter(LocalVar%WE_Vw,LocalVar%DT,0.0628,0.7,LocalVar%iStatus,.FALSE.,objInst%instSecLPF) ! 30 second time constant
+        IF (CntrPar%PwC_Mode == 0) THEN
+            LocalVar%PwC_R  = 1.0
+        ELSEIF (CntrPar%PwC_Mode == 1) THEN  ! constant power
+            LocalVar%PwC_R  = CntrPar%PwC_ConstPwr
+        ELSEIF (CntrPar%PwC_Mode == 2) THEN  ! open loop power
+            LocalVar%PwC_R  = interp1d(CntrPar%PwC_Time,RESHAPE(CntrPar%PwC_R_Time(:,1),(/size(CntrPar%PwC_Time)/)),LocalVar%Time)
+        ELSEIF (CntrPar%PwC_Mode == 3) THEN  ! open loop power vs. wind speed
+                LocalVar%PwC_R  = interp1d(CntrPar%PwC_WindSpeed,RESHAPE(CntrPar%PwC_R_WindSpeed(:,1),(/size(CntrPar%PwC_WindSpeed)/)),LocalVar%WE_SlowEst)
+        ENDIF  ! add open loop next
 
         ! ----- Calculate yaw misalignment error -----
         LocalVar%Y_MErr = LocalVar%Y_M + CntrPar%Y_MErrSet ! Yaw-alignment error
@@ -243,9 +284,9 @@ CONTAINS
         ! ----- Pitch controller speed and power error -----
         ! Implement setpoint smoothing
         IF (LocalVar%SS_DelOmegaF < 0) THEN
-            PC_RefSpd = CntrPar%PC_RefSpd - LocalVar%SS_DelOmegaF
+            PC_RefSpd = LocalVar%PwC_R * CntrPar%PC_RefSpd - LocalVar%SS_DelOmegaF
         ELSE
-            PC_RefSpd = CntrPar%PC_RefSpd
+            PC_RefSpd = LocalVar%PwC_R * CntrPar%PC_RefSpd
         ENDIF
 
         LocalVar%PC_SpdErr = PC_RefSpd - LocalVar%GenSpeedF            ! Speed error
@@ -255,9 +296,9 @@ CONTAINS
         ! Define VS reference generator speed [rad/s]
         IF (CntrPar%VS_ControlMode == 2) THEN
             VS_RefSpd = (CntrPar%VS_TSRopt * LocalVar%We_Vw_F / CntrPar%WE_BladeRadius) * CntrPar%WE_GearboxRatio
-            VS_RefSpd = saturate(VS_RefSpd,CntrPar%VS_MinOMSpd, CntrPar%VS_RefSpd)
+            VS_RefSpd = saturate(LocalVar%PwC_R * VS_RefSpd,CntrPar%VS_MinOMSpd, CntrPar%VS_RefSpd)
         ELSE
-            VS_RefSpd = CntrPar%VS_RefSpd
+            VS_RefSpd = LocalVar%PwC_R * CntrPar%VS_RefSpd
         ENDIF 
         
         ! Implement setpoint smoothing
@@ -284,7 +325,13 @@ CONTAINS
         
         ! Region 3 minimum pitch angle for state machine
         LocalVar%VS_Rgn3Pitch = LocalVar%PC_MinPit + CntrPar%PC_Switch
-
+    
+        ! Save Debug Variables
+        DebugVar%PwC_R      = LocalVar%PwC_R
+        DebugVar%Om_tau     = VS_RefSpd
+        DebugVar%Om_theta   = PC_RefSpd
+        DebugVar%WE_SlowEst = LocalVar%WE_SlowEst
+    
     END SUBROUTINE ComputeVariablesSetpoints
     ! -----------------------------------------------------------------------------------
     ! Read avrSWAP array passed from ServoDyn    
@@ -422,6 +469,11 @@ CONTAINS
         IF (CntrPar%PC_MinPit >= CntrPar%PC_MaxPit)  THEN
             aviFAIL = -1
             ErrMsg  = 'PC_MinPit must be less than PC_MaxPit.'
+        ENDIF
+
+        IF (CntrPar%PC_ActBw <= 0.0)  THEN
+            aviFAIL = -1
+            ErrMsg  = 'PC_ActBw must be greater than zero.'
         ENDIF
         
         IF (CntrPar%IPC_KI(1) < 0.0)  THEN
@@ -633,4 +685,141 @@ CONTAINS
         END DO
     
     END SUBROUTINE ReadCpFile
+
+    ! ------------------------------------------------------
+    ! Read Open Loop Control Inputs
+    ! 
+    ! Timeseries or lookup tables of the form
+    ! index (time or wind speed)   channel_1 \t channel_2 \t channel_3 ...
+    SUBROUTINE Read_OL_Input(OL_InputFileName, Unit_OL_Input, NumChannels, Breakpoints, Channels)
+
+        CHARACTER(1024), INTENT(IN)                             :: OL_InputFileName    ! DISCON input filename
+        INTEGER(4), INTENT(IN)                                  :: Unit_OL_Input 
+        INTEGER(4), INTENT(IN)                                  :: NumChannels     ! Number of open loop channels being defined
+
+        LOGICAL                                                 :: FileExists
+        INTEGER                                                 :: IOS                                                 ! I/O status of OPEN.
+        CHARACTER(1024)                                         :: Line              ! Temp variable for reading whole line from file
+        INTEGER(4)                                              :: NumComments
+        INTEGER(4)                                              :: NumDataLines
+        INTEGER(4)                                              :: NumCols 
+        REAL(4)                                                 :: TmpData(NumChannels+1)  ! Temp variable for reading all columns from a line
+        CHARACTER(15)                                           :: NumString
+
+        REAL(4), INTENT(OUT), DIMENSION(:), ALLOCATABLE         :: Breakpoints    ! Breakpoints of open loop Channels
+        REAL(4), INTENT(OUT), DIMENSION(:,:), ALLOCATABLE       :: Channels         ! Open loop channels
+        INTEGER(4)                                              :: I,J
+
+        NumCols             = NumChannels + 1
+
+        !-------------------------------------------------------------------------------------------------
+        ! Read from input file, borrowed (read: copied) from (Open)FAST team...thanks!
+        !-------------------------------------------------------------------------------------------------
+
+        !-------------------------------------------------------------------------------------------------
+        ! Open the file for reading
+        !-------------------------------------------------------------------------------------------------
+
+        INQUIRE (FILE = OL_InputFileName, EXIST = FileExists)
+
+        IF ( .NOT. FileExists) THEN
+            PRINT *, TRIM(OL_InputFileName)// ' does not exist, setting Channels = 1 for all time'
+            ALLOCATE(Breakpoints(2))
+            ALLOCATE(Channels(2,1))
+            Channels(1,1) = 1;              Channels(2,1)           = 1
+            Breakpoints(1) = 0;             Breakpoints(2)          = 90000;
+
+        ELSE
+
+            OPEN( Unit_OL_Input, FILE=TRIM(OL_InputFileName), STATUS='OLD', FORM='FORMATTED', IOSTAT=IOS, ACTION='READ' )
+
+            IF (IOS /= 0) THEN
+                PRINT *, 'Cannot open ' // TRIM(OL_InputFileName) // ', setting R = 1 for all time'
+                ALLOCATE(Breakpoints(2))
+                ALLOCATE(Channels(2,1))
+                Channels(1,1) = 1;              Channels(2,1) = 1
+                Breakpoints(1) = 0;             Breakpoints(2)       = 90000;
+                CLOSE(Unit_OL_Input)
+            
+            ELSE
+                ! Do all the stuff!
+
+                !-------------------------------------------------------------------------------------------------
+                ! Find the number of comment lines
+                !-------------------------------------------------------------------------------------------------
+
+                LINE = '!'                          ! Initialize the line for the DO WHILE LOOP
+                NumComments = -1                    ! the last line we read is not a comment, so we'll initialize this to -1 instead of 0
+
+                DO WHILE ( (INDEX( LINE, '!' ) > 0) .OR. (INDEX( LINE, '#' ) > 0) .OR. (INDEX( LINE, '%' ) > 0) ) ! Lines containing "!" are treated as comment lines
+                    NumComments = NumComments + 1
+                    
+                    READ(Unit_OL_Input,'( A )',IOSTAT=IOS) LINE
+
+                    ! NWTC_IO has some error catching here that we'll skip for now
+            
+                END DO !WHILE
+
+                !-------------------------------------------------------------------------------------------------
+                ! Find the number of data lines
+                !-------------------------------------------------------------------------------------------------
+
+                NumDataLines = 0
+
+                READ(LINE,*,IOSTAT=IOS) ( TmpData(I), I=1,NumCols ) ! this line was read when we were figuring out the comment lines; let's make sure it contains
+
+                DO WHILE (IOS == 0)  ! read the rest of the file (until an error occurs)
+                    NumDataLines = NumDataLines + 1
+                    
+                    READ(Unit_OL_Input,*,IOSTAT=IOS) ( TmpData(I), I=1,NumCols )
+                
+                END DO !WHILE
+            
+            
+                IF (NumDataLines < 1) THEN
+                    WRITE (NumString,'(I11)')  NumComments
+                    PRINT *, 'Error: '//TRIM(NumString)//' comment lines were found in the uniform wind file, '// &
+                                'but the first data line does not contain the proper format.'
+                    CLOSE(Unit_OL_Input)
+                END IF
+
+                !-------------------------------------------------------------------------------------------------
+                ! Allocate arrays for the uniform wind data
+                !-------------------------------------------------------------------------------------------------
+                ALLOCATE(Breakpoints(NumDataLines))
+                ALLOCATE(Channels(NumDataLines,NumChannels))
+
+                !-------------------------------------------------------------------------------------------------
+                ! Rewind the file (to the beginning) and skip the comment lines
+                !-------------------------------------------------------------------------------------------------
+
+                REWIND( Unit_OL_Input )
+
+                DO I=1,NumComments
+                    READ(Unit_OL_Input,'( A )',IOSTAT=IOS) LINE
+                END DO !I
+            
+
+                !-------------------------------------------------------------------------------------------------
+                ! Read the data arrays
+                !-------------------------------------------------------------------------------------------------
+            
+                DO I=1,NumDataLines
+                
+                    READ(Unit_OL_Input,*,IOSTAT=IOS) ( TmpData(J), J=1,NumCols )
+
+                    IF (IOS > 0) THEN
+                        CLOSE(Unit_OL_Input)
+                    END IF
+
+                    Breakpoints(I)          = TmpData(1)
+                    Channels(I,:)        = TmpData(2:)
+            
+                END DO !I     
+            END IF
+        END IF
+    
+    END SUBROUTINE Read_OL_Input
+
+
 END MODULE ReadSetParameters

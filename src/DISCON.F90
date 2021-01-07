@@ -69,7 +69,7 @@ IF ((LocalVar%iStatus >= 0) .AND. (aviFAIL >= 0))  THEN  ! Only compute control 
     CALL ComputeVariablesSetpoints(CntrPar, LocalVar, objInst)
     CALL StateMachine(CntrPar, LocalVar)
     CALL SetpointSmoother(LocalVar, CntrPar, objInst)
-    CALL ComputeVariablesSetpoints(CntrPar, LocalVar, objInst)
+    CALL ComputeVariablesSetpoints(CntrPar, LocalVar, DebugVar, objInst)
     CALL VariableSpeedControl(avrSWAP, CntrPar, LocalVar, objInst)
     CALL PitchControl(avrSWAP, CntrPar, LocalVar, objInst, DebugVar)
     CALL YawRateControl(avrSWAP, CntrPar, LocalVar, objInst)

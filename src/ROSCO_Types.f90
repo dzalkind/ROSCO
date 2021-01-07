@@ -60,7 +60,6 @@ TYPE, PUBLIC :: ControlParameters
     REAL(8)                             :: PC_RefSpd                    ! Desired (reference) HSS speed for pitch controller, [rad/s].
     REAL(8)                             :: PC_FinePit                   ! Record 5: Below-rated pitch angle set-point (deg) [used only with Bladed Interface]
     REAL(8)                             :: PC_Switch                    ! Angle above lowest minimum pitch angle for switch [rad]
-    REAL(8)                             :: PC_ActBw                     ! Pitch actuator bandwidth [rad/s].
 
     INTEGER(4)                          :: VS_ControlMode               ! Generator torque control mode in above rated conditions {0: constant torque, 1: constant power}
     REAL(8)                             :: VS_GenEff                    ! Generator efficiency mechanical power -> electrical power [-]
@@ -235,6 +234,7 @@ TYPE, PUBLIC :: DebugVariables
 ! Variables used for debug purposes
     REAL(8)                             :: WE_Cp                        ! Cp that WSE uses to determine aerodynamic torque[-]
     REAL(8)                             :: WE_b                         ! Pitch that WSE uses to determine aerodynamic torque[-]
+    REAL(8)                             :: WE_D                         ! WSE Debugging signal
     REAL(8)                             :: WE_w                         ! Rotor Speed that WSE uses to determine aerodynamic torque[-]
     REAL(8)                             :: WE_t                         ! Torque that WSE uses[-]
     REAL(8)                             :: WE_Vm                        ! Mean wind speed component in WSE [m/s]

@@ -102,7 +102,6 @@ CONTAINS
         READ(UnControllerParameters, *) CntrPar%PC_RefSpd
         READ(UnControllerParameters, *) CntrPar%PC_FinePit
         READ(UnControllerParameters, *) CntrPar%PC_Switch
-        READ(UnControllerParameters, *) CntrPar%PC_ActBw
         READ(UnControllerParameters, *)
 
         !------------------- IPC CONSTANTS -----------------------
@@ -470,11 +469,6 @@ CONTAINS
             aviFAIL = -1
             ErrMsg  = 'PC_MinPit must be less than PC_MaxPit.'
         ENDIF
-
-        IF (CntrPar%PC_ActBw <= 0.0)  THEN
-            aviFAIL = -1
-            ErrMsg  = 'PC_ActBw must be greater than zero.'
-        ENDIF
         
         IF (CntrPar%IPC_KI(1) < 0.0)  THEN
             aviFAIL = -1
@@ -703,11 +697,11 @@ CONTAINS
         INTEGER(4)                                              :: NumComments
         INTEGER(4)                                              :: NumDataLines
         INTEGER(4)                                              :: NumCols 
-        REAL(4)                                                 :: TmpData(NumChannels+1)  ! Temp variable for reading all columns from a line
+        REAL(8)                                                 :: TmpData(NumChannels+1)  ! Temp variable for reading all columns from a line
         CHARACTER(15)                                           :: NumString
 
-        REAL(4), INTENT(OUT), DIMENSION(:), ALLOCATABLE         :: Breakpoints    ! Breakpoints of open loop Channels
-        REAL(4), INTENT(OUT), DIMENSION(:,:), ALLOCATABLE       :: Channels         ! Open loop channels
+        REAL(8), INTENT(OUT), DIMENSION(:), ALLOCATABLE         :: Breakpoints    ! Breakpoints of open loop Channels
+        REAL(8), INTENT(OUT), DIMENSION(:,:), ALLOCATABLE       :: Channels         ! Open loop channels
         INTEGER(4)                                              :: I,J
 
         NumCols             = NumChannels + 1

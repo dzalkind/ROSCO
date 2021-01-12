@@ -68,6 +68,7 @@ CONTAINS
         READ(UnControllerParameters, *) CntrPar%FL_Mode        
         READ(UnControllerParameters, *) CntrPar%Flp_Mode        
         READ(UnControllerParameters, *) CntrPar%PwC_Mode        
+        READ(UnControllerParameters, *) CntrPar%OL_Mode        
         READ(UnControllerParameters, *)
 
         !----------------- FILTER CONSTANTS ---------------------
@@ -237,6 +238,30 @@ CONTAINS
         READ(UnControllerParameters, *) CntrPar%Flp_Kp  
         READ(UnControllerParameters, *) CntrPar%Flp_Ki  
         READ(UnControllerParameters, *) CntrPar%Flp_MaxPit  
+        READ(UnControllerParameters, *) 
+
+
+        !------------ Open loop input ------------
+        READ(UnControllerParameters, *)      
+        READ(UnControllerParameters, *) CntrPar%OL_Filename  
+        READ(UnControllerParameters, *) CntrPar%Ind_Breakpoint  
+        READ(UnControllerParameters, *) CntrPar%Ind_BldPitch  
+        READ(UnControllerParameters, *) CntrPar%Ind_GenTq
+        
+        ! Read open loop input, if desired
+        IF (CntrPar%OL_Mode == 1) THEN
+            PRINT *, 'Implementing open loop control'
+            CALL Read_OL_Input(CntrPar%OL_Filename,110,2,CntrPar%OL_Breakpoints,CntrPar%OL_Channels)
+
+            CntrPar%OL_BldPitch = CntrPar%OL_Channels(:,CntrPar%Ind_BldPitch-1)
+            CntrPar%OL_GenTq    = CntrPar%OL_Channels(:,CntrPar%Ind_GenTq-1)   
+        END IF
+
+        write(400,*) CntrPar%OL_Breakpoints
+        write(401,*) CntrPar%OL_BldPitch
+        write(402,*) CntrPar%OL_GenTq
+        write(402,*) CntrPar%OL_GenTq
+
         ! END OF INPUT FILE    
         
         !------------------- CALCULATED CONSTANTS -----------------------

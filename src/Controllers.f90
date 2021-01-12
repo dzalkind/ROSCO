@@ -124,8 +124,9 @@ CONTAINS
             LocalVar%PitCom(K) = ratelimit(LocalVar%PitCom(K), LocalVar%BlPitch(K), CntrPar%PC_MinRat, CntrPar%PC_MaxRat, LocalVar%DT) ! Saturate the overall command of blade K using the pitch rate limit
         END DO
 
-        ! Open Loop control
-        IF (CntrPar%OL_Mode == 1) THEN
+        ! Open Loop control, use if
+        !   Open loop mode active         Using OL blade pitch control      Time > first open loop breakpoint
+        IF ((CntrPar%OL_Mode == 1) .AND. (CntrPar%Ind_BldPitch > 0) .AND. (LocalVar%Time >= CntrPar%OL_Breakpoints(1))) THEN
             DO K = 1,LocalVar%NumBl ! Loop through all blades, add IPC contribution and limit pitch rate
                 LocalVar%PitCom(K) = interp1d(CntrPar%OL_Breakpoints,CntrPar%OL_BldPitch,LocalVar%Time)
             END DO
@@ -203,7 +204,7 @@ CONTAINS
         LocalVar%GenTq = ratelimit(LocalVar%GenTq, LocalVar%VS_LastGenTrq, -CntrPar%VS_MaxRat, CntrPar%VS_MaxRat, LocalVar%DT)    ! Saturate the command using the torque rate limit
         
         ! Open loop torque control
-        IF (CntrPar%OL_Mode == 1) THEN
+        IF ((CntrPar%OL_Mode == 1) .AND. (CntrPar%Ind_GenTq > 0)) THEN
             LocalVar%GenTq = interp1d(CntrPar%OL_Breakpoints,CntrPar%OL_GenTq,LocalVar%Time)
         ENDIF
 

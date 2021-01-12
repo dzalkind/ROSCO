@@ -39,6 +39,9 @@ CONTAINS
         CHARACTER(accINFILE_size), INTENT(IN)   :: accINFILE(accINFILE_size)    ! DISCON input filename
         INTEGER(4), PARAMETER                   :: UnControllerParameters = 89  ! Unit number to open file
         TYPE(ControlParameters), INTENT(INOUT)  :: CntrPar                      ! Control parameter type
+
+        CHARACTER(1024)                         :: OL_String                    ! Open description loop string
+        INTEGER(4)                              :: OL_Count                     ! Number of open loop channels
        
 
         OPEN(unit=UnControllerParameters, file=accINFILE(1), status='old', action='read')
@@ -250,11 +253,28 @@ CONTAINS
         
         ! Read open loop input, if desired
         IF (CntrPar%OL_Mode == 1) THEN
-            PRINT *, 'Implementing open loop control'
-            CALL Read_OL_Input(CntrPar%OL_Filename,110,2,CntrPar%OL_Breakpoints,CntrPar%OL_Channels)
+            OL_String = ''
+            OL_Count  = 0
+            IF (CntrPar%Ind_BldPitch > 0) THEN
+                OL_String   = TRIM(OL_String)//' BldPitch '
+                OL_Count    = OL_Count + 1
+            ENDIF
 
-            CntrPar%OL_BldPitch = CntrPar%OL_Channels(:,CntrPar%Ind_BldPitch-1)
-            CntrPar%OL_GenTq    = CntrPar%OL_Channels(:,CntrPar%Ind_GenTq-1)   
+            IF (CntrPar%Ind_GenTq > 0) THEN
+                OL_String   = TRIM(OL_String)//' GenTq '
+                OL_Count    = OL_Count + 1
+            ENDIF
+
+            PRINT *, 'ROSCO: Implementing open loop control for'//TRIM(OL_String)
+            CALL Read_OL_Input(CntrPar%OL_Filename,110,OL_Count,CntrPar%OL_Breakpoints,CntrPar%OL_Channels)
+
+            IF (CntrPar%Ind_BldPitch > 0) THEN
+                CntrPar%OL_BldPitch = CntrPar%OL_Channels(:,CntrPar%Ind_BldPitch-1)
+            ENDIF
+
+            IF (CntrPar%Ind_GenTq > 0) THEN
+                CntrPar%OL_GenTq = CntrPar%OL_Channels(:,CntrPar%Ind_GenTq-1)
+            ENDIF
         END IF
 
         write(400,*) CntrPar%OL_Breakpoints

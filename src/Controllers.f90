@@ -256,6 +256,13 @@ CONTAINS
                 LocalVar%Y_AccErr = 0.0    ! "
             END IF
         END IF
+
+        ! If using open loop yaw rate control, overwrite controlled output
+        ! Open loop torque control
+        IF ((CntrPar%OL_Mode == 1) .AND. (CntrPar%Ind_YawRate > 0)) THEN
+            avrSWAP(48) = interp1d(CntrPar%OL_Breakpoints,CntrPar%OL_YawRate,LocalVar%Time)
+        ENDIF
+
     END SUBROUTINE YawRateControl
 !-------------------------------------------------------------------------------------------------------------------------------
     SUBROUTINE IPC(CntrPar, LocalVar, objInst)

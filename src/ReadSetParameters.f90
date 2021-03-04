@@ -69,8 +69,8 @@ CONTAINS
         READ(UnControllerParameters, *) CntrPar%PS_Mode        
         READ(UnControllerParameters, *) CntrPar%SD_Mode        
         READ(UnControllerParameters, *) CntrPar%FL_Mode        
-        READ(UnControllerParameters, *) CntrPar%Flp_Mode        
-        READ(UnControllerParameters, *) CntrPar%PwC_Mode        
+        READ(UnControllerParameters, *) CntrPar%Flp_Mode   
+        READ(UnControllerParameters, *) CntrPar%PwC_Mode       
         READ(UnControllerParameters, *) CntrPar%OL_Mode        
         READ(UnControllerParameters, *)
 
@@ -250,6 +250,7 @@ CONTAINS
         READ(UnControllerParameters, *) CntrPar%Ind_Breakpoint  
         READ(UnControllerParameters, *) CntrPar%Ind_BldPitch  
         READ(UnControllerParameters, *) CntrPar%Ind_GenTq
+        READ(UnControllerParameters, *) CntrPar%Ind_YawRate
         
         ! Read open loop input, if desired
         IF (CntrPar%OL_Mode == 1) THEN
@@ -265,6 +266,11 @@ CONTAINS
                 OL_Count    = OL_Count + 1
             ENDIF
 
+            IF (CntrPar%Ind_YawRate > 0) THEN
+                OL_String   = TRIM(OL_String)//' YawRate '
+                OL_Count    = OL_Count + 1
+            ENDIF
+
             PRINT *, 'ROSCO: Implementing open loop control for'//TRIM(OL_String)
             CALL Read_OL_Input(CntrPar%OL_Filename,110,OL_Count,CntrPar%OL_Breakpoints,CntrPar%OL_Channels)
 
@@ -275,12 +281,17 @@ CONTAINS
             IF (CntrPar%Ind_GenTq > 0) THEN
                 CntrPar%OL_GenTq = CntrPar%OL_Channels(:,CntrPar%Ind_GenTq-1)
             ENDIF
+
+            IF (CntrPar%Ind_YawRate > 0) THEN
+                CntrPar%OL_YawRate = CntrPar%OL_Channels(:,CntrPar%Ind_YawRate-1)
+            ENDIF
         END IF
 
+        ! Debugging outputs:
         write(400,*) CntrPar%OL_Breakpoints
         write(401,*) CntrPar%OL_BldPitch
         write(402,*) CntrPar%OL_GenTq
-        write(402,*) CntrPar%OL_GenTq
+        write(403,*) CntrPar%OL_YawRate
 
         ! END OF INPUT FILE    
         

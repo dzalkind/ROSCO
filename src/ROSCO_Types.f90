@@ -115,6 +115,17 @@ TYPE, PUBLIC :: ControlParameters
     REAL(8), DIMENSION(:), ALLOCATABLE  :: PS_WindSpeeds                ! Wind speeds corresponding to minimum blade pitch angles [m/s]
     REAL(8), DIMENSION(:), ALLOCATABLE  :: PS_BldPitchMin               ! Minimum blade pitch angles [rad]
 
+    INTEGER(8)                          :: PwC_Mode                     ! Pitch saturation mode {0: no power control, 1: constant power control, 2: user-defined open-loop power control defined by <rootname>_OL_R.dat}
+    INTEGER(8)                          :: PwC_PwrRating_N            ! Number of values in minimum blade pitch lookup table (should equal number of values in PwC_WindSpeeds and PwC_BldPitchMin)
+    REAL(8), DIMENSION(:), ALLOCATABLE  :: PwC_PwrRating                ! Power rating (-) as a fraction of rated/available power
+    REAL(8), DIMENSION(:), ALLOCATABLE  :: PwC_BldPitchMin              ! Minimum pitch setting for below-rated power control
+    REAL(8)                             :: PwC_ConstPwr                 ! Constant Power
+    CHARACTER(1024)                     :: PwC_OpenLoopInp              ! File containing open loop power reference value
+    REAL(8), DIMENSION(:), ALLOCATABLE      :: PwC_Time                     ! Time breakpoints for open loop power control
+    REAL(8), DIMENSION(:,:), ALLOCATABLE    :: PwC_R_Time                   ! Power rating (-) at time breakpoints, 2D because Open loop channels are
+    REAL(8), DIMENSION(:), ALLOCATABLE      :: PwC_WindSpeed                   ! Power rating (-) at time breakpoints, 2D because Open loop channels are
+    REAL(8), DIMENSION(:,:), ALLOCATABLE    :: PwC_R_WindSpeed                   ! Power rating (-) at time breakpoints, 2D because Open loop channels are
+    
     INTEGER(4)                          :: SD_Mode                      ! Shutdown mode {0: no shutdown procedure, 1: pitch to max pitch at shutdown}
     REAL(8)                             :: SD_MaxPit                    ! Maximum blade pitch angle to initiate shutdown, [rad]
     REAL(8)                             :: SD_CornerFreq                ! Cutoff Frequency for first order low-pass filter for blade pitch angle, [rad/s]
@@ -131,6 +142,18 @@ TYPE, PUBLIC :: ControlParameters
     REAL(8)                             :: PC_RtTq99                    ! 99% of the rated torque value, using for switching between pitch and torque control, [Nm].
     REAL(8)                             :: VS_MaxOMTq                   ! Maximum torque at the end of the below-rated region 2, [Nm]
     REAL(8)                             :: VS_MinOMTq                   ! Minimum torque at the beginning of the below-rated region 2, [Nm]
+    
+    CHARACTER(1024)                     :: OL_Filename                  ! Input file with open loop timeseries
+    INTEGER(4)                          :: OL_Mode                      ! - Open loop control mode {0: no open loop control, 1: open loop control vs. time, 2: open loop control vs. wind speed}
+    INTEGER(4)                          :: Ind_Breakpoint               ! The column in OL_Filename that contains the breakpoint (time if OL_Mode = 1)
+    INTEGER(4)                          :: Ind_BldPitch                 ! The column in OL_Filename that contains the blade pitch input in rad
+    INTEGER(4)                          :: Ind_GenTq                    ! The column in OL_Filename that contains the generator torque in Nm
+    INTEGER(4)                          :: Ind_YawRate                    ! The column in OL_Filename that contains the generator torque in Nm
+    REAL(8), DIMENSION(:), ALLOCATABLE  :: OL_Breakpoints               ! Open loop breakpoints in timeseries
+    REAL(8), DIMENSION(:), ALLOCATABLE  :: OL_BldPitch                  ! Open blade pitch timeseries
+    REAL(8), DIMENSION(:), ALLOCATABLE  :: OL_GenTq                     ! Open generator torque timeseries
+    REAL(8), DIMENSION(:), ALLOCATABLE  :: OL_YawRate                   ! Open yaw rate timeseries
+    REAL(8), DIMENSION(:,:), ALLOCATABLE  :: OL_Channels                ! Open loop channels in timeseries
 
 END TYPE ControlParameters
 
@@ -178,6 +201,7 @@ TYPE, PUBLIC :: LocalVariables
     REAL(8)                             :: PitCom(3)                    ! Commanded pitch of each blade the last time the controller was called [rad].
     REAL(8)                             :: SS_DelOmegaF                 ! Filtered setpoint shifting term defined in setpoint smoother [rad/s].
     REAL(8)                             :: TestType                     ! Test variable, no use
+    REAL(8)                             :: VS_MaxTq                     ! Maximum allowable generator torque [Nm].
     REAL(8)                             :: VS_LastGenTrq                ! Commanded electrical generator torque the last time the controller was called [Nm].
     REAL(8)                             :: VS_MechGenPwr                ! Mechanical power on the generator axis [W]
     REAL(8)                             :: VS_SpdErrAr                  ! Current speed error for region 2.5 PI controller (generator torque control) [rad/s].
@@ -189,6 +213,7 @@ TYPE, PUBLIC :: LocalVariables
     REAL(8)                             :: WE_Vw_F                      ! Filtered estimated wind speed [m/s]
     REAL(8)                             :: WE_VwI                       ! Integrated wind speed quantity for estimation [m/s]
     REAL(8)                             :: WE_VwIdot                    ! Differentiated integrated wind speed quantity for estimation [m/s]
+    REAL(8)                             :: WE_SlowEst                   ! Slow low pass filtered wind speed
     REAL(8)                             :: VS_LastGenTrqF               ! Differentiated integrated wind speed quantity for estimation [m/s]
     REAL(8)                             :: Y_AccErr                     ! Accumulated yaw error [rad].
     REAL(8)                             :: Y_ErrLPFFast                 ! Filtered yaw error by fast low pass filter [rad].
@@ -199,6 +224,8 @@ TYPE, PUBLIC :: LocalVariables
     REAL(8)                             :: Fl_PitCom                           ! Shutdown, .FALSE. if inactive, .TRUE. if active
     REAL(8)                             :: NACIMU_FA_AccF
     REAL(8)                             :: Flp_Angle(3)                 ! Flap Angle (rad)
+    REAL(8)                             :: PwC_R                        ! Power Reference
+    REAL(8)                             :: PwC_MinPitch                 ! Min pitch for power control
     END TYPE LocalVariables
 
 TYPE, PUBLIC :: ObjectInstances
@@ -222,11 +249,18 @@ TYPE, PUBLIC :: DebugVariables
 ! Variables used for debug purposes
     REAL(8)                             :: WE_Cp                        ! Cp that WSE uses to determine aerodynamic torque[-]
     REAL(8)                             :: WE_b                         ! Pitch that WSE uses to determine aerodynamic torque[-]
+    REAL(8)                             :: WE_D                         ! WSE Debugging signal
     REAL(8)                             :: WE_w                         ! Rotor Speed that WSE uses to determine aerodynamic torque[-]
     REAL(8)                             :: WE_t                         ! Torque that WSE uses[-]
     REAL(8)                             :: WE_Vm                        ! Mean wind speed component in WSE [m/s]
     REAL(8)                             :: WE_Vt                        ! Turbulent wind speed component in WSE [m/s]
     REAL(8)                             :: WE_lambda                    ! TSR in WSE [rad]
+    REAL(8)                             :: PwC_R                     ! Power reference R [-]
+    REAL(8)                             :: Om_tau                    ! Generator speed reference for torque control
+    REAL(8)                             :: Om_theta                  ! Generator speed reference for pitch control
+    REAL(8)                             :: WE_SlowEst
+    REAL(8)                             :: PC_PICommand                 
+
 END TYPE DebugVariables
 
 END MODULE ROSCO_Types

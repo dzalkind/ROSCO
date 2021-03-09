@@ -58,12 +58,12 @@ CONTAINS
         ELSE ! debug mode, fix at fine pitch
             LocalVar%PC_MaxPit = CntrPar%PC_FinePit
         END IF
-
+        
         ! Compute (interpolate) the gains based on previously commanded blade pitch angles and lookup table:
-        LocalVar%PC_KP = interp1d(CntrPar%PC_GS_angles, CntrPar%PC_GS_KP, LocalVar%PC_PitComT) ! Proportional gain
-        LocalVar%PC_KI = interp1d(CntrPar%PC_GS_angles, CntrPar%PC_GS_KI, LocalVar%PC_PitComT) ! Integral gain
-        LocalVar%PC_KD = interp1d(CntrPar%PC_GS_angles, CntrPar%PC_GS_KD, LocalVar%PC_PitComT) ! Derivative gain
-        LocalVar%PC_TF = interp1d(CntrPar%PC_GS_angles, CntrPar%PC_GS_TF, LocalVar%PC_PitComT) ! TF gains (derivative filter) !NJA - need to clarify
+        LocalVar%PC_KP = interp1d(CntrPar%PC_GS_angles, CntrPar%PC_GS_KP, LocalVar%PC_PitComTF) ! Proportional gain
+        LocalVar%PC_KI = interp1d(CntrPar%PC_GS_angles, CntrPar%PC_GS_KI, LocalVar%PC_PitComTF) ! Integral gain
+        LocalVar%PC_KD = interp1d(CntrPar%PC_GS_angles, CntrPar%PC_GS_KD, LocalVar%PC_PitComTF) ! Derivative gain
+        LocalVar%PC_TF = interp1d(CntrPar%PC_GS_angles, CntrPar%PC_GS_TF, LocalVar%PC_PitComTF) ! TF gains (derivative filter) !NJA - need to clarify
         
         ! Compute the collective pitch command associated with the proportional and integral gains:
         IF (LocalVar%iStatus == 0) THEN
@@ -71,7 +71,7 @@ CONTAINS
         ELSE
             LocalVar%PC_PitComT = PIController(LocalVar%PC_SpdErr, LocalVar%PC_KP, LocalVar%PC_KI, LocalVar%PC_MinPit, LocalVar%PC_MaxPit, LocalVar%DT, LocalVar%BlPitch(1), .FALSE., objInst%instPI)
         END IF
-        
+        DebugVar%PC_PICommand = LocalVar%PC_PitComT
         ! Find individual pitch control contribution
         IF ((CntrPar%IPC_ControlMode >= 1) .OR. (CntrPar%Y_ControlMode == 2)) THEN
             CALL IPC(CntrPar, LocalVar, objInst)
@@ -92,6 +92,12 @@ CONTAINS
             LocalVar%PC_MinPit = max(LocalVar%PC_MinPit, CntrPar%PC_FinePit)
         ELSE
             LocalVar%PC_MinPit = CntrPar%PC_FinePit
+        ENDIF
+
+        ! Pitch Saturation due to Power Control
+        IF (CntrPar%PwC_Mode > 0) THEN
+            LocalVar%PwC_MinPitch   = interp1d(CntrPar%PwC_PwrRating, CntrPar%PwC_BldPitchMin, LocalVar%PwC_R)
+            LocalVar%PC_MinPit      = max(LocalVar%PC_MinPit, LocalVar%PwC_MinPitch)
         ENDIF
 
         ! Shutdown
@@ -118,6 +124,14 @@ CONTAINS
             LocalVar%PitCom(K) = ratelimit(LocalVar%PitCom(K), LocalVar%BlPitch(K), CntrPar%PC_MinRat, CntrPar%PC_MaxRat, LocalVar%DT) ! Saturate the overall command of blade K using the pitch rate limit
         END DO
 
+        ! Open Loop control, use if
+        !   Open loop mode active         Using OL blade pitch control      Time > first open loop breakpoint
+        IF ((CntrPar%OL_Mode == 1) .AND. (CntrPar%Ind_BldPitch > 0) .AND. (LocalVar%Time >= CntrPar%OL_Breakpoints(1))) THEN
+            DO K = 1,LocalVar%NumBl ! Loop through all blades, add IPC contribution and limit pitch rate
+                LocalVar%PitCom(K) = interp1d(CntrPar%OL_Breakpoints,CntrPar%OL_BldPitch,LocalVar%Time)
+            END DO
+        ENDIF
+
         ! Command the pitch demanded from the last
         ! call to the controller (See Appendix A of Bladed User's Guide):
         avrSWAP(42) = LocalVar%PitCom(1)    ! Use the command angles of all blades if using individual pitch
@@ -142,27 +156,26 @@ CONTAINS
         TYPE(ObjectInstances), INTENT(INOUT)    :: objInst
         ! Allocate Variables
         REAL(C_FLOAT), INTENT(INOUT)            :: avrSWAP(*)    ! The swap array, used to pass data to, and receive data from, the DLL controller.
-        REAL(8)                                 :: VS_MaxTq      ! Locally allocated maximum torque saturation limits
         
         ! -------- Variable-Speed Torque Controller --------
         ! Define max torque
         IF (LocalVar%VS_State == 4) THEN
-            VS_MaxTq = CntrPar%VS_RtTq
+           LocalVar%VS_MaxTq = CntrPar%VS_RtTq
         ELSE
             ! VS_MaxTq = CntrPar%VS_MaxTq           ! NJA: May want to boost max torque
-            VS_MaxTq = CntrPar%VS_RtTq
+            LocalVar%VS_MaxTq = CntrPar%VS_RtTq
         ENDIF
 
         ! Optimal Tip-Speed-Ratio tracking controller
         IF ((CntrPar%VS_ControlMode == 2) .OR. (CntrPar%VS_ControlMode == 3)) THEN
             ! Constant Power, update VS_MaxTq
             IF (CntrPar%VS_ControlMode == 3) THEN
-                VS_MaxTq = min((CntrPar%VS_RtPwr/(CntrPar%VS_GenEff/100.0))/LocalVar%GenSpeedF, CntrPar%VS_MaxTq)
+                LocalVar%VS_MaxTq = min((CntrPar%VS_RtPwr/(CntrPar%VS_GenEff/100.0))/LocalVar%GenSpeedF, CntrPar%VS_MaxTq)
             END IF
 
             ! PI controller
-            LocalVar%GenTq = PIController(LocalVar%VS_SpdErr, CntrPar%VS_KP(1), CntrPar%VS_KI(1), CntrPar%VS_MinTq, VS_MaxTq, LocalVar%DT, LocalVar%VS_LastGenTrq, .FALSE., objInst%instPI)
-            LocalVar%GenTq = saturate(LocalVar%GenTq, CntrPar%VS_MinTq, VS_MaxTq)
+            LocalVar%GenTq = PIController(LocalVar%VS_SpdErr, CntrPar%VS_KP(1), CntrPar%VS_KI(1), CntrPar%VS_MinTq, LocalVar%VS_MaxTq, LocalVar%DT, LocalVar%VS_LastGenTrq, .FALSE., objInst%instPI)
+            LocalVar%GenTq = saturate(LocalVar%GenTq, CntrPar%VS_MinTq, LocalVar%VS_MaxTq)
         
         ! K*Omega^2 control law with PI torque control in transition regions
         ELSE
@@ -184,7 +197,7 @@ CONTAINS
             END IF
             
             ! Saturate
-            LocalVar%GenTq = saturate(LocalVar%GenTq, CntrPar%VS_MinTq, VS_MaxTq)
+            LocalVar%GenTq = saturate(LocalVar%GenTq, CntrPar%VS_MinTq, CntrPar%VS_MaxTq)
         ENDIF
 
 
@@ -194,6 +207,11 @@ CONTAINS
         ! Saturate the commanded torque using the torque rate limit:
         LocalVar%GenTq = ratelimit(LocalVar%GenTq, LocalVar%VS_LastGenTrq, -CntrPar%VS_MaxRat, CntrPar%VS_MaxRat, LocalVar%DT)    ! Saturate the command using the torque rate limit
         
+        ! Open loop torque control
+        IF ((CntrPar%OL_Mode == 1) .AND. (CntrPar%Ind_GenTq > 0)) THEN
+            LocalVar%GenTq = interp1d(CntrPar%OL_Breakpoints,CntrPar%OL_GenTq,LocalVar%Time)
+        ENDIF
+
         ! Reset the value of LocalVar%VS_LastGenTrq to the current values:
         LocalVar%VS_LastGenTrq = LocalVar%GenTq
         
@@ -238,6 +256,13 @@ CONTAINS
                 LocalVar%Y_AccErr = 0.0    ! "
             END IF
         END IF
+
+        ! If using open loop yaw rate control, overwrite controlled output
+        ! Open loop torque control
+        IF ((CntrPar%OL_Mode == 1) .AND. (CntrPar%Ind_YawRate > 0)) THEN
+            avrSWAP(48) = interp1d(CntrPar%OL_Breakpoints,CntrPar%OL_YawRate,LocalVar%Time)
+        ENDIF
+
     END SUBROUTINE YawRateControl
 !-------------------------------------------------------------------------------------------------------------------------------
     SUBROUTINE IPC(CntrPar, LocalVar, objInst)

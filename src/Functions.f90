@@ -433,7 +433,7 @@ CONTAINS
         RotorArea = PI*CntrPar%WE_BladeRadius**2
         Lambda = LocalVar%RotSpeedF*CntrPar%WE_BladeRadius/LocalVar%WE_Vw
         ! Cp = CPfunction(CntrPar%WE_CP, Lambda)
-        Cp = interp2d(PerfData%Beta_vec,PerfData%TSR_vec,PerfData%Cp_mat, LocalVar%PC_PitComTF*R2D, Lambda)
+        Cp = interp2d(PerfData%Beta_vec,PerfData%TSR_vec,PerfData%Cp_mat, LocalVar%PC_PitComT*R2D, Lambda)
         AeroDynTorque = 0.5*(CntrPar%WE_RhoAir*RotorArea)*(LocalVar%WE_Vw**3/LocalVar%RotSpeedF)*Cp
         AeroDynTorque = MAX(AeroDynTorque, 0.0)
         
@@ -459,7 +459,7 @@ CONTAINS
         INTEGER(4), PARAMETER                       :: UnDb2 = 86       ! I/O unit for the debugging information, avrSWAP
         REAL(C_FLOAT), INTENT(INOUT)                :: avrSWAP(*)   ! The swap array, used to pass data to, and receive data from, the DLL controller.
         CHARACTER(size_avcOUTNAME-1), INTENT(IN)    :: RootName     ! a Fortran version of the input C string (not considered an array here)    [subtract 1 for the C null-character]
-        
+        CHARACTER(200)                              :: Version      ! git version of ROSCO
         CHARACTER(10)                               :: DebugOutStr1,  DebugOutStr2, DebugOutStr3, DebugOutStr4, DebugOutStr5, &
                                                          DebugOutStr6, DebugOutStr7, DebugOutStr8, DebugOutStr9, DebugOutStr10, &
                                                          DebugOutStr11, DebugOutStr12, DebugOutStr13, DebugOutStr14, DebugOutStr15, & 
@@ -473,50 +473,44 @@ CONTAINS
 
         ! Set up Debug Strings and Data
         ! Note that Debug strings have 10 character limit
-        nDebugOuts = 18
+        nDebugOuts = 15
         ALLOCATE(DebugOutData(nDebugOuts))
         !                 Header                            Unit                                Variable
-        ! Filters
-        DebugOutStr1   = 'FA_AccF';     DebugOutUni1   = '(m/s)';      DebugOutData(1)   = LocalVar%NacIMU_FA_AccF
-        DebugOutStr2   = 'FA_AccR';     DebugOutUni2   = '(rad/s^2)';  DebugOutData(2)   = LocalVar%NacIMU_FA_Acc
-        DebugOutStr3  = 'RotSpeed';     DebugOutUni3  = '(rad/s)';     DebugOutData(3)  = LocalVar%RotSpeed
-        DebugOutStr4  = 'RotSpeedF';    DebugOutUni4  = '(rad/s)';     DebugOutData(4)  = LocalVar%RotSpeedF
-        DebugOutStr5  = 'GenSpeed';     DebugOutUni5  = '(rad/s)';     DebugOutData(5)  = LocalVar%GenSpeed
-        DebugOutStr6  = 'GenSpeedF';    DebugOutUni6  = '(rad/s)';     DebugOutData(6)  = LocalVar%GenSpeedF
-        ! Floating
-        DebugOutStr7  = 'FA_Acc';        DebugOutUni7  = '(m/s^2)';    DebugOutData(7)  = LocalVar%FA_Acc
-        DebugOutStr8  = 'Fl_Pitcom';     DebugOutUni8  = '(rad)';      DebugOutData(8)  = LocalVar%Fl_Pitcom
-        DebugOutStr9  = 'PC_MinPit';     DebugOutUni9  = '(rad)';      DebugOutData(9)  = LocalVar%PC_MinPit
-        DebugOutStr10  = 'SS_dOmF';      DebugOutUni10  = '(rad/s)';   DebugOutData(10)  = LocalVar%SS_DelOmegaF
-        ! WSE
-        DebugOutStr11  = 'WE_Vw';        DebugOutUni11  = '(rad)';     DebugOutData(11)  = LocalVar%WE_Vw
-        DebugOutStr12  = 'WE_b';         DebugOutUni12  = '(deg)';     DebugOutData(12)  = DebugVar%WE_b
-        DebugOutStr13  = 'WE_t';         DebugOutUni13  = '(Nm)';      DebugOutData(13)  = DebugVar%WE_t
-        DebugOutStr14  = 'WE_w';         DebugOutUni14  = '(rad/s)';   DebugOutData(14)  = DebugVar%WE_w
-        DebugOutStr15  = 'WE_Vm';        DebugOutUni15  = '(m/s)';     DebugOutData(15)  = DebugVar%WE_Vm
-        DebugOutStr16  = 'WE_Vt';        DebugOutUni16  = '(m/s)';     DebugOutData(16)  = DebugVar%WE_Vt
-        DebugOutStr17  = 'WE_lambda';    DebugOutUni17  = '(rad/s)';   DebugOutData(17)  = DebugVar%WE_lambda
-        DebugOutStr18  = 'WE_Cp';        DebugOutUni18  = '(-)';       DebugOutData(18)  = DebugVar%WE_Cp
+        DebugOutStr1  = 'FA_AccF';         DebugOutUni1  = '(m/s)';      DebugOutData(1)  = LocalVar%NacIMU_FA_AccF
+        DebugOutStr2  = 'WE_Vw';           DebugOutUni2  = '(rad)';      DebugOutData(2)  = LocalVar%WE_Vw
+        DebugOutStr3  = 'FA_AccR';          DebugOutUni3  = '(rad/s^2)';  DebugOutData(3)  = LocalVar%NacIMU_FA_Acc
+        DebugOutStr4  = 'FA_Acc';          DebugOutUni4  = '(m/s^2)';    DebugOutData(4)  = LocalVar%FA_Acc
+        DebugOutStr5  = 'Fl_Pitcom';       DebugOutUni5  = '(rad)';      DebugOutData(5)  = LocalVar%Fl_Pitcom
+        DebugOutStr6  = 'WE_Cp';           DebugOutUni6  = '(-)';        DebugOutData(6)  = DebugVar%WE_Cp
+        DebugOutStr7  = 'PC_MinPit';       DebugOutUni7  = '(rad)';      DebugOutData(7)  = LocalVar%PC_MinPit
+        DebugOutStr8  = 'SS_dOmF';         DebugOutUni8  = '(rad/s)';    DebugOutData(8)  = LocalVar%SS_DelOmegaF
+        DebugOutStr9  = 'WE_b';            DebugOutUni9  = '(deg)';      DebugOutData(9)  = DebugVar%WE_b
+        DebugOutStr10  = 'WE_t';            DebugOutUni10  = '(Nm)';      DebugOutData(10)  = DebugVar%WE_t
+        DebugOutStr11  = 'WE_w';            DebugOutUni11  = '(rad/s)';      DebugOutData(11)  = DebugVar%WE_w
+        DebugOutStr12  = 'WE_Slow';            DebugOutUni12  = '(m/s)';      DebugOutData(12)  = DebugVar%WE_D
+        DebugOutStr13  = 'PwC_R';            DebugOutUni13  = '()';      DebugOutData(13)  = DebugVar%PwC_R
+        DebugOutStr14  = 'Om_tau';            DebugOutUni14  = '(rad/s)';      DebugOutData(14)  = DebugVar%Om_tau
+        DebugOutStr15  = 'Om_theta';            DebugOutUni15  = '(rad/s)';      DebugOutData(15)  = DebugVar%Om_theta
 
         Allocate(DebugOutStrings(nDebugOuts))
         Allocate(DebugOutUnits(nDebugOuts))
         DebugOutStrings =   [CHARACTER(10)  :: DebugOutStr1, DebugOutStr2, DebugOutStr3, DebugOutStr4, &
                                                 DebugOutStr5, DebugOutStr6, DebugOutStr7, DebugOutStr8, &
                                                 DebugOutStr9, DebugOutStr10, DebugOutStr11, DebugOutStr12, &
-                                                DebugOutStr13, DebugOutStr14, DebugOutStr15, DebugOutStr16, &
-                                                DebugOutStr17, DebugOutStr18]
+                                                DebugOutStr13, DebugOutStr14, DebugOutStr15]
         DebugOutUnits =     [CHARACTER(10)  :: DebugOutUni1, DebugOutUni2, DebugOutUni3, DebugOutUni4, &
                                                 DebugOutUni5, DebugOutUni6, DebugOutUni7, DebugOutUni8, &
                                                 DebugOutUni9, DebugOutUni10, DebugOutUni11, DebugOutUni12, &
-                                                DebugOutUni13, DebugOutUni14, DebugOutUni15, DebugOutUni1, &
-                                                DebugOutUni17, DebugOutUni18]
+                                                DebugOutUni13, DebugOutUni14, DebugOutUni15]
         
         ! Initialize debug file
         IF (LocalVar%iStatus == 0)  THEN  ! .TRUE. if we're on the first call to the DLL
         ! If we're debugging, open the debug file and write the header:
             ! Note that the headers will be Truncated to 10 characters!!
             IF (CntrPar%LoggingLevel > 0) THEN
+                Version = QueryGitVersion()
                 OPEN(unit=UnDb, FILE=RootName(1:size_avcOUTNAME-5)//'RO.dbg')
+                WRITE (UnDb,*)  'Generated on '//CurDate()//' at '//CurTime()//' using ROSCO-'//TRIM(Version)
                 WRITE (UnDb,'(99(a10,TR5:))') 'Time',   DebugOutStrings
                 WRITE (UnDb,'(99(a10,TR5:))') '(sec)',  DebugOutUnits
             END IF
@@ -546,4 +540,111 @@ CONTAINS
         END IF
 
     END SUBROUTINE Debug
+!-------------------------------------------------------------------------------------------------------------------------------
+FUNCTION QueryGitVersion()
+
+   CHARACTER(200) :: QueryGitVersion
+
+! The Visual Studio project sets the path for where to find the header file with version info
+#ifdef GIT_INCLUDE_FILE
+#include GIT_INCLUDE_FILE
+#endif
+
+#ifdef GIT_VERSION_INFO
+   QueryGitVersion = GIT_VERSION_INFO
+#else
+   QueryGitVersion = 'unversioned'
+#endif
+
+   RETURN
+END FUNCTION QueryGitVersion
+!-------------------------------------------------------------------------------------------------------------------------------
+    ! Copied from NWTC_IO.f90
+!> This function returns a character string encoded with today's date in the form dd-mmm-ccyy.
+FUNCTION CurDate( )
+
+    ! Function declaration.
+
+    CHARACTER(11)                :: CurDate                                      !< 'dd-mmm-yyyy' string with the current date
+
+
+    ! Local declarations.
+
+    CHARACTER(8)                 :: CDate                                        ! String to hold the returned value from the DATE_AND_TIME subroutine call.
+
+
+
+    !  Call the system date function.
+
+    CALL DATE_AND_TIME ( CDate )
+
+
+    !  Parse out the day.
+
+    CurDate(1:3) = CDate(7:8)//'-'
+
+
+    !  Parse out the month.
+
+    SELECT CASE ( CDate(5:6) )
+    CASE ( '01' )
+        CurDate(4:6) = 'Jan'
+    CASE ( '02' )
+        CurDate(4:6) = 'Feb'
+    CASE ( '03' )
+        CurDate(4:6) = 'Mar'
+    CASE ( '04' )
+        CurDate(4:6) = 'Apr'
+    CASE ( '05' )
+        CurDate(4:6) = 'May'
+    CASE ( '06' )
+        CurDate(4:6) = 'Jun'
+    CASE ( '07' )
+        CurDate(4:6) = 'Jul'
+    CASE ( '08' )
+        CurDate(4:6) = 'Aug'
+    CASE ( '09' )
+        CurDate(4:6) = 'Sep'
+    CASE ( '10' )
+        CurDate(4:6) = 'Oct'
+    CASE ( '11' )
+        CurDate(4:6) = 'Nov'
+    CASE ( '12' )
+        CurDate(4:6) = 'Dec'
+    END SELECT
+
+
+    !  Parse out the year.
+
+    CurDate(7:11) = '-'//CDate(1:4)
+
+
+    RETURN
+    END FUNCTION CurDate
+!=======================================================================
+!> This function returns a character string encoded with the time in the form "hh:mm:ss".
+    FUNCTION CurTime( )
+
+    ! Function declaration.
+
+    CHARACTER(8)                 :: CurTime                                      !< The current time in the form "hh:mm:ss".
+
+
+    ! Local declarations.
+
+    CHARACTER(10)                :: CTime                                        ! String to hold the returned value from the DATE_AND_TIME subroutine call.
+
+
+
+    CALL DATE_AND_TIME ( TIME=CTime )
+
+    CurTime = CTime(1:2)//':'//CTime(3:4)//':'//CTime(5:6)
+
+
+    RETURN
+    END FUNCTION CurTime
+!=======================================================================
+
+
+
 END MODULE Functions

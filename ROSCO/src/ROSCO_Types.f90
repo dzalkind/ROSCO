@@ -240,8 +240,34 @@ TYPE, PUBLIC :: ErrorVariables
     ! Error Catching
     INTEGER(IntKi)                      :: size_avcMSG
     INTEGER(C_INT)                  :: aviFAIL             ! A flag used to indicate the success of this DLL call set as follows: 0 if the DLL call was successful, >0 if the DLL call was successful but cMessage should be issued as a warning messsage, <0 if the DLL call was unsuccessful or for any other reason the simulation is to be stopped at this point with cMessage as the error message.
+    INTEGER(C_INT)                  :: ErrStat             ! A flag used to indicate the success of this DLL call set as follows: 0 if the DLL call was successful, >0 if the DLL call was successful but cMessage should be issued as a warning messsage, <0 if the DLL call was unsuccessful or for any other reason the simulation is to be stopped at this point with cMessage as the error message.
     ! CHARACTER(:), ALLOCATABLE  :: ErrMsg              ! a Fortran version of the C string argument (not considered an array here) [subtract 1 for the C null-character]
     CHARACTER(:), ALLOCATABLE       :: ErrMsg              ! a Fortran version of the C string argument (not considered an array here) [subtract 1 for the C null-character]
 END TYPE ErrorVariables
+
+TYPE, PUBLIC :: ExtDLL_Type 
+
+    INTEGER(C_INTPTR_T)       :: FileAddr                                        !< The address of file FileName.         (RETURN value from LoadLibrary ) [Windows]
+    TYPE(C_PTR)               :: FileAddrX = C_NULL_PTR                          !< The address of file FileName.         (RETURN value from dlopen ) [Linux]
+    TYPE(C_FUNPTR)            :: ProcAddr(3)  = C_NULL_FUNPTR    !< The address of procedure ProcName.    (RETURN value from GetProcAddress or dlsym) [initialized to Null for pack/unpack]
+
+    CHARACTER(1024)           :: FileName                                        !< The name of the DLL file including the full path to the current working directory.
+    CHARACTER(1024)           :: ProcName(3)  = ""               !< The name of the procedure in the DLL that will be called.
+
+END TYPE ExtDLL_Type
+
+    ! =========  ExtControlType (BladedDLLType from OpenFAST) =======
+TYPE :: ExtControlType
+    REAL(ReKi) , DIMENSION(:), ALLOCATABLE  :: avrSWAP      !< The swap array: used to pass data to and from the DLL controller [see Bladed DLL documentation]
+    REAL(ReKi)  :: HSSBrFrac      !< Fraction of full braking torque: 0 (off) <= HSSBrFrac <= 1 (full) - from Bladed DLL [-]
+    REAL(ReKi)  :: HSSBrTrqC      !< Braking torque [N-m]
+    REAL(ReKi)  :: YawRateCom      !< Nacelle yaw rate demanded from Bladed DLL [rad/s]
+    REAL(ReKi)  :: GenTrq      !< Electrical generator torque from Bladed DLL [N-m]
+    INTEGER(IntKi)  :: GenState      !< Generator state from Bladed DLL [N-m]
+    REAL(ReKi) , DIMENSION(1:3)  :: BlPitchCom      !< Commanded blade pitch angles [radians]
+    REAL(ReKi) , DIMENSION(1:3)  :: PrevBlPitch      !< Previously commanded blade pitch angles [radians]
+    REAL(ReKi) , DIMENSION(1:3)  :: BlAirfoilCom      !< Commanded Airfoil UserProp for blade.  Passed to AD15 for airfoil interpolation (must be same units as given in AD15 airfoil tables) [-]
+    REAL(ReKi) , DIMENSION(:), ALLOCATABLE  :: SCoutput      !< controller output to supercontroller [-]
+END TYPE ExtControlType
 
 END MODULE ROSCO_Types

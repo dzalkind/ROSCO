@@ -560,8 +560,8 @@ CONTAINS
         INTEGER(IntKi)                                  :: I , nDebugOuts               ! Generic index.
         CHARACTER(1), PARAMETER                     :: Tab = CHAR(9)                        ! The tab character.
         CHARACTER(29), PARAMETER                    :: FmtDat = "(F10.3,TR5,99(ES10.3E2,TR5:))"   ! The format of the debugging data
-        INTEGER(IntKi), PARAMETER                       :: UnDb = 85        ! I/O unit for the debugging information
-        INTEGER(IntKi), PARAMETER                       :: UnDb2 = 86       ! I/O unit for the debugging information, avrSWAP
+        INTEGER(IntKi), PARAMETER                       :: UnDb = 185        ! I/O unit for the debugging information
+        INTEGER(IntKi), PARAMETER                       :: UnDb2 = 186       ! I/O unit for the debugging information, avrSWAP
         REAL(ReKi), INTENT(INOUT)                :: avrSWAP(*)   ! The swap array, used to pass data to, and receive data from, the DLL controller.
         CHARACTER(size_avcOUTNAME-1), INTENT(IN)    :: RootName     ! a Fortran version of the input C string (not considered an array here)    [subtract 1 for the C null-character]
         CHARACTER(200)                              :: Version      ! git version of ROSCO
@@ -575,6 +575,8 @@ CONTAINS
                                                          DebugOutUni16, DebugOutUni17, DebugOutUni18, DebugOutUni19, DebugOutUni20 
         CHARACTER(10), ALLOCATABLE                  :: DebugOutStrings(:), DebugOutUnits(:)
         REAL(DbKi), ALLOCATABLE                        :: DebugOutData(:)
+        INTEGER                 :: IOS                                                 ! I/O status of OPEN.
+
 
         ! Set up Debug Strings and Data
         ! Note that Debug strings have 10 character limit
@@ -605,6 +607,8 @@ CONTAINS
 
         Allocate(DebugOutStrings(nDebugOuts))
         Allocate(DebugOutUnits(nDebugOuts))
+
+        print *, "Finished Allocation in Debug"
         DebugOutStrings =   [CHARACTER(10)  :: DebugOutStr1, DebugOutStr2, DebugOutStr3, DebugOutStr4, &
                                                 DebugOutStr5, DebugOutStr6, DebugOutStr7, DebugOutStr8, &
                                                 DebugOutStr9, DebugOutStr10, DebugOutStr11, DebugOutStr12, &
@@ -620,24 +624,28 @@ CONTAINS
         IF (LocalVar%iStatus == 0)  THEN  ! .TRUE. if we're on the first call to the DLL
         ! If we're debugging, open the debug file and write the header:
             ! Note that the headers will be Truncated to 10 characters!!
+            PRINT *, "About to open files"
             IF (CntrPar%LoggingLevel > 0) THEN
-                OPEN(unit=UnDb, FILE=RootName(1:size_avcOUTNAME-5)//'RO.dbg')
+                OPEN(unit=UnDb, FILE=RootName(1:size_avcOUTNAME-5)//'RO.dbg', IOSTAT=IOS)
                 WRITE (UnDb,*)  'Generated on '//CurDate()//' at '//CurTime()//' using ROSCO-'//TRIM(rosco_version)
                 WRITE (UnDb,'(99(a10,TR5:))') 'Time',   DebugOutStrings
                 WRITE (UnDb,'(99(a10,TR5:))') '(sec)',  DebugOutUnits
             END IF
             
             IF (CntrPar%LoggingLevel > 1) THEN 
-                OPEN(unit=UnDb2, FILE=RootName(1:size_avcOUTNAME-5)//'RO.dbg2')
+                OPEN(unit=UnDb2, FILE=RootName(1:size_avcOUTNAME-5)//'RO.dbg2', IOSTAT=IOS)
                 WRITE(UnDb2,'(/////)')
                 WRITE(UnDb2,'(A,85("'//Tab//'AvrSWAP(",I2,")"))')  'LocalVar%Time ', (i,i=1,85)
                 WRITE(UnDb2,'(A,85("'//Tab//'(-)"))')  '(s)'
             END IF
+            PRINT *, "Opened Files"
         ELSE
             ! Print simulation status, every 10 seconds
             IF (MODULO(LocalVar%Time, 10.0) == 0) THEN
+                PRINT *, "About to call avrSWAP in debug"
                 WRITE(*, 100) LocalVar%GenSpeedF*RPS2RPM, LocalVar%BlPitch(1)*R2D, avrSWAP(15)/1000.0, LocalVar%WE_Vw ! LocalVar%Time !/1000.0
                 100 FORMAT('Generator speed: ', f6.1, ' RPM, Pitch angle: ', f5.1, ' deg, Power: ', f7.1, ' kW, Est. wind Speed: ', f5.1, ' m/s')
+                PRINT *, "Called avrSWAP in debug"
             END IF
             
         ENDIF
@@ -648,7 +656,10 @@ CONTAINS
         END IF
 
         IF (CntrPar%LoggingLevel > 1) THEN
+            PRINT *, "About to write avrSWAP"
             WRITE (UnDb2,FmtDat)    LocalVar%Time, avrSWAP(1:85)
+            PRINT *, avrSWAP(1:85)
+            PRINT *, "Finished writing avrSWAP"
         END IF
 
     END SUBROUTINE Debug

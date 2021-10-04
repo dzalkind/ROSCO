@@ -370,6 +370,8 @@ CONTAINS
         ! Define minimum blade pitch angle as a function of estimated wind speed
         PitchSaturation = interp1d(CntrPar%PS_WindSpeeds, CntrPar%PS_BldPitchMin, LocalVar%WE_Vw_F, ErrVar)
 
+        ! print *, "CntrPar%PS_WindSpeeds:", CntrPar%PS_WindSpeeds
+
         ! Add RoutineName to error message
         IF (ErrVar%aviFAIL < 0) THEN
             ErrVar%ErrMsg = RoutineName//':'//TRIM(ErrVar%ErrMsg)

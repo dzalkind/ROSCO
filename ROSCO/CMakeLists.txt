@@ -31,6 +31,7 @@ set(SOURCES
     src/Filters.f90
     src/Functions.f90
     src/ReadSetParameters.f90
+    src/ExtControl.f90
 )
 
 # Library

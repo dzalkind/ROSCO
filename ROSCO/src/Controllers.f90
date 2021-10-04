@@ -125,13 +125,10 @@ CONTAINS
 
         ! Command the pitch demanded from the last
         ! call to the controller (See Appendix A of Bladed User's Guide):
-        PRINT *, "ROSCO: about to write pitch control to avrSWAP"
         avrSWAP(42) = LocalVar%PitCom(1)    ! Use the command angles of all blades if using individual pitch
         avrSWAP(43) = LocalVar%PitCom(2)    ! "
         avrSWAP(44) = LocalVar%PitCom(3)    ! "
         avrSWAP(45) = LocalVar%PitCom(1)    ! Use the command angle of blade 1 if using collective pitch
-        PRINT *, "ROSCO: wrote pitch control to avrSWAP"
-
 
         ! Add RoutineName to error message
         IF (ErrVar%aviFAIL < 0) THEN
@@ -212,9 +209,7 @@ CONTAINS
         LocalVar%VS_LastGenPwr = LocalVar%VS_GenPwr
         
         ! Set the command generator torque (See Appendix A of Bladed User's Guide):
-        PRINT *, "About to write torque to avrSWAP"
         avrSWAP(47) = MAX(0.0, LocalVar%VS_LastGenTrq)  ! Demanded generator torque, prevent negatives.
-        PRINT *, "Wrote torque to avrSWAP"
     END SUBROUTINE VariableSpeedControl
 !-------------------------------------------------------------------------------------------------------------------------------
     SUBROUTINE YawRateControl(avrSWAP, CntrPar, LocalVar, objInst)
@@ -233,7 +228,6 @@ CONTAINS
         !..............................................................................................................................
         ! Yaw control
         !..............................................................................................................................
-        PRINT *, "Writing yaw control to avrSWAP"
         IF (CntrPar%Y_ControlMode == 1) THEN
             avrSWAP(29) = 0                                      ! Yaw control parameter: 0 = yaw rate control
             IF (LocalVar%Time >= LocalVar%Y_YawEndT) THEN        ! Check if the turbine is currently yawing
@@ -254,7 +248,6 @@ CONTAINS
                 LocalVar%Y_AccErr = 0.0    ! "
             END IF
         END IF
-        PRINT *, "Wrote yaw control to avrSWAP"
     END SUBROUTINE YawRateControl
 !-------------------------------------------------------------------------------------------------------------------------------
     SUBROUTINE IPC(CntrPar, LocalVar, objInst)

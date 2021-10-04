@@ -64,51 +64,28 @@ RootName = TRANSFER(avcOUTNAME, RootName)
 ! Main control calculations
 !------------------------------------------------------------------------------------------------------------------------------
 ! Read avrSWAP array into derived types/variables
-PRINT *, "AvrSWAP:", avrSWAP(1:85)
 CALL ReadAvrSWAP(avrSWAP, LocalVar)
 
-PRINT *, "hello from build"
-PRINT *, "RootName:", avcOUTNAME
 ! Set Control Parameters
 CALL SetParameters(avrSWAP, accINFILE, SIZE(avcMSG), CntrPar, LocalVar, objInst, PerfData, ErrVar)
 
 ! Call external controller, if desired
 CALL ExtController(avrSWAP, CntrPar, LocalVar, ErrVar)
-PRINT *, "Back in DISCON"
 
 ! Overwrite with ROSCO, where desired
 
 ! Filter signals
-PRINT *, "Starting PFMS"
 CALL PreFilterMeasuredSignals(CntrPar, LocalVar, objInst, ErrVar)
-PRINT *, "Finished PFMS"
 
 IF ((LocalVar%iStatus >= 0) .AND. (ErrVar%aviFAIL >= 0))  THEN  ! Only compute control calculations if no error has occurred and we are not on the last time step
     
-    PRINT *, "Starting WSE"
     CALL WindSpeedEstimator(LocalVar, CntrPar, objInst, PerfData, DebugVar, ErrVar)
-    PRINT *, "Starting CVS"
     CALL ComputeVariablesSetpoints(CntrPar, LocalVar, objInst)
-    PRINT *, "Starting SM"
     CALL StateMachine(CntrPar, LocalVar)
-    PRINT *, "Starting SS"
     CALL SetpointSmoother(LocalVar, CntrPar, objInst)
-    
-    PRINT *, "Starting CVS2"
     CALL ComputeVariablesSetpoints(CntrPar, LocalVar, objInst)
-
-    PRINT *, 'Finished calling ComputeVariablesSetpoints2'
-
-
     CALL VariableSpeedControl(avrSWAP, CntrPar, LocalVar, objInst)
-
-    PRINT *, 'Finished calling VariableSpeedControl'
-
-
     CALL PitchControl(avrSWAP, CntrPar, LocalVar, objInst, DebugVar, ErrVar)
-
-    PRINT *, 'Finished calling PitchControl'
-
     
     IF (CntrPar%Y_ControlMode > 0) THEN
         CALL YawRateControl(avrSWAP, CntrPar, LocalVar, objInst)
@@ -122,11 +99,7 @@ IF ((LocalVar%iStatus >= 0) .AND. (ErrVar%aviFAIL >= 0))  THEN  ! Only compute c
         CALL Debug(LocalVar, CntrPar, DebugVar, avrSWAP, RootName, SIZE(avcOUTNAME))
     END IF
 
-    PRINT *, 'Finished calling Debug'
-
 END IF
-
-! print *, avrSWAP(43)
 
 ! Add RoutineName to error message
 IF (ErrVar%aviFAIL < 0) THEN
@@ -139,8 +112,6 @@ avcMSG = TRANSFER(ErrMsg//C_NULL_CHAR, avcMSG, SIZE(avcMSG))
 aviFAIL = ErrVar%aviFAIL
 
 ErrVar%ErrMsg = ''
-
-PRINT *, 'Finished calling ROSCO'
 
 
 RETURN

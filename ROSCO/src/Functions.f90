@@ -608,7 +608,6 @@ CONTAINS
         Allocate(DebugOutStrings(nDebugOuts))
         Allocate(DebugOutUnits(nDebugOuts))
 
-        print *, "Finished Allocation in Debug"
         DebugOutStrings =   [CHARACTER(10)  :: DebugOutStr1, DebugOutStr2, DebugOutStr3, DebugOutStr4, &
                                                 DebugOutStr5, DebugOutStr6, DebugOutStr7, DebugOutStr8, &
                                                 DebugOutStr9, DebugOutStr10, DebugOutStr11, DebugOutStr12, &
@@ -624,7 +623,6 @@ CONTAINS
         IF (LocalVar%iStatus == 0)  THEN  ! .TRUE. if we're on the first call to the DLL
         ! If we're debugging, open the debug file and write the header:
             ! Note that the headers will be Truncated to 10 characters!!
-            PRINT *, "About to open files"
             IF (CntrPar%LoggingLevel > 0) THEN
                 OPEN(unit=UnDb, FILE=RootName(1:size_avcOUTNAME-5)//'RO.dbg', IOSTAT=IOS)
                 WRITE (UnDb,*)  'Generated on '//CurDate()//' at '//CurTime()//' using ROSCO-'//TRIM(rosco_version)
@@ -638,7 +636,6 @@ CONTAINS
                 WRITE(UnDb2,'(A,85("'//Tab//'AvrSWAP(",I2,")"))')  'LocalVar%Time ', (i,i=1,85)
                 WRITE(UnDb2,'(A,85("'//Tab//'(-)"))')  '(s)'
             END IF
-            PRINT *, "Opened Files"
         ELSE
             ! Print simulation status, every 10 seconds
             IF (MODULO(LocalVar%Time, 10.0) == 0) THEN
@@ -656,10 +653,7 @@ CONTAINS
         END IF
 
         IF (CntrPar%LoggingLevel > 1) THEN
-            PRINT *, "About to write avrSWAP"
             WRITE (UnDb2,FmtDat)    LocalVar%Time, avrSWAP(1:85)
-            PRINT *, avrSWAP(1:85)
-            PRINT *, "Finished writing avrSWAP"
         END IF
 
     END SUBROUTINE Debug

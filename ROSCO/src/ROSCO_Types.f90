@@ -133,6 +133,11 @@ TYPE, PUBLIC :: ControlParameters
     REAL(DbKi)                             :: VS_MaxOMTq                   ! Maximum torque at the end of the below-rated region 2, [Nm]
     REAL(DbKi)                             :: VS_MinOMTq                   ! Minimum torque at the beginning of the below-rated region 2, [Nm]
 
+    INTEGER(IntKi)                          :: Ext_Mode                     
+    CHARACTER(1024)                         :: DLL_FileName
+    CHARACTER(1024)                         :: DLL_InFile
+    CHARACTER(1024)                         :: DLL_ProcName
+
 END TYPE ControlParameters
 
 TYPE, PUBLIC :: LocalVariables

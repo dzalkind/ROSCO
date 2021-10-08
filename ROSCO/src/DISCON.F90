@@ -70,7 +70,9 @@ CALL ReadAvrSWAP(avrSWAP, LocalVar)
 CALL SetParameters(avrSWAP, accINFILE, SIZE(avcMSG), CntrPar, LocalVar, objInst, PerfData, ErrVar)
 
 ! Call external controller, if desired
-CALL ExtController(avrSWAP, CntrPar, LocalVar, ErrVar)
+IF (CntrPar%Ext_Mode > 0) THEN
+    CALL ExtController(avrSWAP, CntrPar, LocalVar, ErrVar)
+END IF
 
 ! Overwrite with ROSCO, where desired
 

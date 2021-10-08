@@ -92,7 +92,7 @@ class output_processing():
         # return fastout
         return self.fastout
 
-    def plot_fast_out(self, fastout=None, cases=None, showplot=True, fignum=None, xlim=None):
+    def plot_fast_out(self, fastout=None, cases=None, showplot=True, fignum=None, xlim=None, show_legend=True):
         '''
         Plots OpenFAST outputs for desired channels
 
@@ -163,8 +163,10 @@ class output_processing():
                         axes.set_title(case)
                     except:
                         print('{} is not available as an output channel.'.format(channel))
-                plt.legend(myleg, loc='upper center', bbox_to_anchor=(
-                    0.5, 0.0), borderaxespad=2, ncol=len(fastout))
+
+                if show_legend:
+                    plt.legend(myleg, loc='upper center', bbox_to_anchor=(
+                        0.5, 0.0), borderaxespad=2, ncol=len(fastout))
 
             figlist.append(fig)
             axeslist.append(axes)

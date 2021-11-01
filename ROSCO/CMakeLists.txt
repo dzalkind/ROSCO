@@ -34,6 +34,27 @@ set(SOURCES
     src/ExtControl.f90
 )
 
+if (${CMAKE_Fortran_COMPILER_ID} STREQUAL "GNU")
+  if (WIN32)
+    set(NWTC_SYS_FILE src/SysGnuWin.f90)
+  elseif (APPLE OR UNIX OR CYGWIN)
+    set(NWTC_SYS_FILE src/SysFiles/SysGnuLinux.f90)
+  endif ()
+elseif (${CMAKE_Fortran_COMPILER_ID} MATCHES "^Intel")
+  if (APPLE OR UNIX)
+    set(NWTC_SYS_FILE src/SysIFL.f90)
+  elseif (WIN32)
+    set(NWTC_SYS_FILE src/SysIVF.f90)
+  endif (APPLE OR UNIX)
+endif ()
+
+if (NWTC_SYS_FILE)
+  message("-- Setting system file as: ${NWTC_SYS_FILE}")
+  list(APPEND SOURCES ${NWTC_SYS_FILE})
+else (NWTC_SYS_FILE)
+  message(FATAL_ERROR "Cannot determine system file used with NWTC_Library")
+endif (NWTC_SYS_FILE)
+
 # Library
 add_library(discon SHARED ${SOURCES})
 

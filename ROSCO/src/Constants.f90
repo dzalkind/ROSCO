@@ -26,4 +26,14 @@ MODULE Constants
     INTEGER(IntKi), PARAMETER           :: NP_1             = 1                   ! First rotational harmonic
     INTEGER(IntKi), PARAMETER           :: NP_2             = 2                   ! Second rotational harmonic
     CHARACTER(*),  PARAMETER            :: NewLine          = ACHAR(10)           ! The delimiter for New Lines [ Windows is CHAR(13)//CHAR(10); MAC is CHAR(13); Unix is CHAR(10) {CHAR(13)=\r is a line feed, CHAR(10)=\n is a new line}]
+
+    ! NWTC Constants
+    INTEGER(IntKi), PARAMETER     :: NWTC_MAX_DLL_PROC    = 3
+    INTEGER(IntKi), PARAMETER     :: ErrID_None   = 0                              !< ErrStat parameter indicating "no error"
+    INTEGER(IntKi), PARAMETER     :: ErrID_Info   = 1                              !< ErrStat parameter indicating "informational message"
+    INTEGER(IntKi), PARAMETER     :: ErrID_Warn   = 2                              !< ErrStat parameter indicating "warning"
+    INTEGER(IntKi), PARAMETER     :: ErrID_Severe = 3                              !< ErrStat parameter indicating "severe error"; 
+    INTEGER(IntKi), PARAMETER     :: ErrID_Fatal  = 4                              !< ErrStat parameter indicating "fatal error"; simulation should end
+    INTEGER, PARAMETER            :: BITS_IN_ADDR  = C_INTPTR_T*8                  !< The number of bits in an address (32-bit or 64-bit).
+
 END MODULE Constants

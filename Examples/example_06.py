@@ -83,14 +83,13 @@ else:
 
 # Run OpenFAST
 # --- May need to change fastcall if you use a non-standard command to call openfast
-fastcall = 'openfast'
+fastcall = r'C:\Users\reddingiusa\OneDrive - NOV Inc\Documents\GitHub\openfast_x64.exe'
 run_openfast(
   os.path.join(this_dir,path_params['FAST_directory']),
   fastcall=fastcall, 
   fastfile=path_params['FAST_InputFile'], 
   chdir=True
   )
-
 
 
 

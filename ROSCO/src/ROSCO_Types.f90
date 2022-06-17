@@ -225,6 +225,8 @@ TYPE, PUBLIC :: LocalVariables
     REAL(DbKi)                    :: VS_MaxTq                    ! Maximum allowable generator torque [Nm].
     REAL(DbKi)                    :: VS_LastGenTrq               ! Commanded electrical generator torque the last time the controller was called [Nm].
     REAL(DbKi)                    :: VS_LastGenPwr               ! Commanded electrical generator torque the last time the controller was called [Nm].
+    REAL(DbKi)                    :: VS_KP                       ! Proportional gain in the variable speed generator torque PI controller [-].
+    REAL(DbKi)                    :: VS_KI                       ! Integral gain in the variable speed generator torque PI controller [-].
     REAL(DbKi)                    :: VS_MechGenPwr               ! Mechanical power on the generator axis [W]
     REAL(DbKi)                    :: VS_SpdErrAr                 ! Current speed error for region 2.5 PI controller (generator torque control) [rad/s].
     REAL(DbKi)                    :: VS_SpdErrBr                 ! Current speed error for region 1.5 PI controller (generator torque control) [rad/s].

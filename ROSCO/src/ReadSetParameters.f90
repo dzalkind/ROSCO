@@ -185,6 +185,7 @@ CONTAINS
             ENDIF            
             LocalVar%VS_LastGenTrq = LocalVar%GenTq       
             LocalVar%VS_MaxTq      = CntrPar%VS_MaxTq
+
             
             ! Check validity of input parameters:
             CALL CheckInputs(LocalVar, CntrPar, avrSWAP, ErrVar, size_avcMSG)

@@ -175,16 +175,15 @@ CONTAINS
 
             IF (CntrPar%Twr_ControlMode == 1) THEN
 
-               ! IF ((LocalVar%RotSpeed > CntrPar%Twr_ExclSpeed - CntrPar%Twr_ExclBand) .AND. (LocalVar%RotSpeed < CntrPar%Twr_ExclSpeed + CntrPar%Twr_ExclBand)) .AND. ((LocalVar%VS_KP==CntrPar%VS_KP) .OR. (LocalVar%KI==CntrPar%VS_KI)) THEN
                     IF ((LocalVar%RotSpeed > CntrPar%Twr_ExclSpeed - CntrPar%Twr_ExclBand) .AND. (LocalVar%RotSpeed < CntrPar%Twr_ExclSpeed + CntrPar%Twr_ExclBand)) THEN !in exclusion zone
 
-                    LocalVar%GenTq = PIController(LocalVar%VS_SpdErr, CntrPar%FA_KP, CntrPar%FA_KI, CntrPar%VS_MinTq, LocalVar%VS_MaxTq, LocalVar%DT, LocalVar%VS_LastGenTrq, LocalVar%piP, LocalVar%restart, objInst%instPI)
-                    LocalVar%GenTq = saturate(LocalVar%GenTq, CntrPar%VS_MinTq, LocalVar%VS_MaxTq)
+                        LocalVar%GenTq = PIController(LocalVar%VS_SpdErr, CntrPar%FA_KP, CntrPar%FA_KI, CntrPar%VS_MinTq, LocalVar%VS_MaxTq, LocalVar%DT, LocalVar%VS_LastGenTrq, LocalVar%piP, LocalVar%restart, objInst%instPI)
+                        LocalVar%GenTq = saturate(LocalVar%GenTq, CntrPar%VS_MinTq, LocalVar%VS_MaxTq)
 
-                ELSEIF ((LocalVar%RotSpeed < CntrPar%Twr_ExclSpeed - CntrPar%Twr_ExclBand) .OR. (LocalVar%RotSpeed > CntrPar%Twr_ExclSpeed + CntrPar%Twr_ExclBand)) THEN !not in exclusion band
+                    ELSEIF ((LocalVar%RotSpeed < CntrPar%Twr_ExclSpeed - CntrPar%Twr_ExclBand) .OR. (LocalVar%RotSpeed > CntrPar%Twr_ExclSpeed + CntrPar%Twr_ExclBand)) THEN !not in exclusion band
                    
-                    LocalVar%GenTq = PIController(LocalVar%VS_SpdErr, CntrPar%VS_KP(1), CntrPar%VS_KI(1), CntrPar%VS_MinTq, LocalVar%VS_MaxTq, LocalVar%DT, LocalVar%VS_LastGenTrq, LocalVar%piP, LocalVar%restart, objInst%instPI)
-                    LocalVar%GenTq = saturate(LocalVar%GenTq, CntrPar%VS_MinTq, LocalVar%VS_MaxTq)
+                        LocalVar%GenTq = PIController(LocalVar%VS_SpdErr, CntrPar%VS_KP(1), CntrPar%VS_KI(1), CntrPar%VS_MinTq, LocalVar%VS_MaxTq, LocalVar%DT, LocalVar%VS_LastGenTrq, LocalVar%piP, LocalVar%restart, objInst%instPI)
+                        LocalVar%GenTq = saturate(LocalVar%GenTq, CntrPar%VS_MinTq, LocalVar%VS_MaxTq)
 
                 END IF
 

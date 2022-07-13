@@ -173,27 +173,23 @@ CONTAINS
             END IF
             
 
-            IF (CntrPar%Twr_ControlMode == 1) THEN
+            IF ((CntrPar%Twr_ControlMode == 1) .AND. ((LocalVar%RotSpeed > CntrPar%Twr_ExclSpeed - CntrPar%Twr_ExclBand) .AND. (LocalVar%RotSpeed < CntrPar%Twr_ExclSpeed + CntrPar%Twr_ExclBand))) THEN
 
-                    IF ((LocalVar%RotSpeed > CntrPar%Twr_ExclSpeed - CntrPar%Twr_ExclBand) .AND. (LocalVar%RotSpeed < CntrPar%Twr_ExclSpeed + CntrPar%Twr_ExclBand)) THEN !in exclusion zone
+                ! In the resonance bridging zone. Set gains
 
-                        LocalVar%GenTq = PIController(LocalVar%VS_SpdErr, CntrPar%FA_KP, CntrPar%FA_KI, CntrPar%VS_MinTq, LocalVar%VS_MaxTq, LocalVar%DT, LocalVar%VS_LastGenTrq, LocalVar%piP, LocalVar%restart, objInst%instPI)
-                        LocalVar%GenTq = saturate(LocalVar%GenTq, CntrPar%VS_MinTq, LocalVar%VS_MaxTq)
-
-                    ELSEIF ((LocalVar%RotSpeed < CntrPar%Twr_ExclSpeed - CntrPar%Twr_ExclBand) .OR. (LocalVar%RotSpeed > CntrPar%Twr_ExclSpeed + CntrPar%Twr_ExclBand)) THEN !not in exclusion band
-                   
-                        LocalVar%GenTq = PIController(LocalVar%VS_SpdErr, CntrPar%VS_KP(1), CntrPar%VS_KI(1), CntrPar%VS_MinTq, LocalVar%VS_MaxTq, LocalVar%DT, LocalVar%VS_LastGenTrq, LocalVar%piP, LocalVar%restart, objInst%instPI)
-                        LocalVar%GenTq = saturate(LocalVar%GenTq, CntrPar%VS_MinTq, LocalVar%VS_MaxTq)
-
-                END IF
+                CntrPar%temp_KI = CntrPar%FA_KI
+                CntrPar%temp_KP = CntrPar%FA_KP
 
             ELSE
-                ! PI controller
-                LocalVar%GenTq = PIController(LocalVar%VS_SpdErr, CntrPar%VS_KP(1), CntrPar%VS_KI(1), CntrPar%VS_MinTq, LocalVar%VS_MaxTq, LocalVar%DT, LocalVar%VS_LastGenTrq, LocalVar%piP, LocalVar%restart, objInst%instPI)
-                LocalVar%GenTq = saturate(LocalVar%GenTq, CntrPar%VS_MinTq, LocalVar%VS_MaxTq)
+                CntrPar%temp_KI = CntrPar%VS_KI(1)
+                CntrPar%temp_KP = CntrPar%VS_KP(1)
+
+
             END IF
 
-            
+                ! PI controller
+                LocalVar%GenTq = PIController(LocalVar%VS_SpdErr, CntrPar%temp_KP, CntrPar%temp_KI, CntrPar%VS_MinTq, LocalVar%VS_MaxTq, LocalVar%DT, LocalVar%VS_LastGenTrq, LocalVar%piP, LocalVar%restart, objInst%instPI)
+                LocalVar%GenTq = saturate(LocalVar%GenTq, CntrPar%VS_MinTq, LocalVar%VS_MaxTq)
 
         
         ! K*Omega^2 control law with PI torque control in transition regions

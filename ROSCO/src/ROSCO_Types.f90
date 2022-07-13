@@ -47,6 +47,8 @@ TYPE, PUBLIC :: ControlParameters
     REAL(DbKi)                    :: PC_RefSpd                   ! Desired (reference) HSS speed for pitch controller, [rad/s].
     REAL(DbKi)                    :: PC_FinePit                  ! Record 5 - Below-rated pitch angle set-point (deg) [used only with Bladed Interface]
     REAL(DbKi)                    :: PC_Switch                   ! Angle above lowest minimum pitch angle for switch [rad]
+    REAL(DbKi)                    :: temp_KI                     ! Temporary integral gain for VS controller, can switch between TSR tracking and resonance bridging
+    REAL(DbKi)                    :: temp_KP                     ! Temporary proportional gain for VS controller, can switch between TSR tracking and resonance bridging
     INTEGER(IntKi)                :: VS_ControlMode              ! Generator torque control mode in above rated conditions {0 - constant torque, 1 - constant power, 2 - TSR Tracking, 3 - TSR Tracking w/ const power}
     REAL(DbKi)                    :: VS_GenEff                   ! Generator efficiency mechanical power -> electrical power [-]
     REAL(DbKi)                    :: VS_ArSatTq                  ! Above rated generator torque PI control saturation, [Nm] -- 212900

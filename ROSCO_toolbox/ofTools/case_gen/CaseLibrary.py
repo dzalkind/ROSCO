@@ -429,12 +429,12 @@ def sweep_ipc_gains(start_group, **control_sweep_opts):
     # kis = [0.,0.6,1.2,1.8,2.4,3.]
     KIs = [[ki * 1e-9,0.] for ki in kis]
 
-    az_offset = np.radians(np.arange(0,60,10)).tolist()
+    az_offset = np.radians(np.arange(0,-60,-10)).tolist()
     az_offset = [[ao, 0.] for ao in az_offset]
     case_inputs_control[('DISCON_in','IPC_ControlMode')] = {'vals': [1], 'group': 0}
     case_inputs_control[('DISCON_in','IPC_KI')] = {'vals': [[8e-11,0]], 'group': 0}
     # case_inputs_control[('DISCON_in','IPC_KP')] = {'vals': KIs, 'group': start_group}
-    case_inputs_control[('DISCON_in','IPC_aziOffset')] = {'vals': [[0.0,0]], 'group': 0}
+    case_inputs_control[('DISCON_in','IPC_aziOffset')] = {'vals': az_offset, 'group': start_group}
     case_inputs_control[('DISCON_in','IPC_IntSat')] = {'vals': [0.2618], 'group': 0}
     # case_inputs_control[('DISCON_in','IPC_SatMode')] = {'vals': [0,1,2], 'group': start_group}
 
@@ -463,7 +463,7 @@ def sweep_ps_percent(start_group, **control_sweep_opts):
         case_inputs_control = {}
         
         # Set sweep limits here
-        ps_perc = np.linspace(.7,1,num=8,endpoint=True).tolist()
+        ps_perc = np.linspace(.6,1,num=8,endpoint=True).tolist()
         
         # load default params          
         control_param_yaml  = control_sweep_opts['tuning_yaml']

@@ -222,18 +222,18 @@ if __name__ == "__main__":
     elif sim_config == 8:
 
         # RAAW IPC set up
-        r.tuning_yaml   = '/Users/dzalkind/Tools/ROSCO/Tune_Cases/IEA15MW_IPC.yaml'
+        r.tuning_yaml   = '/Users/dzalkind/Projects/Esteyco/esteyco_models/ROSCO/IEA15MW-WHEEL_10-rosco.yaml'
         r.wind_case_fcn = cl.power_curve
         r.wind_case_fcn = cl.turb_bts
         r.wind_case_opts    = {
             'TMax': 720,
-            'wind_filenames': ['/Users/dzalkind/Downloads/IEA15_0_1ETM_U9.000000_Seed2037706757.0.bts']
+            'wind_filenames': ['/Users/dzalkind/Downloads/IEA15_0_NTM_U10.600000_Seed492064534.0.bts']
             }
         # r.wind_case_opts    = {
         #     'U': [16],
         #     }
-        r.save_dir      = '/Users/dzalkind/Tools/ROSCO/outputs/IPC_aziOffset'
-        r.control_sweep_fcn = cl.sweep_ipc_gains
+        r.save_dir      = '/Users/dzalkind/Tools/ROSCO/outputs/WHEEL_PS'
+        r.control_sweep_fcn = cl.sweep_ps_percent
         r.n_cores = 6
 
     elif sim_config == 9:

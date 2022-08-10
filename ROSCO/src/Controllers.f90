@@ -184,15 +184,33 @@ CONTAINS
         ENDIF
 
         ! Optimal Tip-Speed-Ratio tracking controller
+
         IF ((CntrPar%VS_ControlMode == 2) .OR. (CntrPar%VS_ControlMode == 3)) THEN
+
             ! Constant Power, update VS_MaxTq
             IF (CntrPar%VS_ControlMode == 3) THEN
                 LocalVar%VS_MaxTq = min((CntrPar%VS_RtPwr/(CntrPar%VS_GenEff/100.0))/LocalVar%GenSpeedF, CntrPar%VS_MaxTq)
             END IF
+            
 
-            ! PI controller
-            LocalVar%GenTq = PIController(LocalVar%VS_SpdErr, CntrPar%VS_KP(1), CntrPar%VS_KI(1), CntrPar%VS_MinTq, LocalVar%VS_MaxTq, LocalVar%DT, LocalVar%VS_LastGenTrq, LocalVar%piP, LocalVar%restart, objInst%instPI)
-            LocalVar%GenTq = saturate(LocalVar%GenTq, CntrPar%VS_MinTq, LocalVar%VS_MaxTq)
+            IF ((CntrPar%Twr_ControlMode == 1) .AND. ((LocalVar%RotSpeed > CntrPar%Twr_ExclSpeed - CntrPar%Twr_ExclBand) .AND. (LocalVar%RotSpeed < CntrPar%Twr_ExclSpeed + CntrPar%Twr_ExclBand))) THEN
+
+                ! In the resonance bridging zone. Set gains
+
+                CntrPar%temp_KI = CntrPar%FA_KI
+                CntrPar%temp_KP = CntrPar%FA_KP
+
+            ELSE
+                CntrPar%temp_KI = CntrPar%VS_KI(1)
+                CntrPar%temp_KP = CntrPar%VS_KP(1)
+
+
+            END IF
+
+                ! PI controller
+                LocalVar%GenTq = PIController(LocalVar%VS_SpdErr, CntrPar%temp_KP, CntrPar%temp_KI, CntrPar%VS_MinTq, LocalVar%VS_MaxTq, LocalVar%DT, LocalVar%VS_LastGenTrq, LocalVar%piP, LocalVar%restart, objInst%instPI)
+                LocalVar%GenTq = saturate(LocalVar%GenTq, CntrPar%VS_MinTq, LocalVar%VS_MaxTq)
+
         
         ! K*Omega^2 control law with PI torque control in transition regions
         ELSE

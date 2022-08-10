@@ -27,6 +27,7 @@ TYPE, PUBLIC :: ControlParameters
     REAL(DbKi)                    :: FA_HPFCornerFreq            ! Corner frequency (-3dB point) in the high-pass filter on the fore-aft acceleration signal [rad/s]
     REAL(DbKi)                    :: FA_IntSat                   ! Integrator saturation (maximum signal amplitude contrbution to pitch from FA damper), [rad]
     REAL(DbKi)                    :: FA_KI                       ! Integral gain for the fore-aft tower damper controller, -1 = off / >0 = on [rad s/m]
+    REAL(DbKi)                    :: FA_KP                       ! Proportional gain for the fore-aft tower damper controller, -1 = off / >0 = on [rad s/m]
     INTEGER(IntKi)                :: IPC_ControlMode             ! Turn Individual Pitch Control (IPC) for fatigue load reductions (pitch contribution) {0 - off, 1 - 1P reductions, 2 - 1P+2P reductions}
     REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: IPC_Vramp                   ! Wind speeds for IPC cut-in sigma function [m/s]
     REAL(DbKi)                    :: IPC_IntSat                  ! Integrator saturation (maximum signal amplitude contrbution to pitch from IPC)
@@ -48,6 +49,8 @@ TYPE, PUBLIC :: ControlParameters
     REAL(DbKi)                    :: PC_RefSpd                   ! Desired (reference) HSS speed for pitch controller, [rad/s].
     REAL(DbKi)                    :: PC_FinePit                  ! Record 5 - Below-rated pitch angle set-point (deg) [used only with Bladed Interface]
     REAL(DbKi)                    :: PC_Switch                   ! Angle above lowest minimum pitch angle for switch [rad]
+    REAL(DbKi)                    :: temp_KI                     ! Temporary integral gain for VS controller, can switch between TSR tracking and resonance bridging
+    REAL(DbKi)                    :: temp_KP                     ! Temporary proportional gain for VS controller, can switch between TSR tracking and resonance bridging
     INTEGER(IntKi)                :: VS_ControlMode              ! Generator torque control mode in above rated conditions {0 - constant torque, 1 - constant power, 2 - TSR Tracking, 3 - TSR Tracking w/ const power}
     REAL(DbKi)                    :: VS_GenEff                   ! Generator efficiency mechanical power -> electrical power [-]
     REAL(DbKi)                    :: VS_ArSatTq                  ! Above rated generator torque PI control saturation, [Nm] -- 212900
@@ -236,6 +239,8 @@ TYPE, PUBLIC :: LocalVariables
     REAL(DbKi)                    :: VS_MaxTq                    ! Maximum allowable generator torque [Nm].
     REAL(DbKi)                    :: VS_LastGenTrq               ! Commanded electrical generator torque the last time the controller was called [Nm].
     REAL(DbKi)                    :: VS_LastGenPwr               ! Commanded electrical generator torque the last time the controller was called [Nm].
+    REAL(DbKi)                    :: VS_KP                       ! Proportional gain in the variable speed generator torque PI controller [-].
+    REAL(DbKi)                    :: VS_KI                       ! Integral gain in the variable speed generator torque PI controller [-].
     REAL(DbKi)                    :: VS_MechGenPwr               ! Mechanical power on the generator axis [W]
     REAL(DbKi)                    :: VS_SpdErrAr                 ! Current speed error for region 2.5 PI controller (generator torque control) [rad/s].
     REAL(DbKi)                    :: VS_SpdErrBr                 ! Current speed error for region 1.5 PI controller (generator torque control) [rad/s].

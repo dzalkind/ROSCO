@@ -169,6 +169,7 @@ CONTAINS
             ENDIF            
             LocalVar%VS_LastGenTrq = LocalVar%GenTq       
             LocalVar%VS_MaxTq      = CntrPar%VS_MaxTq
+
             
             ! Check validity of input parameters:
             CALL CheckInputs(LocalVar, CntrPar, avrSWAP, ErrVar, size_avcMSG)
@@ -348,6 +349,8 @@ CONTAINS
         CALL ParseInput(UnControllerParameters,CurLine,'Twr_ExclSpeed',accINFILE(1),CntrPar%Twr_ExclSpeed,ErrVar)
         CALL ParseInput(UnControllerParameters,CurLine,'Twr_ExclBand',accINFILE(1),CntrPar%Twr_ExclBand,ErrVar)
         CALL ParseInput(UnControllerParameters,CurLine,'FA_KI',accINFILE(1),CntrPar%FA_KI,ErrVar)
+		CALL ParseInput(UnControllerParameters,CurLine,'FA_KP',accINFILE(1),CntrPar%FA_KP,ErrVar)
+
         ! Don't check this name until we make an API change
         CALL ParseInput(UnControllerParameters,CurLine,'FA_HPFCornerFreq',accINFILE(1),CntrPar%FA_HPFCornerFreq,ErrVar,.FALSE.)
         CALL ParseInput(UnControllerParameters,CurLine,'FA_IntSat',accINFILE(1),CntrPar%FA_IntSat,ErrVar)

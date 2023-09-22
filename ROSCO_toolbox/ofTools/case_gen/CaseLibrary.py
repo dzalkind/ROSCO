@@ -140,9 +140,7 @@ def power_curve(**wind_case_opts):
         # Run conditions
         U = np.arange(4,14.5,.5).tolist()
         U = np.linspace(3,25,num=16)
-
-    if 'T_max' in wind_case_opts:
-        T_max = wind_case_opts['T_max']
+        U = [6]
 
 
     case_inputs = base_op_case()

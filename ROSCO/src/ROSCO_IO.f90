@@ -29,6 +29,7 @@ SUBROUTINE WriteRestartFile(LocalVar, CntrPar, ErrVar, objInst, RootName, size_a
     WRITE(n_t_global, '(I0.0)' ) NINT(LocalVar%Time/LocalVar%DT)
     InFile = TRIM(RootName)//TRIM( n_t_global )//'.RO.chkp'
     CALL GetNewUnit(Un, ErrVar)
+    WRITE(400,*) Un
     OPEN(unit=Un, FILE=TRIM(InFile), STATUS='UNKNOWN', FORM='UNFORMATTED' , ACCESS='STREAM', IOSTAT=ErrStat, ACTION='WRITE' )
 
     IF ( ErrStat /= 0 ) THEN

@@ -284,6 +284,21 @@ if __name__ == "__main__":
 
         # FOCAL rated wind speed tuning
         r.tuning_yaml   = 'IEA15MW.yaml'
+        r.wind_case_fcn     = cl.power_curve
+        r.wind_case_opts    = {
+            'TMax': 20,
+            # 'U_end': [9],
+            }
+        r.save_dir      = '/Users/dzalkind/Tools/ROSCO1/outputs/FileUnit_Issue/0_setup'
+        r.n_cores = 1
+        r.case_inputs = {}
+        r.case_inputs[('Fst','ChkptTime')] = {'vals': [0.0125], 'group': 0}
+        r.openfast_exe = '/Users/dzalkind/opt/anaconda3/envs/rosco-env/bin/openfast'
+
+    elif sim_config == 9:
+
+        # Test file unit issue by writing a checkpoint at each timestep
+        r.tuning_yaml   = 'IEA15MW.yaml'
         r.wind_case_fcn     = cl.simp_step
         r.wind_case_opts    = {
             'U_start': [7],

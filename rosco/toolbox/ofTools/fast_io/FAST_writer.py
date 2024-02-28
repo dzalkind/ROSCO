@@ -1411,12 +1411,12 @@ class InputWriter_OpenFAST(object):
         self.fst_vt['DISCON_in']['PerfFileName'] = self.FAST_namingOut + '_Cp_Ct_Cq.txt'
         
         # Write DISCON input files
-        ROSCO_utilities.write_rotor_performance(
+        write_rotor_performance(
             turbine, 
             txt_filename=os.path.join(self.FAST_runDirectory, self.fst_vt['DISCON_in']['PerfFileName'])
             )
         
-        ROSCO_utilities.write_DISCON(
+        write_DISCON(
             turbine,
             controller,
             param_file=discon_in_file, 

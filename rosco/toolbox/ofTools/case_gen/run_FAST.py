@@ -59,6 +59,8 @@ class run_FAST_ROSCO():
         self.controller_params  = {}   
         self.fst_vt             = {}   
         self.openfast_exe       = 'openfast'
+        self.FAST_InputFile     = None
+        self.FAST_directory     = None
 
         # Directories
         self.tune_case_dir  = ''
@@ -110,6 +112,13 @@ class run_FAST_ROSCO():
         controller      = ROSCO_controller.Controller(controller_params)
 
         # Load turbine data from OpenFAST and rotor performance text file
+        # Overwrite input file if provided by user
+        if self.FAST_InputFile:
+            path_params['FAST_InputFile'] = self.FAST_InputFile
+
+        if self.FAST_directory:
+            path_params['FAST_directory'] = self.FAST_directory
+            
         tune_yaml_dir = os.path.split(self.tuning_yaml)[0]
         cp_filename = os.path.join(
             tune_yaml_dir,

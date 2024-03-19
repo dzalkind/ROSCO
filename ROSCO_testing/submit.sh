@@ -3,7 +3,7 @@
 #SBATCH --time=1:00:00
 #SBATCH --job-name=rosco_test
 #SBATCH --nodes=1             # This should be nC/36 (36 cores on eagle)
-#SBATCH --ntasks-per-node=36
+#SBATCH --ntasks-per-node=100
 #SBATCH --mail-user dzalkind@nrel.gov
 #SBATCH --mail-type BEGIN,END,FAIL
 #SBATCH --output=output.%j.out
@@ -24,5 +24,9 @@ source activate /home/dzalkind/.conda-envs/rosco-env
 # module load comp-intel intel-mpi mkl
 
 
-mpirun -n 36 python run_Testing.py
+# mpirun -n 40 python run_Testing.py
+
+# mpiexec -n $nC --bind-to core python run_Testing.py
+# mpiexec -n $nC python run_Testing.py 
+python run_Testing.py   # current winner for ROSCO runs
 #  python weis_driver.py

@@ -11,12 +11,13 @@ class FAST_wrapper(object):
         self.FAST_exe = None   # Path to executable
         self.FAST_InputFile = None   # FAST input file (ext=.fst)
         self.FAST_directory = None   # Path to fst directory files
+        self.write_stdout = False
 
         # Optional population class attributes from key word arguments
         for k, w in kwargs.items():
             try:
                 setattr(self, k, w)
-            except:
+            except Exception:
                 pass
 
         super(FAST_wrapper, self).__init__()
@@ -28,9 +29,8 @@ class FAST_wrapper(object):
         try:
             if platform.system()!='Windows' and self.FAST_exe[-4:]=='.exe':
                 self.FAST_exe = self.FAST_exe[:-4]
-        except:
+        except Exception:
             pass
-
         exec_str = []
         exec_str.append(self.FAST_exe)
         exec_str.append(self.FAST_InputFile)
@@ -42,7 +42,12 @@ class FAST_wrapper(object):
         start = time.time()
         while run_idx < 2:
             try:
-                subprocess.run(exec_str, check=True)
+                if self.write_stdout:
+                    print(f'Running {" ".join(exec_str)}')
+                    with open(self.input_file.replace('.fst','.stdOut'), "w") as f:
+                        subprocess.run(exec_str,stdout=f, stderr=subprocess.STDOUT, check=True)
+                else:
+                    subprocess.run(exec_str, check=True)
                 failed = False
                 run_idx = 2
             except subprocess.CalledProcessError as e:

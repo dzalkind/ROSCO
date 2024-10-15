@@ -1150,6 +1150,40 @@ properties:
                         type: number
                         description: Integer identifier of turbine
                         default: 0
+                    StC_F_FiltFreq:
+                        type: number
+                        description: Frequency of 1st order LPF filter on pitch/roll motion
+                        default: 0.01
+                    StC_F_PID:
+                        type: array
+                        items:
+                            type: number
+                        description: PID gains of controller from pitch/roll to force
+                        default: [0,0,0]
+                    StC_F_Lims:
+                        type: array
+                        items:
+                            type: number
+                        description: Min and max force at each leg
+                        default: [-1,1]
+                    StC_F_Rates:
+                        type: array
+                        items:
+                            type: number
+                        description: Min and max force rates (at each leg?)
+                        default: [-1,1]
+                    StC_T_Roll:
+                        type: array
+                        items:
+                            type: number
+                        description: Transformation from F_Roll (output of PID control) to StC_Force (length should match StC_Group_N), will be normalized to max of 1, must sum to 0
+                        default: [0,0,0,0,0,0]
+                    StC_T_Pitch:
+                        type: array
+                        items:
+                            type: number
+                        description: Transformation from F_Pitch (output of PID control) to StC_Force (length should match StC_Group_N), will be normalized to max of 1, must sum to 0
+                        default: [0,0,0,0,0,0]
 
     linmodel_tuning:
         type: object

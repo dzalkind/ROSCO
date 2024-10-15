@@ -825,6 +825,11 @@ SUBROUTINE StructuralControl(avrSWAP, CntrPar, LocalVar, objInst, ErrVar)
         TYPE(ObjectInstances), INTENT(INOUT)      :: objInst
         TYPE(ErrorVariables), INTENT(INOUT)      :: ErrVar
 
+        REAL(DbKi), DIMENSION(6,2)         :: T      ! Transformation from pitch/roll to 6 legs
+        REAL(DbKi), DIMENSION(2,1)         :: Inp      ! Transformation from pitch/roll to 6 legs
+        REAL(DbKi), DIMENSION(6,1)         :: F_Out      ! Transformation from pitch/roll to 6 legs
+
+
         
         ! Internal Variables
         Integer(IntKi)                            :: I_GROUP
@@ -833,15 +838,32 @@ SUBROUTINE StructuralControl(avrSWAP, CntrPar, LocalVar, objInst, ErrVar)
 
 
         IF (CntrPar%StC_Mode == 1) THEN
-            ! User defined control, step example
+            ! Ballast control
 
-            IF (LocalVar%Time > 500) THEN
-                ! Step change in input of -4500 N
-                LocalVar%StC_Input(1) = -1.234e+06
-                LocalVar%StC_Input(2) = 2.053e+06
-                LocalVar%StC_Input(3) = -7.795e+05
+            ! Filter pitch and roll offsets
+            LocalVar%PtfmRDX_F  = LPFilter(LocalVar%PtfmRDX, LocalVar%DT, CntrPar%StC_F_FiltFreq, LocalVar%FP, LocalVar%iStatus, LocalVar%restart, objInst%instLPF)  ! roll
+            LocalVar%PtfmRDY_F  = LPFilter(LocalVar%PtfmRDY, LocalVar%DT, CntrPar%StC_F_FiltFreq, LocalVar%FP, LocalVar%iStatus, LocalVar%restart, objInst%instLPF)  ! pitch
 
-            END IF
+            ! Pitch and roll force commands
+
+            ! PIDController(error, kp, ki, kd, tf, minValue, maxValue, DT, I0, piP, reset, objInst, LocalVar)
+
+            LocalVar%Force_Roll = PIDController(LocalVar%PtfmRDX_F, CntrPar%StC_F_PID(1), CntrPar%StC_F_PID(2), CntrPar%StC_F_PID(3), 100.0_DbKi, CntrPar%StC_F_Lims(1), CntrPar%StC_F_Lims(2), LocalVar%DT, 0.0, LocalVar%piP, LocalVar%restart, objInst, LocalVar)
+            LocalVar%Force_Pitch = PIDController(LocalVar%PtfmRDY_F, CntrPar%StC_F_PID(1), CntrPar%StC_F_PID(2), CntrPar%StC_F_PID(3), 100.0_DbKi, CntrPar%StC_F_Lims(1), CntrPar%StC_F_Lims(2), LocalVar%DT, 0.0, LocalVar%piP, LocalVar%restart, objInst, LocalVar)
+
+            T = RESHAPE((/CntrPar%StC_T_Roll, CntrPar%StC_T_Pitch/),(/6,2/))
+            ! T = RESHAPE((/0.0, 0.0, 0.0, 0.0, -0.0, -0.0, -1.0, -0.5, 0.5, 1.0, 0.5, -0.5/),(/6,2/))  ! 0 roll correction
+            Inp = RESHAPE( (/LocalVar%Force_Roll, LocalVar%Force_Pitch/) , (/2,1/))
+            F_Out = matmul(T,Inp)
+
+
+            ! WRITE(400,*) LocalVar%Time, LocalVar%PtfmRDX_F, LocalVar%PtfmRDY_F, F_Out
+
+            ! Assign to StC_Input
+            DO I_GROUP = 1,CntrPar%StC_Group_N
+                LocalVar%StC_Input(I_GROUP) = F_Out(I_GROUP,1)
+            END DO
+
 
 
         ELSEIF (CntrPar%StC_Mode == 2) THEN

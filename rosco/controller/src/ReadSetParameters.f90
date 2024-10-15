@@ -554,8 +554,15 @@ CONTAINS
         IF (ErrVar%aviFAIL < 0) RETURN
 
         !------------- StC Control ----- 
-        CALL ParseInput(FileLines,  'StC_Group_N',      CntrPar%StC_Group_N,                            accINFILE(1), ErrVar, CntrPar%StC_Mode == 0, UnEc)
-        CALL ParseAry(  FileLines,  'StC_GroupIndex',   CntrPar%StC_GroupIndex, CntrPar%StC_Group_N,    accINFILE(1), ErrVar, CntrPar%StC_Mode == 0, UnEc)
+        CALL ParseInput(FileLines,  'StC_Group_N',      CntrPar%StC_Group_N,                                accINFILE(1), ErrVar, CntrPar%StC_Mode == 0, UnEc)
+        CALL ParseAry(  FileLines,  'StC_GroupIndex',   CntrPar%StC_GroupIndex,     CntrPar%StC_Group_N,    accINFILE(1), ErrVar, CntrPar%StC_Mode == 0, UnEc)
+        CALL ParseInput(FileLines, 'StC_F_FiltFreq',    CntrPar%StC_F_FiltFreq,                             accINFILE(1), ErrVar, CntrPar%StC_Mode .NE. 1, UnEc)
+        CALL ParseAry(FileLines, 'StC_F_PID',           CntrPar%StC_F_PID,          3,                      accINFILE(1), ErrVar, CntrPar%StC_Mode .NE. 1, UnEc)
+        CALL ParseAry(FileLines, 'StC_F_Lims',          CntrPar%StC_F_Lims,         2,                      accINFILE(1), ErrVar, CntrPar%StC_Mode .NE. 1, UnEc)
+        CALL ParseAry(FileLines, 'StC_F_Rates',         CntrPar%StC_F_Rates,        2,                      accINFILE(1), ErrVar, CntrPar%StC_Mode .NE. 1, UnEc)
+        CALL ParseAry(FileLines, 'StC_T_Roll',          CntrPar%StC_T_Roll,         CntrPar%StC_Group_N,    accINFILE(1), ErrVar, CntrPar%StC_Mode .NE. 1, UnEc)
+        CALL ParseAry(FileLines, 'StC_T_Pitch',         CntrPar%StC_T_Pitch,        CntrPar%StC_Group_N,    accINFILE(1), ErrVar, CntrPar%StC_Mode .NE. 1, UnEc)
+        
         IF (ErrVar%aviFAIL < 0) RETURN
 
         ! Open loop cable, structural control, needs number of groups
@@ -1461,6 +1468,17 @@ CONTAINS
                     ErrVar%ErrMsg = 'StC_GroupIndices must be greater than 2801.'        !< Starting index for the cable control
                 END IF
             END DO
+
+            IF (ABS(SUM(CntrPar%StC_T_Roll)) > 1e-4) THEN
+                ErrVar%aviFAIL = -1
+                    ErrVar%ErrMsg = 'StC_T_Roll must sum to 0.'   
+            END IF
+
+            IF (ABS(SUM(CntrPar%StC_T_Pitch)) > 1e-4) THEN
+                ErrVar%aviFAIL = -1
+                    ErrVar%ErrMsg = 'StC_T_Pitch must sum to 0.'   
+            END IF
+
         END IF
 
         ! Check that open loop control active if using open loop cable/struct control

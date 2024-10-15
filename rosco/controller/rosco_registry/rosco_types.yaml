@@ -669,6 +669,31 @@ ControlParameters:
       description: Cable control group indices
       allocatable: True
 
+    StC_F_FiltFreq:
+      <<: *real
+      description: Frequency of 1st order LPF filter on pitch/roll motion
+    StC_F_PID:
+      <<: *real
+      description: PID gains of controller from pitch/roll to force
+      allocatable: True
+    StC_F_Lims:
+      <<: *real
+      description: Min and max force at each leg
+      allocatable: True
+    StC_F_Rates:
+      <<: *real
+      description: Min and max force rates (at each leg?)
+      allocatable: True
+    StC_T_Roll:
+      <<: *real
+      description: Transformation from F_Roll (output of PID control) to StC_Force (length should match StC_Group_N), will be normalized to max of 1, must sum to 0
+      allocatable: True
+    StC_T_Pitch:
+      <<: *real
+      description: Transformation from F_Pitch (output of PID control) to StC_Force (length should match StC_Group_N), will be normalized to max of 1, must sum to 0
+      allocatable: True
+
+
     # Calculated
     PC_RtTq99:
       <<: *real
@@ -1275,6 +1300,18 @@ LocalVariables:
     PtfmRAZ:
       <<: *real
       description: Platform motion -- Acceleration RAZ (rad/s^2)')
+    PtfmRDX_F:
+      <<: *real
+      description: Filtered Platform motion -- Displacement RDX (rad)')
+    PtfmRDY_F:
+      <<: *real
+      description: Filtered Platform motion -- Displacement RDY (rad)')
+    Force_Pitch:
+      <<: *real
+      description: Force to pitch the rotor back to even keel
+    Force_Roll:
+      <<: *real
+      description: Force to roll the rotor back to even keel
     CC_DesiredL:
       <<: *real
       size: 12

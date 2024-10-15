@@ -288,6 +288,14 @@ def write_DISCON(turbine, controller, param_file='DISCON.IN', txt_filename='Cp_C
     file.write('!------- Structural Controllers ---------------------------------------------------------\n')
     file.write('{:<11d}         ! StC_Group_N       - {}\n'.format(len(rosco_vt['StC_GroupIndex']), input_descriptions['StC_Group_N']))
     file.write('{:^11s}        ! StC_GroupIndex    - {}\n'.format(write_array(rosco_vt['StC_GroupIndex'],'<6d'), input_descriptions['StC_GroupIndex']))
+    file.write('{:<11f}     ! StC_F_FiltFreq  - {}\n'.format(float(rosco_vt['StC_F_FiltFreq']), input_descriptions['StC_F_FiltFreq']))
+    file.write('{:<11s}     ! StC_F_PID -   {}\n'.format(write_array(rosco_vt['StC_F_PID'], '<6e'), input_descriptions['StC_F_PID']))
+    file.write('{:<11s}     ! StC_F_Lims -  {}\n'.format(write_array(rosco_vt['StC_F_Lims'], '<6e'), input_descriptions['StC_F_Lims']))
+    file.write('{:<11s}     ! StC_F_Rates - {}\n'.format(write_array(rosco_vt['StC_F_Rates'], '<6e'), input_descriptions['StC_F_Rates']))
+    file.write('{:<11s}     ! StC_T_Roll -  {}\n'.format(write_array(rosco_vt['StC_T_Roll'], '<6f'), input_descriptions['StC_T_Roll']))
+    file.write('{:<11s}     ! StC_T_Pitch - {}\n'.format(write_array(rosco_vt['StC_T_Pitch'], '<6f'), input_descriptions['StC_T_Pitch']))
+
+
     
     file.close()
 

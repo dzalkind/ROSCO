@@ -846,13 +846,17 @@ SUBROUTINE StructuralControl(avrSWAP, CntrPar, LocalVar, objInst, ErrVar)
 
             ! Pitch and roll force commands
 
-            LocalVar%Force_Roll = PIDController(LocalVar%PtfmRDX_F, CntrPar%StC_F_PID(1), CntrPar%StC_F_PID(2), CntrPar%StC_F_PID(3), 100.0_DbKi, CntrPar%StC_F_Lims(1), CntrPar%StC_F_Lims(2), LocalVar%DT, 0.0, LocalVar%piP, LocalVar%restart, objInst, LocalVar)
-            LocalVar%Force_Pitch = PIDController(LocalVar%PtfmRDY_F, CntrPar%StC_F_PID(1), CntrPar%StC_F_PID(2), CntrPar%StC_F_PID(3), 100.0_DbKi, CntrPar%StC_F_Lims(1), CntrPar%StC_F_Lims(2), LocalVar%DT, 0.0, LocalVar%piP, LocalVar%restart, objInst, LocalVar)
+            ! LocalVar%Force_Roll = PIDController(LocalVar%PtfmRDX_F, CntrPar%StC_F_PID(1), CntrPar%StC_F_PID(2), CntrPar%StC_F_PID(3), 100.0_DbKi, CntrPar%StC_F_Lims(1), CntrPar%StC_F_Lims(2), LocalVar%DT, 0.0, LocalVar%piP, LocalVar%restart, objInst, LocalVar)
+            ! LocalVar%Force_Pitch = PIDController(LocalVar%PtfmRDY_F, CntrPar%StC_F_PID(1), CntrPar%StC_F_PID(2), CntrPar%StC_F_PID(3), 100.0_DbKi, CntrPar%StC_F_Lims(1), CntrPar%StC_F_Lims(2), LocalVar%DT, 0.0, LocalVar%piP, LocalVar%restart, objInst, LocalVar)
+
+            LocalVar%Force_Roll = PIDControllerR(LocalVar%PtfmRDX_F, CntrPar%StC_F_PID(1), CntrPar%StC_F_PID(2), CntrPar%StC_F_PID(3), 100.0_DbKi, CntrPar%StC_F_Lims(1), CntrPar%StC_F_Lims(2), CntrPar%StC_F_Rates(1), CntrPar%StC_F_Rates(2), LocalVar%DT, 0.0, LocalVar%piP, LocalVar%restart, objInst, LocalVar)
+            LocalVar%Force_Pitch = PIDControllerR(LocalVar%PtfmRDY_F, CntrPar%StC_F_PID(1), CntrPar%StC_F_PID(2), CntrPar%StC_F_PID(3), 100.0_DbKi, CntrPar%StC_F_Lims(1), CntrPar%StC_F_Lims(2), CntrPar%StC_F_Rates(1), CntrPar%StC_F_Rates(2), LocalVar%DT, 0.0, LocalVar%piP, LocalVar%restart, objInst, LocalVar)
+
 
 
             ! Rate limit
-            LocalVar%Force_Roll = ratelimit(LocalVar%Force_Roll,CntrPar%StC_F_Rates(1),CntrPar%StC_F_Rates(2), LocalVar%DT, LocalVar%restart,LocalVar%rlP, objInst%instRL)
-            LocalVar%Force_Pitch = ratelimit(LocalVar%Force_Pitch,CntrPar%StC_F_Rates(1),CntrPar%StC_F_Rates(2), LocalVar%DT, LocalVar%restart,LocalVar%rlP, objInst%instRL)
+            ! LocalVar%Force_Roll = ratelimit(LocalVar%Force_Roll,CntrPar%StC_F_Rates(1),CntrPar%StC_F_Rates(2), LocalVar%DT, LocalVar%restart,LocalVar%rlP, objInst%instRL)
+            ! LocalVar%Force_Pitch = ratelimit(LocalVar%Force_Pitch,CntrPar%StC_F_Rates(1),CntrPar%StC_F_Rates(2), LocalVar%DT, LocalVar%restart,LocalVar%rlP, objInst%instRL)
 
             T = RESHAPE((/CntrPar%StC_T_Roll, CntrPar%StC_T_Pitch/),(/6,2/))
             Inp = RESHAPE( (/LocalVar%Force_Roll, LocalVar%Force_Pitch/) , (/2,1/))

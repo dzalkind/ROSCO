@@ -192,6 +192,69 @@ CONTAINS
     END FUNCTION PIDController
 
 !-------------------------------------------------------------------------------------------------------------------------------
+    REAL(DbKi) FUNCTION PIDControllerR(error, kp, ki, kd, tf, minValue, maxValue, minRate, maxRate, DT, I0, piP, reset, objInst, LocalVar)
+        USE ROSCO_Types, ONLY : piParams, LocalVariables, ObjectInstances
+
+    ! PI controller, with output saturation
+
+        IMPLICIT NONE
+        ! Allocate Inputs
+        REAL(DbKi),    INTENT(IN)         :: error
+        REAL(DbKi),    INTENT(IN)         :: kp
+        REAL(DbKi),    INTENT(IN)         :: ki
+        REAL(DbKi),    INTENT(IN)         :: kd
+        REAL(DbKi),    INTENT(IN)         :: tf
+        REAL(DbKi),    INTENT(IN)         :: minValue, minRate
+        REAL(DbKi),    INTENT(IN)         :: maxValue, maxRate
+        REAL(DbKi),    INTENT(IN)         :: DT
+        TYPE(ObjectInstances),      INTENT(INOUT)   :: objInst  ! all object instances (PI, filters used here)
+        TYPE(LocalVariables),       INTENT(INOUT)   :: LocalVar
+
+        REAL(DbKi),    INTENT(IN)           :: I0
+        TYPE(piParams), INTENT(INOUT)       :: piP
+        LOGICAL,    INTENT(IN)              :: reset     
+        
+        ! Allocate local variables
+        INTEGER(IntKi)                      :: i                                            ! Counter for making arrays
+        REAL(DbKi)                          :: PTerm, DTerm                                 ! Proportional, deriv. terms
+        REAL(DbKi)                          :: EFilt                    ! Filtered error for derivative
+        REAL(DbKi)                          :: Output                    ! Filtered error for derivative
+
+        ! Always filter error
+        EFilt = LPFilter(error, DT, tf, LocalVar%FP, LocalVar%iStatus, reset, objInst%instLPF)
+
+        ! Initialize persistent variables/arrays, and set inital condition for integrator term
+        IF (reset) THEN
+            piP%ITerm(objInst%instPI) = I0
+            piP%ITermLast(objInst%instPI) = I0
+            piP%ELast(objInst%instPI) = 0.0_DbKi
+            PIDControllerR = I0
+        ELSE
+            ! Proportional
+            PTerm = kp*error
+            
+            ! Integrate and saturate
+            piP%ITerm(objInst%instPI) = piP%ITerm(objInst%instPI) + DT*ki*error
+            piP%ITerm(objInst%instPI) = ratelimit(piP%ITerm(objInst%instPI),minRate, maxRate, DT, reset,LocalVar%rlP, objInst%instRL)
+            piP%ITerm(objInst%instPI) = saturate(piP%ITerm(objInst%instPI), minValue, maxValue)
+
+            ! Derivative (filtered)
+            DTerm = kd * (EFilt - piP%ELast(objInst%instPI)) / DT
+            
+            ! Saturate all
+            output = ratelimit(PTerm + piP%ITerm(objInst%instPI) + DTerm,minRate, maxRate, DT, reset,LocalVar%rlP, objInst%instRL)
+
+            PIDControllerR = saturate(output, minValue, maxValue)
+        
+            ! Save lasts
+            piP%ITermLast(objInst%instPI) = piP%ITerm(objInst%instPI)
+            piP%ELast(objInst%instPI) = EFilt
+        END IF
+        objInst%instPI = objInst%instPI + 1
+        
+    END FUNCTION PIDControllerR
+
+!-------------------------------------------------------------------------------------------------------------------------------
     REAL(DbKi) FUNCTION PIIController(error, error2, kp, ki, ki2, minValue, maxValue, DT, I0, piP, reset, inst)
     ! PI controller, with output saturation. 
     ! Added error2 term for additional integral control input

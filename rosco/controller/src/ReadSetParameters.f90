@@ -249,6 +249,13 @@ CONTAINS
                 ErrVar%ErrMsg = RoutineName//':'//TRIM(ErrVar%ErrMsg)
             ENDIF
 
+            ! Structural control allocations, intitializations
+            ALLOCATE(LocalVar%StC_Fi_Target(CntrPar%StC_Group_N))
+            ALLOCATE(LocalVar%StC_Fill_State(CntrPar%StC_Group_N))
+
+            LocalVar%StC_FR_Target  = 0
+            LocalVar%StC_FP_Target  = 0
+
 
         ENDIF
     END SUBROUTINE SetParameters
@@ -562,6 +569,11 @@ CONTAINS
         CALL ParseAry(FileLines, 'StC_F_Rates',         CntrPar%StC_F_Rates,        2,                      accINFILE(1), ErrVar, CntrPar%StC_Mode .NE. 1, UnEc)
         CALL ParseAry(FileLines, 'StC_T_Roll',          CntrPar%StC_T_Roll,         CntrPar%StC_Group_N,    accINFILE(1), ErrVar, CntrPar%StC_Mode .NE. 1, UnEc)
         CALL ParseAry(FileLines, 'StC_T_Pitch',         CntrPar%StC_T_Pitch,        CntrPar%StC_Group_N,    accINFILE(1), ErrVar, CntrPar%StC_Mode .NE. 1, UnEc)
+        CALL ParseInput(FileLines, 'StC_Target_Period', CntrPar%StC_Target_Period,                          accINFILE(1), ErrVar, CntrPar%StC_Mode .NE. 3, UnEc)
+        CALL ParseInput(FileLines, 'StC_Fill_Period',   CntrPar%StC_Fill_Period,                            accINFILE(1), ErrVar, CntrPar%StC_Mode .NE. 3, UnEc)
+        CALL ParseInput(FileLines, 'StC_Offset_DB',     CntrPar%StC_Offset_DB,                              accINFILE(1), ErrVar, CntrPar%StC_Mode .NE. 3, UnEc)
+        CALL ParseInput(FileLines, 'StC_Fill_DB',       CntrPar%StC_Fill_DB,                                accINFILE(1), ErrVar, CntrPar%StC_Mode .NE. 3, UnEc)
+        CALL ParseInput(FileLines, 'StC_F_Gain',        CntrPar%StC_F_Gain,                                 accINFILE(1), ErrVar, CntrPar%StC_Mode .NE. 3, UnEc)
         
         IF (ErrVar%aviFAIL < 0) RETURN
 
@@ -584,6 +596,7 @@ CONTAINS
         ! DT_Out
         CntrPar%n_DT_Out = NINT(CntrPar%DT_Out / LocalVar%DT)
         CntrPar%n_DT_ZMQ = NINT(CntrPar%ZMQ_UpdatePeriod / LocalVar%DT)
+        CntrPar%n_DT_StC_Target = NINT(CntrPar%StC_Target_Period / LocalVar%DT)
 
 
         ! Fix Paths (add relative paths if called from another dir, UnEc)

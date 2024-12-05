@@ -832,7 +832,7 @@ SUBROUTINE StructuralControl(avrSWAP, CntrPar, LocalVar, objInst, ErrVar)
 
         
         ! Internal Variables
-        Integer(IntKi)                            :: I_GROUP
+        Integer(IntKi)                            :: I_GROUP, I_STC
         CHARACTER(*),               PARAMETER           :: RoutineName = 'StructuralControl'
 
 
@@ -883,9 +883,65 @@ SUBROUTINE StructuralControl(avrSWAP, CntrPar, LocalVar, objInst, ErrVar)
                 ENDIF
             ENDDO
 
+        ELSEIF (CntrPar%StC_Mode == 3) THEN
+            ! Discrete, constant rate mode of ballast control
+
+            ! Filter pitch and roll offsets
+            LocalVar%PtfmRDX_F  = LPFilter(LocalVar%PtfmRDX, LocalVar%DT, CntrPar%StC_F_FiltFreq, LocalVar%FP, LocalVar%iStatus, LocalVar%restart, objInst%instLPF)  ! roll
+            LocalVar%PtfmRDY_F  = LPFilter(LocalVar%PtfmRDY, LocalVar%DT, CntrPar%StC_F_FiltFreq, LocalVar%FP, LocalVar%iStatus, LocalVar%restart, objInst%instLPF)  ! pitch
 
 
-        END IF
+            ! Check if it's time to update targets
+            IF ( MOD(LocalVar%n_DT, CntrPar%n_DT_StC_Target) == 0 ) THEN
+
+                ! If filtered offset greater than deadband
+                IF (ABS(LocalVar%PtfmRDX_F) > CntrPar%StC_Offset_DB) THEN
+                    LocalVar%StC_FR_Target = LocalVar%StC_FR_Target + CntrPar%StC_F_Gain * LocalVar%PtfmRDX_F
+                ENDIF
+
+                IF (ABS(LocalVar%PtfmRDY_F) > CntrPar%StC_Offset_DB) THEN
+                    LocalVar%StC_FP_Target = LocalVar%StC_FP_Target + CntrPar%StC_F_Gain * LocalVar%PtfmRDY_F
+                ENDIF
+            ENDIF
+
+            ! Transform roll/pitch targets into individual force targets
+            T = RESHAPE((/CntrPar%StC_T_Roll, CntrPar%StC_T_Pitch/),(/6,2/))
+            Inp = RESHAPE( (/LocalVar%StC_FR_Target, LocalVar%StC_FP_Target/) , (/2,1/))
+            F_Out = matmul(T,Inp)
+
+            DO I_GROUP = 1,CntrPar%StC_Group_N
+                LocalVar%StC_Fi_Target(I_GROUP) = F_Out(I_GROUP,1)
+            END DO
+
+            ! Fill state machine, run this every time step
+                
+            DO I_StC = 1, CntrPar%StC_Group_N  ! For each StC
+                ! Determine state
+                IF (LocalVar%StC_Input(I_StC) < LocalVar%StC_Fi_Target(I_StC) - CntrPar%StC_Fill_DB) THEN   ! Fill < target - deadband
+                    LocalVar%StC_Fill_State(I_StC) = 1   ! Fill
+                ELSEIF (LocalVar%StC_Input(I_StC) > LocalVar%StC_Fi_Target(I_StC) + CntrPar%StC_Fill_DB) THEN ! Fill > target + deadband
+                    LocalVar%StC_Fill_State(I_StC) = -1  ! Empty
+                ELSE 
+                    LocalVar%StC_Fill_State(I_StC) = 0   ! Do nothing
+                ENDIF 
+
+                ! Fill/empty
+                IF (LocalVar%StC_Fill_State(I_StC) == 1 ) THEN
+                    LocalVar%StC_Input(I_StC) = LocalVar%StC_Input(I_StC) + CntrPar%StC_F_Rates(2) * LocalVar%DT
+                ELSEIF (LocalVar%StC_Fill_State(I_StC) ==  -1 ) THEN
+                    LocalVar%StC_Input(I_StC) = LocalVar%StC_Input(I_StC) + CntrPar%StC_F_Rates(1) * LocalVar%DT
+                ENDIF
+
+
+            END DO
+
+            ! Helpful for debugging
+            ! WRITE(403,*) LocalVar%Time, LocalVar%StC_Fill_State
+            ! WRITE(404,*) LocalVar%Time, LocalVar%StC_Input
+
+
+        ENDIF
+
 
 
         ! Assign to avrSWAP

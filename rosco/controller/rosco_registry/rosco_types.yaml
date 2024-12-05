@@ -692,6 +692,31 @@ ControlParameters:
       <<: *real
       description: Transformation from F_Pitch (output of PID control) to StC_Force (length should match StC_Group_N), will be normalized to max of 1, must sum to 0
       allocatable: True
+    StC_Target_Period:
+      <<: *real
+      description: Period that fill (force) target periods are updated
+    StC_Fill_Period:
+      <<: *real
+      description: Period that actual fill settings are updated
+    StC_Offset_DB:
+      <<: *real
+      description: Deadband on offset
+    StC_Fill_DB:
+      <<: *real
+      description: Deadband on fill amount
+    StC_F_Gain:
+      <<: *real
+      description: Proportional gain on force targets
+    n_DT_StC_Target:
+      <<: *integer
+      description: Number of timesteps until target StC force is updated
+    F_Roll_Target:
+      <<: *real
+      description: Target on force to zero roll offset
+    F_Pitch_Target:
+      <<: *real
+      description: Target on force to zero pitch offset
+    
 
 
     # Calculated
@@ -1312,6 +1337,19 @@ LocalVariables:
     Force_Roll:
       <<: *real
       description: Force to roll the rotor back to even keel
+    StC_FR_Target:
+      <<: *real
+      description: Target force to roll the rotor back to even keel
+    StC_FP_Target:
+      <<: *real
+      description: Target force to roll the rotor back to even keel
+    StC_Fi_Target:
+      <<: *real
+      allocatable: True
+    StC_Fill_State:
+      <<: *integer
+      allocatable: True
+      description: State of ballast 0-doing nothing, -1-emptying, 1-filling
     CC_DesiredL:
       <<: *real
       size: 12

@@ -176,6 +176,14 @@ TYPE, PUBLIC :: ControlParameters
     REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: StC_F_Rates                 ! Min and max force rates (at each leg?)
     REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: StC_T_Roll                  ! Transformation from F_Roll (output of PID control) to StC_Force (length should match StC_Group_N), will be normalized to max of 1, must sum to 0
     REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: StC_T_Pitch                 ! Transformation from F_Pitch (output of PID control) to StC_Force (length should match StC_Group_N), will be normalized to max of 1, must sum to 0
+    REAL(DbKi)                    :: StC_Target_Period           ! Period that fill (force) target periods are updated
+    REAL(DbKi)                    :: StC_Fill_Period             ! Period that actual fill settings are updated
+    REAL(DbKi)                    :: StC_Offset_DB               ! Deadband on offset
+    REAL(DbKi)                    :: StC_Fill_DB                 ! Deadband on fill amount
+    REAL(DbKi)                    :: StC_F_Gain                  ! Proportional gain on force targets
+    INTEGER(IntKi)                :: n_DT_StC_Target             ! Number of timesteps until target StC force is updated
+    REAL(DbKi)                    :: F_Roll_Target               ! Target on force to zero roll offset
+    REAL(DbKi)                    :: F_Pitch_Target              ! Target on force to zero pitch offset
     REAL(DbKi)                    :: PC_RtTq99                   ! 99% of the rated torque value, using for switching between pitch and torque control, [Nm].
     REAL(DbKi)                    :: VS_MaxOMTq                  ! Maximum torque at the end of the below-rated region 2, [Nm]
     REAL(DbKi)                    :: VS_MinOMTq                  ! Minimum torque at the beginning of the below-rated region 2, [Nm]
@@ -371,6 +379,10 @@ TYPE, PUBLIC :: LocalVariables
     REAL(DbKi)                    :: PtfmRDY_F                   ! Filtered Platform motion -- Displacement RDY (rad)')
     REAL(DbKi)                    :: Force_Pitch                 ! Force to pitch the rotor back to even keel
     REAL(DbKi)                    :: Force_Roll                  ! Force to roll the rotor back to even keel
+    REAL(DbKi)                    :: StC_FR_Target               ! Target force to roll the rotor back to even keel
+    REAL(DbKi)                    :: StC_FP_Target               ! Target force to roll the rotor back to even keel
+    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: StC_Fi_Target               ! None
+    INTEGER(IntKi), DIMENSION(:), ALLOCATABLE     :: StC_Fill_State              ! State of ballast 0-doing nothing, -1-emptying, 1-filling
     REAL(DbKi)                    :: CC_DesiredL(12)             ! None
     REAL(DbKi)                    :: CC_ActuatedL(12)            ! None
     REAL(DbKi)                    :: CC_ActuatedDL(12)           ! None

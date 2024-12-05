@@ -294,9 +294,11 @@ def write_DISCON(turbine, controller, param_file='DISCON.IN', txt_filename='Cp_C
     file.write('{:<11s}     ! StC_F_Rates - {}\n'.format(write_array(rosco_vt['StC_F_Rates'], '<6e'), input_descriptions['StC_F_Rates']))
     file.write('{:<11s}     ! StC_T_Roll -  {}\n'.format(write_array(rosco_vt['StC_T_Roll'], '<6f'), input_descriptions['StC_T_Roll']))
     file.write('{:<11s}     ! StC_T_Pitch - {}\n'.format(write_array(rosco_vt['StC_T_Pitch'], '<6f'), input_descriptions['StC_T_Pitch']))
-
-
-    
+    file.write('{:<11f}     ! StC_Target_Period       - {}\n'.format(rosco_vt['StC_Target_Period'], input_descriptions['StC_Target_Period']))
+    file.write('{:<11f}     ! StC_Fill_Period       - {}\n'.format(rosco_vt['StC_Fill_Period'], input_descriptions['StC_Fill_Period']))
+    file.write('{:<11f}     ! StC_Offset_DB       - {}\n'.format(rosco_vt['StC_Offset_DB'], input_descriptions['StC_Offset_DB']))
+    file.write('{:<11f}     ! StC_Fill_DB       - {}\n'.format(rosco_vt['StC_Fill_DB'], input_descriptions['StC_Fill_DB']))
+    file.write('{:<11f}     ! StC_F_Gain       - {}\n'.format(rosco_vt['StC_F_Gain'], input_descriptions['StC_F_Gain']))
     file.close()
 
     # Write Open loop input

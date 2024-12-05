@@ -1184,6 +1184,26 @@ properties:
                             type: number
                         description: Transformation from F_Pitch (output of PID control) to StC_Force (length should match StC_Group_N), will be normalized to max of 1, must sum to 0
                         default: [0,0,0,0,0,0]
+                    StC_Target_Period:
+                        type: number
+                        description: Period that fill (force) target periods are updated
+                        default: 50.
+                    StC_Fill_Period:
+                        type: number
+                        description: Period that actual fill settings are updated
+                        default: 50.
+                    StC_Offset_DB:
+                        type: number
+                        description: Deadband on offset
+                        default: 1
+                    StC_Fill_DB:
+                        type: number
+                        description: Deadband on fill amount
+                        default: 1e3
+                    StC_F_Gain:
+                        type: number
+                        description: Gain on F_*_Target, from pitch/roll (rad) to F_Pitch/Roll_Target, only used in StC_Mode = 3
+                        default: 1e3
 
     linmodel_tuning:
         type: object

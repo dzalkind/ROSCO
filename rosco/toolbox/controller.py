@@ -851,7 +851,8 @@ class OpenLoopControl(object):
             self.compute_yaw_rate()
 
 
-    def sine_timeseries(self,control,amplitude,period,offset=0):
+    def sine_timeseries(self,control,amplitude,period,offset=0,phase=0):
+        # phase in radians
         
         if period <= 0:
             raise Exception('Open loop sine input period is <= 0')
@@ -862,7 +863,7 @@ class OpenLoopControl(object):
         if control not in self.allowed_controls:
             raise Exception(f'Open loop control of {control} is not allowed')
         else:
-            self.ol_series[control] = amplitude * np.sin(2 * np.pi *  self.ol_series['time'] / period) + offset
+            self.ol_series[control] = amplitude * np.sin(2 * np.pi *  self.ol_series['time'] / period + phase) + offset
 
         if control == 'nacelle_yaw':
             self.compute_yaw_rate()

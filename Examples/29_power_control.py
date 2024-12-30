@@ -71,6 +71,7 @@ from rosco.toolbox import controller as ROSCO_controller
 
 
 import numpy as np
+import pandas as pd
 
 rpm2RadSec = 2.0*(np.pi)/60.0
 
@@ -115,96 +116,61 @@ def main():
     r.case_inputs[('ElastoDyn','PtfmYDOF')] = {'vals': ['False'], 'group': 0}
     
 
-    sim_config = 1    
-
-    # 1. Soft start up
-    if sim_config == 1:
-        if FULL_TEST:
-            t_max = 500
-        else:   # Shorter for ROSCO CI
-            t_max = 100
-
-        run_dir = os.path.join(example_out_dir,'29_PRC_Demo/1_Soft_Start')
-        olc = ROSCO_controller.OpenLoopControl(t_max=t_max)
-        
-        if FULL_TEST:
-            olc.interp_series(
-                'R_torque', 
-                [0,100,200,300,400], 
-                [0,0.0,0.2,0.2,1] , 
-                'sigma'
-                )
-        else:
-            olc.interp_series(
-                'R_torque', 
-                [0,100], 
-                [0,1.0] , 
-                'sigma'
-                )
-        
-        # Wind case
-        r.wind_case_fcn = cl.power_curve  
-        r.wind_case_opts    = {
-                'U': [14],  # from 10 to 15 m/s
-                'TMax': t_max,
-                }
-        r.case_inputs[('ElastoDyn','BlPitch1')] = {'vals': [90.], 'group': 0}
-        r.case_inputs[('ElastoDyn','BlPitch2')] = {'vals': [90.], 'group': 0}
-        r.case_inputs[('ElastoDyn','BlPitch3')] = {'vals': [90.], 'group': 0}
-        r.case_inputs[('ElastoDyn','RotSpeed')] = {'vals': [0.], 'group': 0}
-
-        [("ElastoDyn","BlPitch1")]
-    
-    # 2. Soft cut out
-    if sim_config == 2:
-        run_dir = os.path.join(example_out_dir,'29_PRC_Demo/2_Use_Torque')
-        olc = ROSCO_controller.OpenLoopControl(
-            breakpoint='wind_speed',
-            u_min = 20,
-            u_max = 40
-            )
-        olc.interp_series(
-            'R_speed', 
-            [20,30,40], 
-            [1,0.707,0.0] , 
-            )
-        olc.interp_series(
-            'R_torque', 
-            [20,30,40], 
-            [1,0.707,0.0] , 
-            )
-        r.wind_case_fcn = cl.ramp  
-        r.wind_case_opts    = {
-            'U_start': 20,  # from 10 to 15 m/s
-            'U_end': 50,
-            't_start': 500,
-            't_end': 2500,
-            }
-        
-        r.case_inputs[('ElastoDyn','BlPitch1')] = {'vals': [19.], 'group': 0}
-        r.case_inputs[('ElastoDyn','BlPitch2')] = {'vals': [19.], 'group': 0}
-        r.case_inputs[('ElastoDyn','BlPitch3')] = {'vals': [19.], 'group': 0}
-        r.case_inputs[('ElastoDyn','RotSpeed')] = {'vals': [7.], 'group': 0}
-        
-        controller_params['DISCON']['OL_BP_FiltFreq'] = 1/100 
-        controller_params['DISCON']['VS_MinOMSpd'] = 0   # required to force low reference speed
+    sim_config = 3    # Deleted others for clarity
         
     # AWC above rated via R_Speed/Torque
     if sim_config == 3:
-        run_dir = os.path.join(example_out_dir,'29_PRC_Demo/3_AWC_Above_Rated')
+        run_dir = os.path.join(example_out_dir,'29_PRC_Demo/3_AWC_4Ken/3_fine_tune')
         t_max = 600
         r.wind_case_fcn = cl.power_curve  
         r.wind_case_opts    = {
-                'U': [14],  # from 10 to 15 m/s
+                'U': [8],  # from 10 to 15 m/s
                 'TMax': t_max,
                 }
-        olc = ROSCO_controller.OpenLoopControl(t_max=600)
-        olc.sine_timeseries(
-            'R_speed',  # could use R_speed or R_torque
-            0.05,       # amplitude, fraction of rated power
-            100,        # period, sec
-            1,          # offset, (-)
+        
+        # Load Ken's OL inputs 
+        df = pd.read_csv(os.path.join(this_dir, 'example_inputs/IEA-15_RPC.dat'),delimiter=' ',skiprows=[1])
+        time    = np.array(df['!Time\t\t'])
+        pitch_1 = np.array(df['BldPitch1\t\t'])
+        pitch_2 = np.array(df['BldPitch2\t\t'])
+        pitch_3 = np.array(df['BldPitch2\t\t'])
+
+        olc = ROSCO_controller.OpenLoopControl(
+            t_max=max(time),
+            dt=time[1] - time[0]    
             )
+        
+        # These settings will determine open loop speed function to track
+        # The speed set point is relative to the optimal speed (based on the TSR), so it will change with the wind speed
+        # You can adjust the mean value with the offset input
+        # You can adjust the amplitude of the speed reference signal
+        # The controller can't perfectly track the rotor speed, there will be some phase delay, 
+        # but it can be offset by adding phase lead to the reference signal
+        olc.sine_timeseries(
+            'R_speed',      # could use R_speed or R_torque
+            0.0785,         # amplitude, fraction of rated power
+            88.55,          # period, sec
+            1.135,          # offset, (-)
+            0.39269           # phase (rad), use to offset lag in closed-loop control dynamics
+            )
+        
+
+        # Apply open loop pitch from OL Input, but it can be created with a similar `sine_timeseries` if you want
+        olc.ol_series['blade_pitch1'] = pitch_1
+        olc.ol_series['blade_pitch2'] = pitch_2
+        olc.ol_series['blade_pitch3'] = pitch_3        
+
+        # Let's disable the WSE just to simplify the dynamics and because we don't care about having a super-realistic controller
+        controller_params['WE_Mode'] = 0   
+
+        # Remove lower limit of pitch so it doesn't interfere with open loop input
+        controller_params['DISCON']['PC_MinPit'] = np.radians(-20)  
+
+        # Set ICs of blade pitch
+        r.case_inputs[('ElastoDyn','BlPitch1')] = {'vals': ['False'], 'group': pitch_1[0]}
+        r.case_inputs[('ElastoDyn','BlPitch2')] = {'vals': ['False'], 'group': pitch_2[0]}
+        r.case_inputs[('ElastoDyn','BlPitch3')] = {'vals': ['False'], 'group': pitch_3[0]}
+
         
     
     fig,ax = olc.plot_series()

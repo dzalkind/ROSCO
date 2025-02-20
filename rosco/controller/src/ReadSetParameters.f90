@@ -295,15 +295,12 @@ CONTAINS
         CHARACTER(*),               PARAMETER           :: RoutineName = 'ReadControlParameterFileSub'
 
 
-        PRINT *, "accINFILE(1) = ", accINFILE(1)
         CALL GetPath( accINFILE(1), PriPath )     ! Input files will be relative to the path where the primary input file is located.
 
-#ifdef READ_DISCON_IN
-            
         ! Get primary path of DISCON.IN file (accINFILE(1) here)
         CALL GetNewUnit(UnControllerParameters, ErrVar)
         OPEN(unit=UnControllerParameters, file=accINFILE(1), status='old', action='read')
-
+        
         ! Read all lines, first get the number of lines
         NumLines = 0
         IOS = 0
@@ -311,14 +308,14 @@ CONTAINS
             NumLines = NumLines + 1
             READ(UnControllerParameters,'(A)',IOSTAT=IOS) TmpLine        
         END DO !WHILE
-
+        
         ALLOCATE(FileLines(NumLines))
         REWIND( UnControllerParameters )
-
+        
         DO I_LINE = 1,NumLines
             READ(UnControllerParameters,'(A)',IOSTAT=IOS) FileLines(I_LINE)
         END DO
-
+        
         ! Close Input File
         CLOSE(UnControllerParameters)
 
@@ -343,6 +340,10 @@ CONTAINS
                 WRITE( UnEc, *) '-----------------------------------------'
             ENDIF
         ENDIF
+
+        
+#ifdef READ_DISCON_IN
+
 
         !----------------------- Simulation Control --------------------------
         CALL ParseInput(FileLines,'LoggingLevel',   CntrPar%LoggingLevel,       accINFILE(1), ErrVar, .TRUE., UnEc=UnEc)
@@ -587,10 +588,13 @@ CONTAINS
         CALL ParseAry(  FileLines, 'Ind_StructControl',  CntrPar%Ind_StructControl, CntrPar%StC_Group_N,    accINFILE(1),   ErrVar,  CntrPar%StC_Mode .NE. 2,   UnEc=UnEc)
         IF (ErrVar%aviFAIL < 0) RETURN
 
-        IF (UnEc > 0) CLOSE(UnEc)     ! Close echo file
+#else
+        CALL ParseInput(FileLines,  'PerfFileName',     CntrPar%PerfFileName,                           accINFILE(1), ErrVar, CntrPar%WE_Mode == 0, UnEc )
 
+        
 #endif
-
+        
+        IF (UnEc > 0) CLOSE(UnEc)     ! Close echo file
         !-------------------
         !------------------- CALCULATED CONSTANTS -----------------------
         !----------------------------------------------------------------
@@ -605,16 +609,10 @@ CONTAINS
         CntrPar%n_DT_ZMQ = NINT(CntrPar%ZMQ_UpdatePeriod / LocalVar%DT)
         CntrPar%n_DT_StC_Target = NINT(CntrPar%StC_Target_Period / LocalVar%DT)
 
-        PRINT *, "CntrPar%PerfFileName = ", CntrPar%PerfFileName
-        PRINT *, "PathIsRelative(CntrPar%PerfFileName): ", PathIsRelative(CntrPar%PerfFileName)
-        PRINT *, "PriPath: ", PriPath
-
 
         ! Fix Paths (add relative paths if called from another dir, UnEc)
         IF (PathIsRelative(CntrPar%PerfFileName)) CntrPar%PerfFileName = TRIM(PriPath)//TRIM(CntrPar%PerfFileName)
         IF (PathIsRelative(CntrPar%OL_Filename)) CntrPar%OL_Filename = TRIM(PriPath)//TRIM(CntrPar%OL_Filename)
-
-        PRINT *, "CntrPar%PerfFileName = ", CntrPar%PerfFileName
         
         ! Convert yaw rate to deg/s
         CntrPar%Y_Rate = CntrPar%Y_Rate * R2D
@@ -786,7 +784,6 @@ CONTAINS
 
         CurLine = 1
         CALL GetNewUnit(UnPerfParameters, ErrVar)
-        PRINT *, "CntrPar%PerfFileName = ", CntrPar%PerfFileName
         OPEN(unit=UnPerfParameters, file=TRIM(CntrPar%PerfFileName), status='old', action='read') ! Should put input file into DISCON.IN
         
         ! ----------------------- Axis Definitions ------------------------

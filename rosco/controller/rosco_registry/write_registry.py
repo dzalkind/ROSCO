@@ -2,6 +2,10 @@ import yaml
 import rosco.toolbox
 import os
 from rosco.toolbox.ofTools.util.FileTools import load_yaml
+from rosco.toolbox.utilities import read_DISCON
+
+# If this file path is set, the controller parameters will be hard coded in ROSCO_Types and no DISCON input will be read (for protecting control inputs)
+hardcode_discon_file = '/Users/dzalkind/Projects/USFLOWT/USFLOWT_repo/ROSCO/outputs/7_discrete_bladder/7_restart_effort/USFLOWT_ROSCO_opt/power_curve/base/USFLOWT_ROSCO_opt_00_DISCON.IN'
 
 def generate(yfile):
     '''
@@ -20,6 +24,11 @@ def write_types(yfile):
     yfile: string
             path to rosco_types.yaml
     '''
+
+    if hardcode_discon_file:
+        discon_vt = read_DISCON(hardcode_discon_file)
+
+
     reg = load_yaml(yfile)
     reg.pop('default_types')
     registry_fname = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),'src','ROSCO_Types.f90')
@@ -36,11 +45,41 @@ def write_types(yfile):
     # Loop Types
     for toptype in reg.keys():
         file.write('TYPE, PUBLIC :: {}\n'.format(toptype))
+
+        if hardcode_discon_file and toptype == 'ControlParameters':
+            # Add a parameter to skip ReadDISCON
+            file.write('    LOGICAL :: ReadDISCON_IN = .FALSE.\n')
+        else:
+            file.write('    LOGICAL :: ReadDISCON_IN = .TRUE.\n')
+            
+
         for attype in reg[toptype].keys():
             f90type = read_type(reg[toptype][attype])
             atstr  =  check_size(reg[toptype], attype)
             if reg[toptype][attype]['equals']:
                 atstr += ' = ' + reg[toptype][attype]['equals']
+            if hardcode_discon_file and toptype == 'ControlParameters':
+                
+                if attype in discon_vt: # Not all ControlParameters are in the DISCON
+                    # Need to typecast because discon_vt is all floats
+                    if reg[toptype][attype]['type'] == 'integer':
+                        if isinstance(discon_vt[attype],list):
+                            val = list(map(int, discon_vt[attype]))
+                        else:
+                            val = int(discon_vt[attype])
+                    else:
+                        val = discon_vt[attype]                       
+
+                    if reg[toptype][attype]['type'] == 'character': # Add quotes for character
+                        val = "'" + val + "'"
+
+                    # Remove allocatable, make array, define dimension
+                    if reg[toptype][attype]['allocatable']:
+                        f90type = f90type.replace(', DIMENSION(:), ALLOCATABLE','')
+                        if not isinstance(discon_vt[attype],list):
+                            val = [val] # make it an array if not
+                        atstr += f'({len(val)})'
+                    atstr += ' = ' + str(val)
             file.write('    {:<25s}     :: {:<25s}   ! {}\n'.format(f90type, atstr, reg[toptype][attype]['description']))
         file.write('END TYPE {}\n'.format(toptype))
         file.write('\n')

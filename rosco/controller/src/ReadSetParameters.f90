@@ -294,8 +294,13 @@ CONTAINS
         
         CHARACTER(*),               PARAMETER           :: RoutineName = 'ReadControlParameterFileSub'
 
-        ! Get primary path of DISCON.IN file (accINFILE(1) here)
+
+        PRINT *, "accINFILE(1) = ", accINFILE(1)
         CALL GetPath( accINFILE(1), PriPath )     ! Input files will be relative to the path where the primary input file is located.
+
+#ifdef READ_DISCON_IN
+            
+        ! Get primary path of DISCON.IN file (accINFILE(1) here)
         CALL GetNewUnit(UnControllerParameters, ErrVar)
         OPEN(unit=UnControllerParameters, file=accINFILE(1), status='old', action='read')
 
@@ -584,6 +589,8 @@ CONTAINS
 
         IF (UnEc > 0) CLOSE(UnEc)     ! Close echo file
 
+#endif
+
         !-------------------
         !------------------- CALCULATED CONSTANTS -----------------------
         !----------------------------------------------------------------
@@ -598,10 +605,16 @@ CONTAINS
         CntrPar%n_DT_ZMQ = NINT(CntrPar%ZMQ_UpdatePeriod / LocalVar%DT)
         CntrPar%n_DT_StC_Target = NINT(CntrPar%StC_Target_Period / LocalVar%DT)
 
+        PRINT *, "CntrPar%PerfFileName = ", CntrPar%PerfFileName
+        PRINT *, "PathIsRelative(CntrPar%PerfFileName): ", PathIsRelative(CntrPar%PerfFileName)
+        PRINT *, "PriPath: ", PriPath
+
 
         ! Fix Paths (add relative paths if called from another dir, UnEc)
         IF (PathIsRelative(CntrPar%PerfFileName)) CntrPar%PerfFileName = TRIM(PriPath)//TRIM(CntrPar%PerfFileName)
         IF (PathIsRelative(CntrPar%OL_Filename)) CntrPar%OL_Filename = TRIM(PriPath)//TRIM(CntrPar%OL_Filename)
+
+        PRINT *, "CntrPar%PerfFileName = ", CntrPar%PerfFileName
         
         ! Convert yaw rate to deg/s
         CntrPar%Y_Rate = CntrPar%Y_Rate * R2D
@@ -773,6 +786,7 @@ CONTAINS
 
         CurLine = 1
         CALL GetNewUnit(UnPerfParameters, ErrVar)
+        PRINT *, "CntrPar%PerfFileName = ", CntrPar%PerfFileName
         OPEN(unit=UnPerfParameters, file=TRIM(CntrPar%PerfFileName), status='old', action='read') ! Should put input file into DISCON.IN
         
         ! ----------------------- Axis Definitions ------------------------

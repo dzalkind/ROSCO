@@ -96,6 +96,12 @@ if(PC_ZeroMQ_FOUND)
 	target_link_libraries(discon PUBLIC ${ZeroMQ_LIBRARY})
 endif()
 
+message("READ_DISCON_IN = ${READ_DISCON_IN}")
+if (READ_DISCON_IN)
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DREAD_DISCON_IN")
+endif()
+unset(READ_DISCON_IN CACHE)
+
 
 install(TARGETS discon
   EXPORT "${CMAKE_PROJECT_NAME}Libraries"

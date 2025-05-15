@@ -268,6 +268,7 @@ END TYPE piParams
 TYPE, PUBLIC :: LocalVariables
     LOGICAL :: ReadDISCON_IN = .TRUE.
     INTEGER(IntKi)                :: iStatus                     ! Initialization status
+    INTEGER(IntKi)                :: AlreadyInitialized = 0      ! Has ROSCO already been initialized (0-no, 1-yes)
     REAL(DbKi)                    :: Time                        ! Time [s]
     REAL(DbKi)                    :: DT                          ! Time step [s]
     LOGICAL                       :: WriteThisStep               ! Write an output line this time step

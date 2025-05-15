@@ -56,7 +56,7 @@ def write_types(yfile):
         for attype in reg[toptype].keys():
             f90type = read_type(reg[toptype][attype])
             atstr  =  check_size(reg[toptype], attype)
-            if reg[toptype][attype]['equals']:
+            if reg[toptype][attype]['equals'] is not None:
                 atstr += ' = ' + reg[toptype][attype]['equals']
             if hardcode_discon_file and toptype == 'ControlParameters':
                 

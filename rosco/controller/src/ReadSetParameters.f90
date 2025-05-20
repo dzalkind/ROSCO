@@ -352,7 +352,7 @@ CONTAINS
         ENDIF
 
         
-#ifdef READ_DISCON_IN
+        IF (CntrPar%ReadDISCON_IN) THEN
 
 
         !----------------------- Simulation Control --------------------------
@@ -598,11 +598,11 @@ CONTAINS
         CALL ParseAry(  FileLines, 'Ind_StructControl',  CntrPar%Ind_StructControl, CntrPar%StC_Group_N,    accINFILE(1),   ErrVar,  CntrPar%StC_Mode .NE. 2,   UnEc=UnEc)
         IF (ErrVar%aviFAIL < 0) RETURN
 
-#else
+        ELSE  ! Only read Cp file
         CALL ParseInput(FileLines,  'PerfFileName',     CntrPar%PerfFileName,                           accINFILE(1), ErrVar, CntrPar%WE_Mode == 0, UnEc )
 
         
-#endif
+        ENDIF
         
         IF (UnEc > 0) CLOSE(UnEc)     ! Close echo file
         !-------------------

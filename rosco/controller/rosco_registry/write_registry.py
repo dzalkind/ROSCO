@@ -43,6 +43,8 @@ def write_types(yfile):
     file.write('USE Constants\n')
     file.write('IMPLICIT NONE\n')
     file.write('\n')
+    file.write(f"Character(*), PARAMETER     :: rosco_version = '{rosco.toolbox.__version__}'             ! ROSCO version\n")
+    file.write('\n')
     # Loop Types
     for toptype in reg.keys():
         file.write('TYPE, PUBLIC :: {}\n'.format(toptype))
@@ -84,7 +86,7 @@ def write_types(yfile):
             file.write('    {:<25s}     :: {:<25s}   ! {}\n'.format(f90type, atstr, reg[toptype][attype]['description']))
         file.write('END TYPE {}\n'.format(toptype))
         file.write('\n')
-    file.write('END MODULE ROSCO_Types')
+    file.write('END MODULE ROSCO_Types\n')
     file.close()
 
 def write_roscoio(yfile):
@@ -219,6 +221,17 @@ def write_roscoio(yfile):
     file.write('END SUBROUTINE ReadRestartFile\n')
     file.write('\n \n')
     # ------------------------------------------------
+    
+    
+    # Get LocalVar info for definitions
+    # -- Always prints blade(1) for multi-bladed inputss (e.g. BldPitch(1))
+    lv_strings = []
+    for lv_idx, localvar in enumerate(reg['LocalVariables']):
+        if reg['LocalVariables'][localvar]['type'] in ['integer', 'real', 'complex']:
+            lv_strings.append(localvar)
+
+    n_lv_outputs = len(lv_strings)
+    
     # ------------------ Debug -----------------------
     # ------------------------------------------------
     file.write('SUBROUTINE Debug(LocalVar, CntrPar, DebugVar, ErrVar, avrSWAP, RootName, size_avcOUTNAME)\n')
@@ -248,7 +261,7 @@ def write_roscoio(yfile):
     file.write('    CHARACTER(100)                  :: avrFmt\n')
     file.write('\n')
     file.write('    REAL(DbKi), ALLOCATABLE         :: DebugOutData(:)\n \n')
-    file.write('    CHARACTER(15), ALLOCATABLE      :: LocalVarOutStrings(:)\n')
+    file.write(f'    CHARACTER(15), DIMENSION({n_lv_outputs})      :: LocalVarOutStrings\n')
     file.write('    REAL(DbKi), ALLOCATABLE         :: LocalVarOutData(:)\n \n')
     file.write('    nDebugOuts = {}\n'.format(len(reg['DebugVariables'].keys())))
     file.write('    Allocate(DebugOutData(nDebugOuts))\n')
@@ -290,16 +303,9 @@ def write_roscoio(yfile):
     file.write(']\n')
 
     # Print Local Variables 
-    # -- Always prints blade(1) for multi-bladed inputss (e.g. BldPitch(1))
-    lv_strings = []
-    for lv_idx, localvar in enumerate(reg['LocalVariables']):
-        if reg['LocalVariables'][localvar]['type'] in ['integer', 'real', 'complex']:
-            lv_strings.append(localvar)
 
-    n_lv_outputs = len(lv_strings)
     file.write('    nLocalVars = {}\n'.format(n_lv_outputs))
     file.write('    Allocate(LocalVarOutData(nLocalVars))\n')
-    file.write('    Allocate(LocalVarOutStrings(nLocalVars))\n')
 
     # Loop through LocalVariables
     for lv_idx, localvar in enumerate(lv_strings):
@@ -308,17 +314,10 @@ def write_roscoio(yfile):
             file.write('    LocalVarOutData({}) = LocalVar%{}(1)\n'.format(lv_idx+1, localvar))
         else:
             file.write('    LocalVarOutData({}) = LocalVar%{}\n'.format(lv_idx+1, localvar))
-    file.write('    LocalVarOutStrings = [CHARACTER(15) :: ')
-    counter = 0
-    for string in lv_strings:
-        counter += 1
-        if counter == len(lv_strings):
-            file.write(" '{}'".format(string))
-        else:
-            file.write(" '{}',".format(string))
-        if (counter % 5 == 0):
-            file.write(' & \n                                     ')
-    file.write(']\n')
+    file.write('\n')
+    for i_string, string in enumerate(lv_strings):
+        file.write(f"    LocalVarOutStrings({i_string+1}) = '{string}'\n")
+
     
     # Debug file initialization 
     # -- iStatus = 0 on first call, iStatus = -9 in restart
@@ -406,15 +405,15 @@ def write_roscoio(yfile):
     file.write("    ! Write debug files\n")
     file.write(f'    FmtDat = "(F20.5,TR5,{n_lv_outputs}(ES20.5E2,TR5:))"   ! The format of the debugging data\n')
     file.write("    IF ( MOD(LocalVar%n_DT, CntrPar%n_DT_Out) == 0) THEN\n")
-    file.write("        IF(CntrPar%LoggingLevel > 0) THEN\n")
+    file.write("        IF((CntrPar%LoggingLevel > 0) .AND. (LocalVar%iStatus .ge. 0)) THEN\n")
     file.write("            WRITE (UnDb, TRIM(FmtDat))  LocalVar%Time, DebugOutData\n")
     file.write("        END IF\n")
     file.write("\n")
-    file.write("        IF(CntrPar%LoggingLevel > 1) THEN\n")
+    file.write("        IF((CntrPar%LoggingLevel > 1) .AND. (LocalVar%iStatus .ge. 0)) THEN\n")
     file.write("            WRITE (UnDb2, TRIM(FmtDat))  LocalVar%Time, LocalVarOutData\n")
     file.write("        END IF\n")
     file.write("\n")
-    file.write("        IF(CntrPar%LoggingLevel > 2) THEN\n")
+    file.write("        IF((CntrPar%LoggingLevel > 2) .AND. (LocalVar%iStatus .ge. 0)) THEN\n")
     file.write("            WRITE (UnDb3, TRIM(FmtDat))    LocalVar%Time, avrSWAP(avrIndices)\n")
     file.write("        END IF\n")
     file.write("    END IF\n")
@@ -428,7 +427,7 @@ def write_roscoio(yfile):
 
     file.write("END SUBROUTINE Debug\n")
     file.write("\n")
-    file.write("END MODULE ROSCO_IO")
+    file.write("END MODULE ROSCO_IO\n")
     file.close()
 
 def check_size(main_attribute, sub_attribute):

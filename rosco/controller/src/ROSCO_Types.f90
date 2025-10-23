@@ -342,6 +342,8 @@ TYPE, PUBLIC :: LocalVariables
     REAL(DbKi)                    :: SS_DelOmegaF                ! Filtered setpoint shifting term defined in setpoint smoother [rad/s].
     REAL(DbKi)                    :: TestType                    ! Test variable, no use
     REAL(DbKi)                    :: Kp_Float                    ! Local, instantaneous Kp_Float, scheduled on wind speed, if desired
+    REAL(DbKi)                    :: FA_Vel                      ! Tower fore-aft velocity [m/s]
+    REAL(DbKi)                    :: NacIMU_FA_Vel               ! Tower fore-aft velocity from Nacelle IMU [m/s]
     REAL(DbKi)                    :: VS_MaxTq                    ! Maximum allowable generator torque [Nm].
     REAL(DbKi)                    :: VS_LastGenTrq               ! Commanded electrical generator torque the last time the controller was called [Nm].
     REAL(DbKi)                    :: VS_LastGenPwr               ! Commanded electrical generator torque the last time the controller was called [Nm].

@@ -1211,6 +1211,12 @@ LocalVariables:
     Kp_Float:
       <<: *real
       description: Local, instantaneous Kp_Float, scheduled on wind speed, if desired
+    FA_Vel:
+      <<: *real
+      description: Tower fore-aft velocity [m/s]
+    NacIMU_FA_Vel:
+      <<: *real
+      description: Tower fore-aft velocity from Nacelle IMU [m/s]
     VS_MaxTq:                     
       <<: *real 
       description: Maximum allowable generator torque [Nm].

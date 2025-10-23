@@ -316,6 +316,7 @@ TYPE, PUBLIC :: piParams
 END TYPE piParams
 
 TYPE, PUBLIC :: resParams
+    LOGICAL :: ReadDISCON_IN = .TRUE.
     REAL(DbKi), DIMENSION(99)     :: res_OutputSignalLast1       ! Previous output signal
     REAL(DbKi), DIMENSION(99)     :: res_OutputSignalLast2       ! Previous output signal - second integrator
     REAL(DbKi), DIMENSION(99)     :: res_InputSignalLast1        ! Previous input signal

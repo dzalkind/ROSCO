@@ -103,6 +103,7 @@ if(PC_ZeroMQ_FOUND)
 	target_link_libraries(discon PUBLIC ${ZeroMQ_LIBRARY})
 endif()
 
+add_definitions(-DSKIP_READ_DISCON)
 
 install(TARGETS discon
   EXPORT "${CMAKE_PROJECT_NAME}Libraries"

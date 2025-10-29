@@ -6,7 +6,7 @@ from rosco.toolbox.utilities import read_DISCON
 
 # If this file path is set, the controller parameters will be hard coded in ROSCO_Types and no DISCON input will be read (for protecting control inputs)
 # hardcode_discon_file = '/Users/dzalkind/Projects/USFLOWT/USFLOWT_repo/ROSCO/outputs/7_discrete_bladder/7_restart_effort/USFLOWT_ROSCO_opt/power_curve/base/USFLOWT_ROSCO_opt_00_DISCON.IN'
-hardcode_discon_file = '/Users/dzalkind/Projects/USFLOWT/USFLOWT_repo/OpenFAST/2_SubDyn/USFLOWT_10_DISCON.IN'
+hardcode_discon_file = None
 
 def generate(yfile):
     '''

@@ -103,7 +103,14 @@ if(PC_ZeroMQ_FOUND)
 	target_link_libraries(discon PUBLIC ${ZeroMQ_LIBRARY})
 endif()
 
-add_definitions(-DSKIP_READ_DISCON)
+option(SKIP_READ_DISCON "Hard-code discon parameters for privacy" OFF)
+message(STATUS "SKIP_READ_DISCON is set to: ${SKIP_READ_DISCON}")
+if(SKIP_READ_DISCON)
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DSKIP_READ_DISCON")
+else()
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -USKIP_READ_DISCON")
+endif()
+
 
 install(TARGETS discon
   EXPORT "${CMAKE_PROJECT_NAME}Libraries"
@@ -115,6 +122,6 @@ install(TARGETS discon
 set(linuxDefault ${CMAKE_INSTALL_PREFIX} STREQUAL "/usr/local")
 set(windowsDefault ${CMAKE_INSTALL_PREFIX} STREQUAL "C:\\Program Files (x86)")
 if(${linuxDefault} OR ${windowsDefault})
-  message("TRUE")
   set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../")
 endif()
+#message(STATUS "Install directory: ${CMAKE_INSTALL_PREFIX}")

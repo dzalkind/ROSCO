@@ -1,0 +1,109 @@
+--------------------- MoorDyn Input File ------------------------------------
+Generated with OpenFAST_IO
+Comments from seed file have been dropped. Output Channels are not yet fully supported
+NOTE: MoorDyn does not use ECHO, instead use WriteLog of 0, 1, 2, or 3 in the options list 
+----------------------- LINE TYPES ------------------------------------------
+Name        Diam        MassDen     EA          BA/-zeta    EI          Cd          Ca          CdAx        CaAx        Cl (optional) dF (optional) cF (optional)
+(-)         (m)         (kg/m)      (N)         (N-s/-)     (N-m^2)     (-)         (-)         (-)         (-)         (-)         (-)         (-)        
+Chain         0.2450     370.0000   1505807260.0000 -1.0000 0.0000e+00    1.4539      1.0000      0.2492      0.5000   
+Poly_rope     0.1698      31.3000   178542000.0000 -1.0000 0.0000e+00    2.0641      1.0000      0.0033      0.0000   
+---------------------- POINTS --------------------------------
+ID          Attachment  X           Y           Z           M           V           CdA         CA         
+(-)         (-)         (m)         (m)         (m)         (kg)        (m^3)       (m^2)       (-)        
+1          Fixed     -600.2500    0.0000     -150.0000  0.0000e+00  0.0000e+00    0.0000      0.0000   
+2          Free      -580.8094    0.0000     -146.1152  0.0000e+00  0.0000e+00    0.0000      0.0000   
+3          Free      -433.9497    0.0000     -70.7348   0.0000e+00  6.9639e+00    0.0000      0.0000   
+4          Free      -52.5772     0.0000     -25.4368   0.0000e+00  0.0000e+00    0.0000      0.0000   
+5          Free      -61.9571     0.0000     -28.8582   0.0000e+00  0.0000e+00    0.0000      0.0000   
+6         Coupled    -40.2240     0.0000     -16.9710   0.0000e+00  0.0000e+00    0.0000      0.0000   
+7          Fixed     -300.1229   -519.8329   -150.0000  0.0000e+00  0.0000e+00    0.0000      0.0000   
+8          Free      -290.4027   -502.9969   -146.1152  0.0000e+00  0.0000e+00    0.0000      0.0000   
+9          Free      -216.9734   -375.8123   -70.7348   0.0000e+00  6.9639e+00    0.0000      0.0000   
+10         Free      -30.9785    -53.6565    -28.8582   0.0000e+00  0.0000e+00    0.0000      0.0000   
+11         Free      -26.2886    -45.5332    -25.4368   0.0000e+00  0.0000e+00    0.0000      0.0000   
+12        Coupled    -20.1199    -34.8487    -16.9710   0.0000e+00  0.0000e+00    0.0000      0.0000   
+13         Fixed     300.1229    -519.8329   -150.0000  0.0000e+00  0.0000e+00    0.0000      0.0000   
+14         Free      290.4027    -502.9969   -146.1152  0.0000e+00  0.0000e+00    0.0000      0.0000   
+15         Free      216.9734    -375.8123   -70.7348   0.0000e+00  6.9639e+00    0.0000      0.0000   
+16         Free       30.9785    -53.6565    -28.8582   0.0000e+00  0.0000e+00    0.0000      0.0000   
+17         Free       26.2886    -45.5332    -25.4368   0.0000e+00  0.0000e+00    0.0000      0.0000   
+18        Coupled     20.1199    -34.8488    -16.9710   0.0000e+00  0.0000e+00    0.0000      0.0000   
+19         Fixed     600.2500     0.0000     -150.0000  0.0000e+00  0.0000e+00    0.0000      0.0000   
+20         Free      580.8094     0.0000     -146.1152  0.0000e+00  0.0000e+00    0.0000      0.0000   
+21         Free      433.9497     0.0000     -70.7348   0.0000e+00  6.9639e+00    0.0000      0.0000   
+22         Free       61.9571     0.0000     -28.8582   0.0000e+00  0.0000e+00    0.0000      0.0000   
+23         Free       52.5772     0.0000     -25.4368   0.0000e+00  0.0000e+00    0.0000      0.0000   
+24        Coupled     40.2399     0.0000     -16.9710   0.0000e+00  0.0000e+00    0.0000      0.0000   
+25         Fixed     300.1250    519.8317    -150.0000  0.0000e+00  0.0000e+00    0.0000      0.0000   
+26         Free      290.4047    502.9957    -146.1152  0.0000e+00  0.0000e+00    0.0000      0.0000   
+27         Free      216.9749    375.8115    -70.7348   0.0000e+00  6.9639e+00    0.0000      0.0000   
+28         Free       30.9786     53.6564    -28.8582   0.0000e+00  0.0000e+00    0.0000      0.0000   
+29         Free       26.2886     45.5332    -25.4368   0.0000e+00  0.0000e+00    0.0000      0.0000   
+30        Coupled     20.1199     34.8487    -16.9710   0.0000e+00  0.0000e+00    0.0000      0.0000   
+31         Fixed     -300.1229   519.8329    -150.0000  0.0000e+00  0.0000e+00    0.0000      0.0000   
+32         Free      -290.4027   502.9969    -146.1152  0.0000e+00  0.0000e+00    0.0000      0.0000   
+33         Free      -216.9734   375.8123    -70.7348   0.0000e+00  6.9639e+00    0.0000      0.0000   
+34         Free      -30.9785     53.6565    -28.8582   0.0000e+00  0.0000e+00    0.0000      0.0000   
+35         Free      -26.2886     45.5332    -25.4368   0.0000e+00  0.0000e+00    0.0000      0.0000   
+36        Coupled    -20.1199     34.8488    -16.9710   0.0000e+00  0.0000e+00    0.0000      0.0000   
+---------------------- LINES --------------------------------------
+Line        LineType    AttachA     AttachB     UnstrLen    NumSegs     Outputs    
+(-)         (-)         (-)         (-)         (m)         (-)         (-)        
+1          Chain         1           2        20.0000        4           -     
+2        Poly_rope       2           3       165.0000       33           -     
+3        Poly_rope       3           4       375.0000       75           -     
+4          Chain         4           5        10.0000        2           -     
+5          Chain         5           6        15.0000        3           -     
+6          Chain         7           8        20.0000        4           -     
+7        Poly_rope       8           9       165.0000       33           -     
+8        Poly_rope       9          10       375.0000       75           -     
+9          Chain        10          11        10.0000        2           -     
+10         Chain        11          12        15.0000        3           -     
+11         Chain        13          14        20.0000        4           -     
+12       Poly_rope      14          15       165.0000       33           -     
+13       Poly_rope      15          16       375.0000       75           -     
+14         Chain        16          17        10.0000        2           -     
+15         Chain        17          18        15.0000        3           -     
+16         Chain        19          20        20.0000        4           -     
+17       Poly_rope      20          21       165.0000       33           -     
+18       Poly_rope      21          22       375.0000       75           -     
+19         Chain        22          23        10.0000        2           -     
+20         Chain        23          24        15.0000        3           -     
+21         Chain        25          26        20.0000        4           -     
+22       Poly_rope      26          27       165.0000       33           -     
+23       Poly_rope      27          28       375.0000       75           -     
+24         Chain        28          29        10.0000        2           -     
+25         Chain        29          30        15.0000        3           -     
+26         Chain        31          32        20.0000        4           -     
+27       Poly_rope      32          33       165.0000       33           -     
+28       Poly_rope      33          34       375.0000       75           -     
+29         Chain        34          35        10.0000        2           -     
+30         Chain        35          36        15.0000        3           -     
+---------------------- SOLVER OPTIONS ---------------------------------------
+0                      INERTIALF   Compute the inertial forces (0: no, 1: yes, 2: yes with initial ramp for accelerations passed to MoorDyn).
+            100.000000 INERTIALF_RAMPT Ramp time for inertial forces to reduce coupled object instability (s). This is ignored unless inertialF = 2 (default =30)
+              0.001000 DTM         time step to use in mooring integration (s)
+        3000000.000000 KBOT        bottom stiffness (Pa/m)
+         300000.000000 CBOT        bottom damping (Pa-s/m)
+             30.000000 DTIC        time interval for analyzing convergence during IC gen (s)
+             50.000000 TMAXIC      max time for ic gen (s). When using cans, it's better to start with TmaxIC. Otherwise, the cans do something weird at the beginning.
+              2.000000 CDSCALEIC   factor by which to scale drag coefficients during dynamic relaxation (-)
+              0.001000 THRESHIC    threshold for IC convergence (-)
+              0.500000 MU_KT       Transverse line coefficient of friction (same as FrictionCoefficient).
+              0.500000 MU_KA       Axial line coefficient of friction (same as FrictionCoefficient).
+              1.000000 MC          Ratio between Static and Dynamic friction coefficients (same as StatDynFricScale)
+            200.000000 CV          The seabed friction damping, to scale from no friction at null velocity to full friction when the velocity is large (same as FricDamp)
+------------------------ OUTPUTS --------------------------------------------
+AnchTen1
+AnchTen11
+AnchTen16
+AnchTen21
+AnchTen26
+AnchTen6
+FairTen10
+FairTen15
+FairTen20
+FairTen25
+FairTen30
+FairTen5
+------------------------- END --------------------------------------

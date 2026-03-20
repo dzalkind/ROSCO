@@ -86,6 +86,9 @@ ControlParameters:
     Ext_Interface: 
       <<: *integer
       description: 0 - use standard bladed interface, 1 - Use the extened DLL interface introduced in OpenFAST 3.5.0.
+    UnScr:
+      <<: *integer
+      description: File unit for print screen log
     
     DT_Out: 
       <<: *real

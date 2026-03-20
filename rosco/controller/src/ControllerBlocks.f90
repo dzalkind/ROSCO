@@ -362,7 +362,7 @@ CONTAINS
                     'The filtered hub-height wind speed will be used instead. This warning will not persist even though the condition may.'//NewLine// &
                     'Check WE_Op in the ROSCO .dbg file to see if the WSE is enabled (1) or disabled (0).'//NewLine// &
                     '***************************************************************************************************************************************'
-                PRINT *, TRIM(WarningMessage)
+                WRITE(CntrPar%UnScr,*) TRIM(WarningMessage)
 
                 LocalVar%RestartWSE = 0 ! Restart
             ENDIF

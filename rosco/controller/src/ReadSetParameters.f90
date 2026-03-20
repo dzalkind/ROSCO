@@ -162,6 +162,8 @@ CONTAINS
         INTEGER(IntKi)                              :: UnOpenLoop       ! Open Loop file unit
         INTEGER(IntKi)                              :: N_OL_Cables
         INTEGER(IntKi)                              :: N_OL_StCs
+        INTEGER(IntKi)                              :: ErrStat
+        CHARACTER(128)                                  :: StdOutFilename              ! Input checkpoint file
 
         CHARACTER(*),               PARAMETER       :: RoutineName = 'SetParameters'
 
@@ -196,14 +198,31 @@ CONTAINS
         avrSWAP(79) = 4.0 ! Request for loads: 0=none
         avrSWAP(80) = 0.0 ! Variable slip current status
         avrSWAP(81) = 0.0 ! Variable slip current demand
+
         
         ! Read any External Controller Parameters specified in the User Interface
         !   and initialize variables:
         IF (LocalVar%iStatus == 0) THEN ! .TRUE. if we're on the first call to the DLL
+
+            ! Set up log because LabView doesn't like print statements
+
+            CntrPar%UnScr = 0
+            StdOutFilename = TRIM(RootName(1:4))//'.RO.stdout'
+            CALL GetNewUnit(CntrPar%UnScr, ErrVar)
+            OPEN(unit=CntrPar%UnScr, FILE=StdOutFilename, IOSTAT=ErrStat, ACTION='WRITE' )
+            IF ( ErrStat /= 0 ) THEN
+                ErrVar%ErrMsg  = 'Cannot open file '//TRIM( StdOutFilename )//'. Another program may have locked it for writing.'
+                ErrVar%aviFAIL = 1
+            ELSE
+                WRITE( CntrPar%UnScr, *) 'ROSCO StdOut file'
+                WRITE( CntrPar%UnScr, *) 'Generated on '//CurDate()//' at '//CurTime()//' using ROSCO-'//TRIM(rosco_version)
+                WRITE( CntrPar%UnScr, *) '-----------------------------------------'
+                WRITE( CntrPar%UnScr, *)  NEW_LINE('A')
+            ENDIF
             
             ! Inform users that we are using this user-defined routine:
             ! ErrVar%aviFAIL = 1
-            write (*,*) '                                                                              '//NEW_LINE('A')// &
+            write (CntrPar%UnScr,*) '                                                                              '//NEW_LINE('A')// &
                         '------------------------------------------------------------------------------'//NEW_LINE('A')// &
                         'Running ROSCO-'//TRIM(rosco_version)//NEW_LINE('A')// &
                         'A wind turbine controller framework for public use in the scientific field    '//NEW_LINE('A')// &
@@ -800,9 +819,9 @@ CONTAINS
             ENDIF
 
 
-            PRINT *, 'ROSCO: Implementing open loop control for'//TRIM(OL_String)
+            WRITE(CntrPar%UnScr,*) 'ROSCO: Implementing open loop control for'//TRIM(OL_String)
             IF (CntrPar%OL_Mode == 2) THEN
-                PRINT *, 'ROSCO: OL_Mode = 2 will change generator torque control for Azimuth tracking'
+                WRITE(CntrPar%UnScr,*) 'ROSCO: OL_Mode = 2 will change generator torque control for Azimuth tracking'
             ENDIF
 
             CALL GetNewUnit(UnOpenLoop, ErrVar)
@@ -1359,7 +1378,7 @@ CONTAINS
         ENDIF
 
         IF (CntrPar%PRC_Mode == 2) THEN
-            PRINT *, "Note: PRC Mode = ", CntrPar%PRC_Mode, ", which will affect VS_RefSpeed, VS_TSRopt, and PC_RefSpeed"
+            WRITE(CntrPar%UnScr,*) "Note: PRC Mode = ", CntrPar%PRC_Mode, ", which will affect VS_RefSpeed, VS_TSRopt, and PC_RefSpeed"
 
             IF (CntrPar%PRC_Comm == 0) THEN
                 IF (CntrPar%PRC_R_Pitch < 0) THEN
@@ -1489,7 +1508,7 @@ CONTAINS
             END IF
 
             IF (CntrPar%PRC_Mode == 1) THEN
-                PRINT *, "ROSCO Warning: Note that frequency avoidance control (TRA_Mode > 1) will affect PRC set points"
+                WRITE(CntrPar%UnScr,*) "ROSCO Warning: Note that frequency avoidance control (TRA_Mode > 1) will affect PRC set points"
             END IF           
 
         END IF
@@ -1676,7 +1695,7 @@ CONTAINS
 
         ! ---- AWC vs. IPC
         IF (CntrPar%AWC_Mode > 0 .AND. CntrPar%IPC_ControlMode > 0) THEN
-            PRINT *, "ROSCO WARNING: Individual pitch control and active wake control are both enabled. Performance may be compromised."
+            WRITE(CntrPar%UnScr,*) "ROSCO WARNING: Individual pitch control and active wake control are both enabled. Performance may be compromised."
         ENDIF
 
 

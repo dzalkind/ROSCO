@@ -90,17 +90,17 @@ CONTAINS
             DLL_Ext%FileName = TRIM(CntrPar%DLL_FileName)
             DLL_Ext%ProcName = TRIM(CntrPar%DLL_ProcName)
 
-            PRINT *, "ROSCO is calling an external dynamic library for control input:"
-            PRINT *, "DLL_FileName:", TRIM(CntrPar%DLL_FileName)
-            PRINT *, "DLL_InFile:", TRIM(CntrPar%DLL_InFile)
-            PRINT *, "DLL_ProcName:", TRIM(CntrPar%DLL_ProcName)
+            WRITE(CntrPar%UnScr,*) "ROSCO is calling an external dynamic library for control input:"
+            WRITE(CntrPar%UnScr,*) "DLL_FileName:", TRIM(CntrPar%DLL_FileName)
+            WRITE(CntrPar%UnScr,*) "DLL_InFile:", TRIM(CntrPar%DLL_InFile)
+            WRITE(CntrPar%UnScr,*) "DLL_ProcName:", TRIM(CntrPar%DLL_ProcName)
 
             ! Load dynamic library, but first make sure that it's free
             ! CALL FreeDynamicLib(DLL_Ext, ErrVar%ErrStat, ErrVar%ErrMsg)
             CALL LoadDynamicLib(DLL_Ext, ErrVar%ErrStat, ErrVar%ErrMsg)
             ALLOCATE(ExtDLL%avrSWAP(max_avr_entries)) !(1:max_avr_entries)
 
-            PRINT *, "Library loaded successfully"
+            WRITE(CntrPar%UnScr,*) "Library loaded successfully"
 
         END IF
 

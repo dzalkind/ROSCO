@@ -10,175 +10,175 @@ IMPLICIT NONE
 Character(*), PARAMETER     :: rosco_version = '2.10.1'             ! ROSCO version
 
 TYPE, PUBLIC :: ControlParameters
-    LOGICAL :: ReadDISCON_IN = .TRUE.
-    INTEGER(IntKi)                :: ZMQ_ID                      ! 0000 - 9999, Identifier of the rosco, used for zeromq interface only
-    INTEGER(IntKi)                :: LoggingLevel                ! 0 - write no debug files, 1 - write standard output .dbg-file, 2 - write standard output .dbg-file and complete avrSWAP-array .dbg2-file
-    INTEGER(IntKi)                :: Echo                        ! 0 - no Echo, 1 - Echo input data to <RootName>.echo
-    INTEGER(IntKi)                :: Ext_Interface               ! 0 - use standard bladed interface, 1 - Use the extened DLL interface introduced in OpenFAST 3.5.0.
-    REAL(DbKi)                    :: DT_Out                      ! Output time step
+    LOGICAL :: ReadDISCON_IN = .FALSE.
+    INTEGER(IntKi)                :: ZMQ_ID = 0                  ! 0000 - 9999, Identifier of the rosco, used for zeromq interface only
+    INTEGER(IntKi)                :: LoggingLevel = 2            ! 0 - write no debug files, 1 - write standard output .dbg-file, 2 - write standard output .dbg-file and complete avrSWAP-array .dbg2-file
+    INTEGER(IntKi)                :: Echo = 0                    ! 0 - no Echo, 1 - Echo input data to <RootName>.echo
+    INTEGER(IntKi)                :: Ext_Interface = 1           ! 0 - use standard bladed interface, 1 - Use the extened DLL interface introduced in OpenFAST 3.5.0.
+    REAL(DbKi)                    :: DT_Out = 0.0                ! Output time step
     INTEGER(IntKi)                :: n_DT_Out                    ! output every this many steps
     INTEGER(IntKi)                :: n_DT_ZMQ                    ! Send measurements to ZMQ after this many time steps
-    INTEGER(IntKi)                :: F_LPFType                   ! Low pass filter on the rotor and generator speed {1 - first-order low-pass filter, 2 - second-order low-pass filter}, [rad/s]
-    REAL(DbKi)                    :: F_LPFCornerFreq             ! Corner frequency (-3dB point) in the first-order low-pass filter, [rad/s]
-    REAL(DbKi)                    :: F_LPFDamping                ! Damping coefficient [used only when F_FilterType = 2]
-    INTEGER(IntKi)                :: F_NumNotchFilts             ! Number of notch filters
-    INTEGER(IntKi)                :: F_GenSpdNotch_N             ! Number of gen speed notch filters
-    INTEGER(IntKi), DIMENSION(:), ALLOCATABLE     :: F_GenSpdNotch_Ind           ! Indices of gen speed notch filters
-    INTEGER(IntKi)                :: F_TwrTopNotch_N             ! Number of tower top notch filters
-    INTEGER(IntKi), DIMENSION(:), ALLOCATABLE     :: F_TwrTopNotch_Ind           ! Indices of tower top notch filters
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: F_NotchFreqs                ! Natural frequencies of notch filters, [rad/s]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: F_NotchBetaNum              ! Notch Filter Numerator damping (determines width)
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: F_NotchBetaDen              ! Notch Filter Numerator damping (determines depth?)
-    REAL(DbKi)                    :: F_SSCornerFreq              ! Corner frequency (-3dB point) in the first order low pass filter for the setpoint smoother [rad/s]
-    REAL(DbKi)                    :: F_WECornerFreq              ! Corner frequency (-3dB point) in the first order low pass filter for the wind speed estimate [rad/s]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: F_FlCornerFreq              ! Corner frequency (-3dB point) in the second order low pass filter of the tower-top fore-aft motion for floating feedback control [rad/s].
-    REAL(DbKi)                    :: F_FlHighPassFreq            ! Natural frequency of first-roder high-pass filter for nacelle fore-aft motion [rad/s].
-    REAL(DbKi)                    :: F_YawErr                    ! Corner low pass filter corner frequency for yaw controller [rad/s].
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: F_FlpCornerFreq             ! Corner frequency (-3dB point) in the second order low pass filter of the blade root bending moment for flap control [rad/s].
-    REAL(DbKi)                    :: F_VSRefSpdCornerFreq        ! Corner frequency (-3dB point) in the first order low pass filter of the generator speed reference used for TSR tracking torque control [rad/s].
-    INTEGER(IntKi)                :: TRA_Mode                    ! Tower Fore-Aft control mode {0 - no fore-aft control, 1 - Tower fore-aft damping, 2 -Frequency exclusion zone, 3- Options 1 and 2}
-    REAL(DbKi)                    :: TRA_ExclSpeed               ! Rotor speed for exclusion [LSS] [rad/s]
-    REAL(DbKi)                    :: TRA_ExclBand                ! One-half of the total frequency exclusion band. Torque controller reference will be TRA_ExclFreq +/- TRA_ExlBand [rad/s]
-    REAL(DbKi)                    :: TRA_RateLimit               ! Time constant for gain change when in exclusion zone [s]
-    INTEGER(IntKi)                :: TD_Mode                     ! Tower Fore-Aft control mode {0 - no fore-aft control, 1 - Tower fore-aft damping, 2 -Frequency exclusion zone, 3- Options 1 and 2}
-    REAL(DbKi)                    :: FA_HPFCornerFreq            ! Corner frequency (-3dB point) in the high-pass filter on the fore-aft acceleration signal [rad/s]
-    REAL(DbKi)                    :: FA_IntSat                   ! Integrator saturation (maximum signal amplitude contrbution to pitch from FA damper), [rad]
-    REAL(DbKi)                    :: FA_KI                       ! Integral gain for the fore-aft tower damper controller, -1 = off / >0 = on [rad s/m]
-    INTEGER(IntKi)                :: IPC_ControlMode             ! Turn Individual Pitch Control (IPC) for fatigue load reductions (pitch contribution) {0 - off, 1 - 1P reductions, 2 - 1P+2P reductions}
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: IPC_Vramp                   ! Wind speeds for IPC cut-in sigma function [m/s]
-    REAL(DbKi)                    :: IPC_IntSat                  ! Integrator saturation (maximum signal amplitude contrbution to pitch from IPC)
-    INTEGER(IntKi)                :: IPC_SatMode                 ! IPC Saturation method IPC Saturation method (0 - no saturation (except by PC_MinPit), 1 - saturate by PS_BldPitchMin, 2 - saturate sotfly (full IPC cycle) by PC_MinPit, 3 - saturate softly by PS_BldPitchMin)
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: IPC_KP                      ! Integral gain for the individual pitch controller, [-].
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: IPC_KI                      ! Integral gain for the individual pitch controller, [-].
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: IPC_aziOffset               ! Phase offset added to the azimuth angle for the individual pitch controller, [rad].
-    REAL(DbKi)                    :: IPC_CornerFreqAct           ! Corner frequency of the first-order actuators model, to induce a phase lag in the IPC signal {0 - Disable}, [rad/s]
-    INTEGER(IntKi)                :: PC_ControlMode              ! Blade pitch control mode {0 - No pitch, fix to fine pitch, 1 - active PI blade pitch control}
-    INTEGER(IntKi)                :: PC_GS_n                     ! Amount of gain-scheduling table entries
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: PC_GS_angles                ! Gain-schedule table - pitch angles
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: PC_GS_KP                    ! Gain-schedule table - pitch controller kp gains
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: PC_GS_KI                    ! Gain-schedule table - pitch controller ki gains
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: PC_GS_KD                    ! Gain-schedule table - pitch controller kd gains
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: PC_GS_TF                    ! Gain-schedule table - pitch controller tf gains (derivative filter)
-    REAL(DbKi)                    :: PC_MaxPit                   ! Maximum physical pitch limit, [rad].
-    REAL(DbKi)                    :: PC_MinPit                   ! Minimum physical pitch limit, [rad].
-    REAL(DbKi)                    :: PC_MaxRat                   ! Maximum pitch rate (in absolute value) in pitch controller, [rad/s].
-    REAL(DbKi)                    :: PC_MinRat                   ! Minimum pitch rate (in absolute value) in pitch controller, [rad/s].
-    REAL(DbKi)                    :: PC_RefSpd                   ! Desired (reference) HSS speed for pitch controller, [rad/s].
-    REAL(DbKi)                    :: PC_FinePit                  ! Record 5 - Below-rated pitch angle set-point (deg) [used only with Bladed Interface]
-    REAL(DbKi)                    :: PC_Switch                   ! Angle above lowest minimum pitch angle for switch [rad]
-    INTEGER(IntKi)                :: VS_ControlMode              ! Generator torque control mode in below rated conditions {0 - no torque control, 1 - komega^2 with PI trans, 2 - WSE TSR Tracking, 3 - Power TSR Tracking, 4 - Torque TSR Tracking}
-    INTEGER(IntKi)                :: VS_ConstPower               ! Constant power torque control
-    INTEGER(IntKi)                :: VS_FBP                      ! Fixed blade pitch control mode in above rated conditions {0 - variable pitch (defer to PC_ControlMode and VS_ConstPower), 1 - P/omega overspeed control law, 2 - PI reference tracking based on WSE lookup table, 3 - PI reference tracking based on torque lookup table (must have VS_FBP_Tau be a monotonic function)}
-    REAL(DbKi)                    :: VS_GenEff                   ! Generator efficiency mechanical power -> electrical power [-]
-    REAL(DbKi)                    :: VS_ArSatTq                  ! Above rated generator torque PI control saturation, [Nm]
-    REAL(DbKi)                    :: VS_MaxRat                   ! Maximum torque rate (in absolute value) in torque controller, [Nm/s].
-    REAL(DbKi)                    :: VS_MaxTq                    ! Maximum generator torque in Region 3 (HSS side), [Nm].
-    REAL(DbKi)                    :: VS_MinTq                    ! Minimum generator torque (HSS side), [Nm].
-    REAL(DbKi)                    :: VS_MinOMSpd                 ! Optimal mode minimum speed, [rad/s]
-    REAL(DbKi)                    :: VS_Rgn2K                    ! Generator torque constant in Region 2 (HSS side), N-m/(rad/s)^2
-    REAL(DbKi)                    :: VS_RtPwr                    ! Wind turbine rated power [W]
-    REAL(DbKi)                    :: VS_RtTq                     ! Rated torque, [Nm].
-    REAL(DbKi)                    :: VS_RefSpd                   ! Rated generator speed [rad/s]
-    INTEGER(IntKi)                :: VS_n                        ! Number of controller gains
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: VS_KP                       ! Proportional gain for generator PI torque controller, used in the transitional 2.5 region
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: VS_KI                       ! Integral gain for generator PI torque controller, used in the transitional 2.5 region
-    REAL(DbKi)                    :: VS_TSRopt                   ! Power-maximizing region 2 tip-speed ratio [rad]
-    INTEGER(IntKi)                :: VS_FBP_n                    ! Number of operating schedule entries for fixed blade pitch control
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: VS_FBP_U                    ! Operating schedule for fixed blade pitch control - Wind speed
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: VS_FBP_Omega                ! Operating schedule for fixed blade pitch control - Generator speed
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: VS_FBP_Tau                  ! Operating schedule for fixed blade pitch control - Generator torque
-    INTEGER(IntKi)                :: SS_Mode                     ! Setpoint Smoother mode {0 - no setpoint smoothing, 1 - introduce setpoint smoothing}
-    REAL(DbKi)                    :: SS_VSGain                   ! Variable speed torque controller setpoint smoother gain, [-].
-    REAL(DbKi)                    :: SS_PCGain                   ! Collective pitch controller setpoint smoother gain, [-].
-    INTEGER(IntKi)                :: PRC_Mode                    ! Power reference tracking mode, 0- use standard rotor speed set points, 1- use PRC rotor speed setpoints
-    INTEGER(IntKi)                :: PRC_Comm                    ! Power reference communication mode, 0- use constant DISCON inputs, 1- use open loop inputs, 2- use ZMQ inputs
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: PRC_WindSpeeds              ! Array of wind speeds used in rotor speed vs. wind speed lookup table
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: PRC_GenSpeeds               ! Array of rotor speeds corresponding to PRC_WindSpeeds
-    INTEGER(IntKi)                :: PRC_n                       ! Number of elements in PRC_WindSpeeds and PRC_GenSpeeds array
-    REAL(DbKi)                    :: PRC_LPF_Freq                ! Frequency of the low pass filter on the wind speed estimate used to set PRC_GenSpeeds [rad/s]
-    REAL(DbKi)                    :: PRC_R_Torque                ! Power rating through changing the rated torque, default is 1, effective above rated [-]
-    REAL(DbKi)                    :: PRC_R_Speed                 ! Power rating through changing the rated generator speed, default is 1, effective above rated [-]
-    REAL(DbKi)                    :: PRC_R_Pitch                 ! Power rating through changing the fine pitch angle, default is 1, effective below rated [-]
-    INTEGER(IntKi)                :: PRC_Table_n                 ! Number of elements in PRC_R to _Pitch table
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: PRC_Pitch_Table             ! Table of fine pitch versus PRC_R_Table, length should be PRC_Table_n [rad]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: PRC_R_Table                 ! Table of turbine rating versus fine pitch (PRC_Pitch_Table), length should be PRC_Table_n, default is 1 [-]
-    INTEGER(IntKi)                :: WE_Mode                     ! Wind speed estimator mode {0 - One-second low pass filtered hub height wind speed, 1 - Imersion and Invariance Estimator (Ortega et al.)
-    REAL(DbKi)                    :: WE_BladeRadius              ! Blade length [m]
-    INTEGER(IntKi)                :: WE_CP_n                     ! Amount of parameters in the Cp array
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: WE_CP                       ! Parameters that define the parameterized CP(\lambda) function
-    REAL(DbKi)                    :: WE_Gamma                    ! Adaption gain of the wind speed estimator algorithm [m/rad]
-    REAL(DbKi)                    :: WE_GearboxRatio             ! Gearbox ratio, >=1  [-]
-    REAL(DbKi)                    :: WE_Jtot                     ! Total drivetrain inertia, including blades, hub and casted generator inertia to LSS [kg m^2]
-    REAL(DbKi)                    :: WE_RhoAir                   ! Air density [kg m^-3]
-    CHARACTER(1024)               :: PerfFileName                ! File containing rotor performance tables (Cp,Ct,Cq)
-    INTEGER(IntKi), DIMENSION(:), ALLOCATABLE     :: PerfTableSize               ! Size of rotor performance tables, first number refers to number of blade pitch angles, second number referse to number of tip-speed ratios
-    INTEGER(IntKi)                :: WE_FOPoles_N                ! Number of first-order system poles used in EKF
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: WE_FOPoles_v                ! Wind speeds corresponding to first-order system poles [m/s]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: WE_FOPoles                  ! First order system poles
-    INTEGER(IntKi)                :: Y_ControlMode               ! Yaw control mode {0 - no yaw control, 1 - yaw rate control}
-    REAL(DbKi)                    :: Y_uSwitch                   ! Wind speed to switch between Y_ErrThresh. If zero, only the first value of Y_ErrThresh is used [m/s]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: Y_ErrThresh                 ! Error threshold [rad]. Turbine begins to yaw when it passes this
-    REAL(DbKi)                    :: Y_Rate                      ! Yaw rate [rad/s]
-    REAL(DbKi)                    :: Y_MErrSet                   ! Yaw alignment error, setpoint (for wake steering) [rad]
-    REAL(DbKi)                    :: Y_IPC_IntSat                ! Integrator saturation (maximum signal amplitude contrbution to pitch from yaw-by-IPC)
-    REAL(DbKi)                    :: Y_IPC_KP                    ! Yaw-by-IPC proportional controller gain Kp
-    REAL(DbKi)                    :: Y_IPC_KI                    ! Yaw-by-IPC integral controller gain Ki
-    INTEGER(IntKi)                :: PS_Mode                     ! Pitch saturation mode {0 - no peak shaving, 1 -  implement pitch saturation}
-    INTEGER(IntKi)                :: PS_BldPitchMin_N            ! Number of values in minimum blade pitch lookup table (should equal number of values in PS_WindSpeeds and PS_BldPitchMin)
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: PS_WindSpeeds               ! Wind speeds corresponding to minimum blade pitch angles [m/s]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: PS_BldPitchMin              ! Minimum blade pitch angles [rad]
-    INTEGER(IntKi)                :: SU_Mode                     ! Startup mode {0 - no startup procedure, 1 - enable startup}
-    REAL(DbKi)                    :: SU_StartTime                ! Time to start start up routine
-    REAL(DbKi)                    :: SU_FW_MinDuration           ! Free-wheel minimum duration [s]
-    REAL(DbKi)                    :: SU_RotorSpeedThresh         ! Rotor speed threshhold to switch from freewheel to loads [rad/s]
-    REAL(DbKi)                    :: SU_RotorSpeedCornerFreq     ! Cutoff Frequency for first order low-pass filter for rotor speed for startup, [rad/s]
-    INTEGER(IntKi)                :: SU_LoadStages_N             ! Number of load staged for startup (should equal number of values in SU_LoadStages, SU_LoadRampDuration and SU_LoadHoldDuration) [-]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: SU_LoadStages               ! Array containing loads as a fraction of full generator torque during startup [-]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: SU_LoadRampDuration         ! Array containing ramp duration to reach the corresponding partial loads during startup [s]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: SU_LoadHoldDuration         ! Array containing duration to hold the partial loads during startup [s]
-    INTEGER(IntKi)                :: SD_Mode                     ! Shutdown mode {0 - no shutdown procedure, 1 - enable shutdown}
-    REAL(DbKi)                    :: SD_TimeActivate             ! Time to acitvate shutdown modes, [s]
-    INTEGER(IntKi)                :: SD_EnablePitch              ! Shutdown when collective blade pitch exceeds a threshold, [-]
-    INTEGER(IntKi)                :: SD_EnableYawError           ! Shutdown when yaw error exceeds a threshold, [-]
-    INTEGER(IntKi)                :: SD_EnableGenSpeed           ! Shutdown when generator speed exceeds a threshold, [-]
-    INTEGER(IntKi)                :: SD_EnableTime               ! Shutdown at a predefined time, [-]
-    REAL(DbKi)                    :: SD_MaxPit                   ! Maximum blade pitch angle to initiate shutdown, [rad]
-    REAL(DbKi)                    :: SD_PitchCornerFreq          ! Cutoff Frequency for first order low-pass filter for blade pitch angle for shutdown, [rad/s]
-    REAL(DbKi)                    :: SD_MaxYawError              ! Maximum yaw error to initiate shutdown, [deg]
-    REAL(DbKi)                    :: SD_YawErrorCornerFreq       ! Cutoff Frequency for first order low-pass filter for yaw error for shutdown, [rad/s]
-    REAL(DbKi)                    :: SD_MaxGenSpd                ! Maximum generator speed to initiate shutdown, [rad/s]
-    REAL(DbKi)                    :: SD_GenSpdCornerFreq         ! Cutoff Frequency for first order low-pass filter for generator speed for shutdown, [rad/s]
-    REAL(DbKi)                    :: SD_Time                     ! Shutdown time, [s]
-    INTEGER(IntKi)                :: SD_Method                   ! Shutdown method {1 - Reduce generator torque and increase blade pitch}, [-]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: SD_MaxTorqueRate            ! Maximum torque rate for shutdown, [Nm/s]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: SD_MaxPitchRate             ! Maximum pitch rate used for shutdown, [rad/s]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: SD_StagePitch               ! Array containing the pitch angle to reach in each shutdown stage [rad]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: SD_StageTime                ! Array containing the time to spend in each shutdown stage [s]
-    INTEGER(IntKi)                :: SD_Stage_N                  ! Number of shutdown stages (should equal number of values in SD_MaxPitchRate and SD_MaxTorqueRate) [-]
-    INTEGER(IntKi)                :: Fl_Mode                     ! Floating specific feedback mode {0 - no nacelle velocity feedback, 1 - nacelle velocity feedback}
-    INTEGER(IntKi)                :: Fl_n                        ! Number of Fl_Kp for gain scheduling
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: Fl_Kp                       ! Nacelle velocity proportional feedback gain [s]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: Fl_U                        ! Wind speeds for scheduling Fl_Kp [m/s]
-    INTEGER(IntKi)                :: Flp_Mode                    ! Flap actuator mode {0 - off, 1 - fixed flap position, 2 - PI flap control}
-    REAL(DbKi)                    :: Flp_Angle                   ! Fixed flap angle (degrees)
-    REAL(DbKi)                    :: Flp_Kp                      ! PI flap control proportional gain
-    REAL(DbKi)                    :: Flp_Ki                      ! PI flap control integral gain
-    REAL(DbKi)                    :: Flp_MaxPit                  ! Maximum (and minimum) flap pitch angle [rad]
-    CHARACTER(1024)               :: OL_Filename                 ! Input file with open loop timeseries
-    INTEGER(IntKi)                :: OL_Mode                     ! Open loop control mode {0 - no open loop control, 1 - open loop control vs. time, 2 - open loop control vs. wind speed}
-    INTEGER(IntKi)                :: OL_BP_Mode                  ! Open loop control mode {0 - no open loop control, 1 - open loop control vs. time, 2 - open loop control vs. wind speed}
-    REAL(DbKi)                    :: OL_BP_FiltFreq              ! First order low pass filter cutoff frequency for open loop breakpoint
-    INTEGER(IntKi)                :: Ind_Breakpoint              ! The column in OL_Filename that contains the breakpoint (time if OL_Mode = 1)
-    INTEGER(IntKi), DIMENSION(:), ALLOCATABLE     :: Ind_BldPitch                ! The columns in OL_Filename that contains the blade pitch inputs (1,2,3) in rad
-    INTEGER(IntKi)                :: Ind_GenTq                   ! The column in OL_Filename that contains the generator torque in Nm
-    INTEGER(IntKi)                :: Ind_YawRate                 ! The column in OL_Filename that contains the generator torque in Nm
-    INTEGER(IntKi)                :: Ind_R_Speed                 ! The column in OL_Filename that contains the R_Speed input
-    INTEGER(IntKi)                :: Ind_R_Torque                ! The column in OL_Filename that contains the R_Torque input
-    INTEGER(IntKi)                :: Ind_R_Pitch                 ! The column in OL_Filename that contains the R_Pitch input
-    INTEGER(IntKi)                :: Ind_Azimuth                 ! The column in OL_Filename that contains the desired azimuth position in rad (used if OL_Mode = 2)
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: RP_Gains                    ! PID gains and Tf on derivative term for rotor position control (used if OL_Mode = 2)
-    INTEGER(IntKi), DIMENSION(:), ALLOCATABLE     :: Ind_CableControl            ! The column in OL_Filename that contains the cable control inputs in m
-    INTEGER(IntKi), DIMENSION(:), ALLOCATABLE     :: Ind_StructControl           ! The column in OL_Filename that contains the structural control inputs in various units
+    INTEGER(IntKi)                :: F_LPFType = 2               ! Low pass filter on the rotor and generator speed {1 - first-order low-pass filter, 2 - second-order low-pass filter}, [rad/s]
+    REAL(DbKi)                    :: F_LPFCornerFreq = 1.0081    ! Corner frequency (-3dB point) in the first-order low-pass filter, [rad/s]
+    REAL(DbKi)                    :: F_LPFDamping = 0.7          ! Damping coefficient [used only when F_FilterType = 2]
+    INTEGER(IntKi)                :: F_NumNotchFilts = 1         ! Number of notch filters
+    INTEGER(IntKi)                :: F_GenSpdNotch_N = 0         ! Number of gen speed notch filters
+    INTEGER(IntKi)                :: F_GenSpdNotch_Ind(1) = [0]   ! Indices of gen speed notch filters
+    INTEGER(IntKi)                :: F_TwrTopNotch_N = 1         ! Number of tower top notch filters
+    INTEGER(IntKi)                :: F_TwrTopNotch_Ind(1) = [1]   ! Indices of tower top notch filters
+    REAL(DbKi)                    :: F_NotchFreqs(1) = [3.355]   ! Natural frequencies of notch filters, [rad/s]
+    REAL(DbKi)                    :: F_NotchBetaNum(1) = [0.0]   ! Notch Filter Numerator damping (determines width)
+    REAL(DbKi)                    :: F_NotchBetaDen(1) = [0.25]   ! Notch Filter Numerator damping (determines depth?)
+    REAL(DbKi)                    :: F_SSCornerFreq = 0.6283     ! Corner frequency (-3dB point) in the first order low pass filter for the setpoint smoother [rad/s]
+    REAL(DbKi)                    :: F_WECornerFreq = 0.20944    ! Corner frequency (-3dB point) in the first order low pass filter for the wind speed estimate [rad/s]
+    REAL(DbKi)                    :: F_FlCornerFreq(2) = [0.324, 1.0]   ! Corner frequency (-3dB point) in the second order low pass filter of the tower-top fore-aft motion for floating feedback control [rad/s].
+    REAL(DbKi)                    :: F_FlHighPassFreq = 0.01042   ! Natural frequency of first-roder high-pass filter for nacelle fore-aft motion [rad/s].
+    REAL(DbKi)                    :: F_YawErr = 0.17952          ! Corner low pass filter corner frequency for yaw controller [rad/s].
+    REAL(DbKi)                    :: F_FlpCornerFreq(2) = [10.4616, 1.0]   ! Corner frequency (-3dB point) in the second order low pass filter of the blade root bending moment for flap control [rad/s].
+    REAL(DbKi)                    :: F_VSRefSpdCornerFreq = 0.20944   ! Corner frequency (-3dB point) in the first order low pass filter of the generator speed reference used for TSR tracking torque control [rad/s].
+    INTEGER(IntKi)                :: TRA_Mode = 0                ! Tower Fore-Aft control mode {0 - no fore-aft control, 1 - Tower fore-aft damping, 2 -Frequency exclusion zone, 3- Options 1 and 2}
+    REAL(DbKi)                    :: TRA_ExclSpeed = 0.0         ! Rotor speed for exclusion [LSS] [rad/s]
+    REAL(DbKi)                    :: TRA_ExclBand = 0.0          ! One-half of the total frequency exclusion band. Torque controller reference will be TRA_ExclFreq +/- TRA_ExlBand [rad/s]
+    REAL(DbKi)                    :: TRA_RateLimit = 0.0         ! Time constant for gain change when in exclusion zone [s]
+    INTEGER(IntKi)                :: TD_Mode = 0                 ! Tower Fore-Aft control mode {0 - no fore-aft control, 1 - Tower fore-aft damping, 2 -Frequency exclusion zone, 3- Options 1 and 2}
+    REAL(DbKi)                    :: FA_HPFCornerFreq = 0.0      ! Corner frequency (-3dB point) in the high-pass filter on the fore-aft acceleration signal [rad/s]
+    REAL(DbKi)                    :: FA_IntSat = 0.0             ! Integrator saturation (maximum signal amplitude contrbution to pitch from FA damper), [rad]
+    REAL(DbKi)                    :: FA_KI = 0.0                 ! Integral gain for the fore-aft tower damper controller, -1 = off / >0 = on [rad s/m]
+    INTEGER(IntKi)                :: IPC_ControlMode = 0         ! Turn Individual Pitch Control (IPC) for fatigue load reductions (pitch contribution) {0 - off, 1 - 1P reductions, 2 - 1P+2P reductions}
+    REAL(DbKi)                    :: IPC_Vramp(2) = [8.0, 10.0]   ! Wind speeds for IPC cut-in sigma function [m/s]
+    REAL(DbKi)                    :: IPC_IntSat = 0.3            ! Integrator saturation (maximum signal amplitude contrbution to pitch from IPC)
+    INTEGER(IntKi)                :: IPC_SatMode = 2             ! IPC Saturation method IPC Saturation method (0 - no saturation (except by PC_MinPit), 1 - saturate by PS_BldPitchMin, 2 - saturate sotfly (full IPC cycle) by PC_MinPit, 3 - saturate softly by PS_BldPitchMin)
+    REAL(DbKi)                    :: IPC_KP(2) = [0.0, 0.0]      ! Integral gain for the individual pitch controller, [-].
+    REAL(DbKi)                    :: IPC_KI(2) = [0.0, 0.0]      ! Integral gain for the individual pitch controller, [-].
+    REAL(DbKi)                    :: IPC_aziOffset(2) = [0.0, 0.0]   ! Phase offset added to the azimuth angle for the individual pitch controller, [rad].
+    REAL(DbKi)                    :: IPC_CornerFreqAct = 0.0     ! Corner frequency of the first-order actuators model, to induce a phase lag in the IPC signal {0 - Disable}, [rad/s]
+    INTEGER(IntKi)                :: PC_ControlMode = 1          ! Blade pitch control mode {0 - No pitch, fix to fine pitch, 1 - active PI blade pitch control}
+    INTEGER(IntKi)                :: PC_GS_n = 30                ! Amount of gain-scheduling table entries
+    REAL(DbKi)                    :: PC_GS_angles(30) = [0.075, 0.105, 0.128, 0.148, 0.166, 0.182, 0.198, 0.212, 0.226, 0.239, 0.251, 0.264, 0.276, 0.287, 0.299, 0.309, 0.32, 0.331, 0.341, 0.351, 0.361, 0.371, 0.381, 0.39, 0.4, 0.409, 0.418, 0.427, 0.436, 0.445]   ! Gain-schedule table - pitch angles
+    REAL(DbKi)                    :: PC_GS_KP(30) = [-0.7705, -0.6545, -0.5692, -0.4981, -0.4322, -0.3667, -0.3479, -0.3812, -0.4122, -0.3963, -0.3627, -0.3586, -0.3753, -0.4056, -0.443, -0.4809, -0.5128, -0.5322, -0.533, -0.5098, -0.4745, -0.4417, -0.4111, -0.3826, -0.3559, -0.3308, -0.3073, -0.2851, -0.2641, -0.2444]   ! Gain-schedule table - pitch controller kp gains
+    REAL(DbKi)                    :: PC_GS_KI(30) = [-0.009017, -0.00901, -0.009383, -0.009777, -0.009885, -0.009454, -0.01013, -0.01261, -0.01519, -0.01585, -0.0154, -0.01581, -0.01682, -0.01824, -0.01988, -0.02152, -0.02297, -0.02398, -0.02436, -0.02392, -0.02304, -0.02223, -0.02147, -0.02076, -0.0201, -0.01948, -0.01889, -0.01834, -0.01783, -0.01734]   ! Gain-schedule table - pitch controller ki gains
+    REAL(DbKi)                    :: PC_GS_KD(30) = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]   ! Gain-schedule table - pitch controller kd gains
+    REAL(DbKi)                    :: PC_GS_TF(30) = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]   ! Gain-schedule table - pitch controller tf gains (derivative filter)
+    REAL(DbKi)                    :: PC_MaxPit = 1.57            ! Maximum physical pitch limit, [rad].
+    REAL(DbKi)                    :: PC_MinPit = 0.0             ! Minimum physical pitch limit, [rad].
+    REAL(DbKi)                    :: PC_MaxRat = 0.05236         ! Maximum pitch rate (in absolute value) in pitch controller, [rad/s].
+    REAL(DbKi)                    :: PC_MinRat = -0.05236        ! Minimum pitch rate (in absolute value) in pitch controller, [rad/s].
+    REAL(DbKi)                    :: PC_RefSpd = 0.90767         ! Desired (reference) HSS speed for pitch controller, [rad/s].
+    REAL(DbKi)                    :: PC_FinePit = 0.0            ! Record 5 - Below-rated pitch angle set-point (deg) [used only with Bladed Interface]
+    REAL(DbKi)                    :: PC_Switch = 0.01745         ! Angle above lowest minimum pitch angle for switch [rad]
+    INTEGER(IntKi)                :: VS_ControlMode = 2          ! Generator torque control mode in below rated conditions {0 - no torque control, 1 - komega^2 with PI trans, 2 - WSE TSR Tracking, 3 - Power TSR Tracking, 4 - Torque TSR Tracking}
+    INTEGER(IntKi)                :: VS_ConstPower = 0           ! Constant power torque control
+    INTEGER(IntKi)                :: VS_FBP = 0                  ! Fixed blade pitch control mode in above rated conditions {0 - variable pitch (defer to PC_ControlMode and VS_ConstPower), 1 - P/omega overspeed control law, 2 - PI reference tracking based on WSE lookup table, 3 - PI reference tracking based on torque lookup table (must have VS_FBP_Tau be a monotonic function)}
+    REAL(DbKi)                    :: VS_GenEff = 94.4            ! Generator efficiency mechanical power -> electrical power [-]
+    REAL(DbKi)                    :: VS_ArSatTq = 11670800.0     ! Above rated generator torque PI control saturation, [Nm]
+    REAL(DbKi)                    :: VS_MaxRat = 4500000.0       ! Maximum torque rate (in absolute value) in torque controller, [Nm/s].
+    REAL(DbKi)                    :: VS_MaxTq = 12837900.0       ! Maximum generator torque in Region 3 (HSS side), [Nm].
+    REAL(DbKi)                    :: VS_MinTq = 0.0              ! Minimum generator torque (HSS side), [Nm].
+    REAL(DbKi)                    :: VS_MinOMSpd = 0.5236        ! Optimal mode minimum speed, [rad/s]
+    REAL(DbKi)                    :: VS_Rgn2K = 14617100.0       ! Generator torque constant in Region 2 (HSS side), N-m/(rad/s)^2
+    REAL(DbKi)                    :: VS_RtPwr = 10000000.0       ! Wind turbine rated power [W]
+    REAL(DbKi)                    :: VS_RtTq = 11670800.0        ! Rated torque, [Nm].
+    REAL(DbKi)                    :: VS_RefSpd = 0.90767         ! Rated generator speed [rad/s]
+    INTEGER(IntKi)                :: VS_n = 1                    ! Number of controller gains
+    REAL(DbKi)                    :: VS_KP(1) = [-33485200.0]    ! Proportional gain for generator PI torque controller, used in the transitional 2.5 region
+    REAL(DbKi)                    :: VS_KI(1) = [-3149680.0]     ! Integral gain for generator PI torque controller, used in the transitional 2.5 region
+    REAL(DbKi)                    :: VS_TSRopt = 9.0             ! Power-maximizing region 2 tip-speed ratio [rad]
+    INTEGER(IntKi)                :: VS_FBP_n = 60               ! Number of operating schedule entries for fixed blade pitch control
+    REAL(DbKi)                    :: VS_FBP_U(60) = [3.0, 3.2414, 3.4828, 3.7241, 3.9655, 4.2069, 4.4483, 4.6897, 4.931, 5.1724, 5.4138, 5.6552, 5.8966, 6.1379, 6.3793, 6.6207, 6.8621, 7.1034, 7.3448, 7.5862, 7.8276, 8.069, 8.3103, 8.5517, 8.7931, 9.0345, 9.2759, 9.5172, 9.7586, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 24.0, 24.5, 25.0]   ! Operating schedule for fixed blade pitch control - Wind speed
+    REAL(DbKi)                    :: VS_FBP_Omega(60) = [0.5236, 0.5236, 0.5236, 0.5236, 0.5236, 0.5236, 0.5236, 0.5236, 0.5236, 0.5236, 0.5236, 0.5236, 0.53521, 0.55712, 0.57903, 0.60094, 0.62285, 0.64476, 0.66667, 0.68858, 0.71049, 0.7324, 0.7543, 0.77621, 0.79812, 0.82003, 0.84194, 0.86385, 0.88576, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767, 0.90767]   ! Operating schedule for fixed blade pitch control - Generator speed
+    REAL(DbKi)                    :: VS_FBP_Tau(60) = [443530.0, 559430.0, 693950.0, 848460.0, 1024400.0, 1223000.0, 1445900.0, 1694300.0, 1969600.0, 2273200.0, 2606500.0, 2970900.0, 3294800.0, 3570000.0, 3856300.0, 4153700.0, 4462100.0, 4781500.0, 5112000.0, 5453500.0, 5806100.0, 6169700.0, 6544300.0, 6930000.0, 7326800.0, 7734500.0, 8153300.0, 8583200.0, 9024100.0, 9476000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0, 9478000.0]   ! Operating schedule for fixed blade pitch control - Generator torque
+    INTEGER(IntKi)                :: SS_Mode = 1                 ! Setpoint Smoother mode {0 - no setpoint smoothing, 1 - introduce setpoint smoothing}
+    REAL(DbKi)                    :: SS_VSGain = 1.0             ! Variable speed torque controller setpoint smoother gain, [-].
+    REAL(DbKi)                    :: SS_PCGain = 0.001           ! Collective pitch controller setpoint smoother gain, [-].
+    INTEGER(IntKi)                :: PRC_Mode = 0                ! Power reference tracking mode, 0- use standard rotor speed set points, 1- use PRC rotor speed setpoints
+    INTEGER(IntKi)                :: PRC_Comm = 0                ! Power reference communication mode, 0- use constant DISCON inputs, 1- use open loop inputs, 2- use ZMQ inputs
+    REAL(DbKi)                    :: PRC_WindSpeeds(2) = [3.0, 25.0]   ! Array of wind speeds used in rotor speed vs. wind speed lookup table
+    REAL(DbKi)                    :: PRC_GenSpeeds(2) = [0.79168, 0.79168]   ! Array of rotor speeds corresponding to PRC_WindSpeeds
+    INTEGER(IntKi)                :: PRC_n = 2                   ! Number of elements in PRC_WindSpeeds and PRC_GenSpeeds array
+    REAL(DbKi)                    :: PRC_LPF_Freq = 0.07854      ! Frequency of the low pass filter on the wind speed estimate used to set PRC_GenSpeeds [rad/s]
+    REAL(DbKi)                    :: PRC_R_Torque = 1.0          ! Power rating through changing the rated torque, default is 1, effective above rated [-]
+    REAL(DbKi)                    :: PRC_R_Speed = 1.0           ! Power rating through changing the rated generator speed, default is 1, effective above rated [-]
+    REAL(DbKi)                    :: PRC_R_Pitch = 1.0           ! Power rating through changing the fine pitch angle, default is 1, effective below rated [-]
+    INTEGER(IntKi)                :: PRC_Table_n = 20            ! Number of elements in PRC_R to _Pitch table
+    REAL(DbKi)                    :: PRC_Pitch_Table(20) = [0.244, 0.2365, 0.2287, 0.2209, 0.2127, 0.2043, 0.1956, 0.1865, 0.1772, 0.1673, 0.1571, 0.1462, 0.1346, 0.1223, 0.1091, 0.0946, 0.0783, 0.059, 0.035, 0.0]   ! Table of fine pitch versus PRC_R_Table, length should be PRC_Table_n [rad]
+    REAL(DbKi)                    :: PRC_R_Table(20) = [0.0, 0.0526, 0.1053, 0.1579, 0.2105, 0.2632, 0.3158, 0.3684, 0.4211, 0.4737, 0.5263, 0.5789, 0.6316, 0.6842, 0.7368, 0.7895, 0.8421, 0.8947, 0.9474, 1.0]   ! Table of turbine rating versus fine pitch (PRC_Pitch_Table), length should be PRC_Table_n, default is 1 [-]
+    INTEGER(IntKi)                :: WE_Mode = 2                 ! Wind speed estimator mode {0 - One-second low pass filtered hub height wind speed, 1 - Imersion and Invariance Estimator (Ortega et al.)
+    REAL(DbKi)                    :: WE_BladeRadius = 99.155     ! Blade length [m]
+    INTEGER(IntKi)                :: WE_CP_n = 1                 ! Amount of parameters in the Cp array
+    REAL(DbKi)                    :: WE_CP(1) = [0.0]            ! Parameters that define the parameterized CP(\lambda) function
+    REAL(DbKi)                    :: WE_Gamma = 0.0              ! Adaption gain of the wind speed estimator algorithm [m/rad]
+    REAL(DbKi)                    :: WE_GearboxRatio = 1.0       ! Gearbox ratio, >=1  [-]
+    REAL(DbKi)                    :: WE_Jtot = 218727652.0       ! Total drivetrain inertia, including blades, hub and casted generator inertia to LSS [kg m^2]
+    REAL(DbKi)                    :: WE_RhoAir = 1.225           ! Air density [kg m^-3]
+    CHARACTER(1024)               :: PerfFileName = 'USFLOWT_10_Cp_Ct_Cq.txt'   ! File containing rotor performance tables (Cp,Ct,Cq)
+    INTEGER(IntKi)                :: PerfTableSize(2) = [20, 20]   ! Size of rotor performance tables, first number refers to number of blade pitch angles, second number referse to number of tip-speed ratios
+    INTEGER(IntKi)                :: WE_FOPoles_N = 60           ! Number of first-order system poles used in EKF
+    REAL(DbKi)                    :: WE_FOPoles_v(60) = [3.0, 3.241, 3.483, 3.724, 3.966, 4.207, 4.448, 4.69, 4.931, 5.172, 5.414, 5.655, 5.897, 6.138, 6.379, 6.621, 6.862, 7.103, 7.345, 7.586, 7.828, 8.069, 8.31, 8.552, 8.793, 9.034, 9.276, 9.517, 9.759, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 24.0, 24.5, 25.0]   ! Wind speeds corresponding to first-order system poles [m/s]
+    REAL(DbKi)                    :: WE_FOPoles(60) = [-0.01565, -0.01691, -0.01817, -0.01943, -0.02069, -0.02195, -0.02321, -0.02447, -0.02572, -0.02698, -0.02824, -0.0295, -0.03076, -0.03202, -0.03328, -0.03454, -0.0358, -0.03706, -0.03832, -0.03958, -0.04084, -0.04209, -0.04335, -0.04461, -0.04587, -0.04713, -0.04839, -0.04965, -0.05091, -0.05217, -0.03094, -0.0346, -0.0406, -0.04822, -0.05693, -0.06599, -0.07606, -0.08627, -0.0972, -0.1086, -0.1201, -0.1325, -0.1446, -0.1572, -0.1707, -0.1836, -0.1972, -0.2114, -0.2252, -0.2396, -0.2547, -0.2693, -0.2843, -0.2997, -0.3152, -0.3307, -0.3466, -0.3631, -0.3792, -0.3957]   ! First order system poles
+    INTEGER(IntKi)                :: Y_ControlMode = 0           ! Yaw control mode {0 - no yaw control, 1 - yaw rate control}
+    REAL(DbKi)                    :: Y_uSwitch = 0.0             ! Wind speed to switch between Y_ErrThresh. If zero, only the first value of Y_ErrThresh is used [m/s]
+    REAL(DbKi)                    :: Y_ErrThresh(2) = [4.0, 8.0]   ! Error threshold [rad]. Turbine begins to yaw when it passes this
+    REAL(DbKi)                    :: Y_Rate = 0.0087             ! Yaw rate [rad/s]
+    REAL(DbKi)                    :: Y_MErrSet = 0.0             ! Yaw alignment error, setpoint (for wake steering) [rad]
+    REAL(DbKi)                    :: Y_IPC_IntSat = 0.0          ! Integrator saturation (maximum signal amplitude contrbution to pitch from yaw-by-IPC)
+    REAL(DbKi)                    :: Y_IPC_KP = 0.0              ! Yaw-by-IPC proportional controller gain Kp
+    REAL(DbKi)                    :: Y_IPC_KI = 0.0              ! Yaw-by-IPC integral controller gain Ki
+    INTEGER(IntKi)                :: PS_Mode = 1                 ! Pitch saturation mode {0 - no peak shaving, 1 -  implement pitch saturation}
+    INTEGER(IntKi)                :: PS_BldPitchMin_N = 60       ! Number of values in minimum blade pitch lookup table (should equal number of values in PS_WindSpeeds and PS_BldPitchMin)
+    REAL(DbKi)                    :: PS_WindSpeeds(60) = [3.0, 3.2414, 3.4828, 3.7241, 3.9655, 4.2069, 4.4483, 4.6897, 4.931, 5.1724, 5.4138, 5.6552, 5.8966, 6.1379, 6.3793, 6.6207, 6.8621, 7.1034, 7.3448, 7.5862, 7.8276, 8.069, 8.3103, 8.5517, 8.7931, 9.0345, 9.2759, 9.5172, 9.7586, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 24.0, 24.5, 25.0]   ! Wind speeds corresponding to minimum blade pitch angles [m/s]
+    REAL(DbKi)                    :: PS_BldPitchMin(60) = [0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.0471, 0.0426, 0.0356, 0.0251, 0.0166, 0.0087, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0063, 0.0213, 0.0349, 0.047, 0.0576, 0.071, 0.0833, 0.0953, 0.1071, 0.1183, 0.1294, 0.1404, 0.151, 0.1616, 0.1721, 0.1822, 0.1924, 0.2025, 0.2123, 0.2221, 0.2319, 0.2414, 0.2509, 0.2604, 0.2698, 0.279, 0.2883, 0.2976, 0.3065, 0.3154, 0.3243, 0.3332, 0.3419, 0.3506, 0.3593]   ! Minimum blade pitch angles [rad]
+    INTEGER(IntKi)                :: SU_Mode = 0                 ! Startup mode {0 - no startup procedure, 1 - enable startup}
+    REAL(DbKi)                    :: SU_StartTime = 120.0        ! Time to start start up routine
+    REAL(DbKi)                    :: SU_FW_MinDuration = 200.0   ! Free-wheel minimum duration [s]
+    REAL(DbKi)                    :: SU_RotorSpeedThresh = 0.52   ! Rotor speed threshhold to switch from freewheel to loads [rad/s]
+    REAL(DbKi)                    :: SU_RotorSpeedCornerFreq = 0.41888   ! Cutoff Frequency for first order low-pass filter for rotor speed for startup, [rad/s]
+    INTEGER(IntKi)                :: SU_LoadStages_N = 2         ! Number of load staged for startup (should equal number of values in SU_LoadStages, SU_LoadRampDuration and SU_LoadHoldDuration) [-]
+    REAL(DbKi)                    :: SU_LoadStages(2) = [0.2, 1.0]   ! Array containing loads as a fraction of full generator torque during startup [-]
+    REAL(DbKi)                    :: SU_LoadRampDuration(2) = [100.0, 100.0]   ! Array containing ramp duration to reach the corresponding partial loads during startup [s]
+    REAL(DbKi)                    :: SU_LoadHoldDuration(2) = [200.0, 100.0]   ! Array containing duration to hold the partial loads during startup [s]
+    INTEGER(IntKi)                :: SD_Mode = 0                 ! Shutdown mode {0 - no shutdown procedure, 1 - enable shutdown}
+    REAL(DbKi)                    :: SD_TimeActivate = 0.0       ! Time to acitvate shutdown modes, [s]
+    INTEGER(IntKi)                :: SD_EnablePitch = 0          ! Shutdown when collective blade pitch exceeds a threshold, [-]
+    INTEGER(IntKi)                :: SD_EnableYawError = 0       ! Shutdown when yaw error exceeds a threshold, [-]
+    INTEGER(IntKi)                :: SD_EnableGenSpeed = 0       ! Shutdown when generator speed exceeds a threshold, [-]
+    INTEGER(IntKi)                :: SD_EnableTime = 0           ! Shutdown at a predefined time, [-]
+    REAL(DbKi)                    :: SD_MaxPit = 0.44521         ! Maximum blade pitch angle to initiate shutdown, [rad]
+    REAL(DbKi)                    :: SD_PitchCornerFreq = 0.41888   ! Cutoff Frequency for first order low-pass filter for blade pitch angle for shutdown, [rad/s]
+    REAL(DbKi)                    :: SD_MaxYawError = 30.0       ! Maximum yaw error to initiate shutdown, [deg]
+    REAL(DbKi)                    :: SD_YawErrorCornerFreq = 0.41888   ! Cutoff Frequency for first order low-pass filter for yaw error for shutdown, [rad/s]
+    REAL(DbKi)                    :: SD_MaxGenSpd = 1.0892       ! Maximum generator speed to initiate shutdown, [rad/s]
+    REAL(DbKi)                    :: SD_GenSpdCornerFreq = 0.41888   ! Cutoff Frequency for first order low-pass filter for generator speed for shutdown, [rad/s]
+    REAL(DbKi)                    :: SD_Time = 9999.0            ! Shutdown time, [s]
+    INTEGER(IntKi)                :: SD_Method = 1               ! Shutdown method {1 - Reduce generator torque and increase blade pitch}, [-]
+    REAL(DbKi)                    :: SD_MaxTorqueRate(1) = [225000.0]   ! Maximum torque rate for shutdown, [Nm/s]
+    REAL(DbKi)                    :: SD_MaxPitchRate(1) = [0.0065]   ! Maximum pitch rate used for shutdown, [rad/s]
+    REAL(DbKi)                    :: SD_StagePitch(1) = [1.5708]   ! Array containing the pitch angle to reach in each shutdown stage [rad]
+    REAL(DbKi)                    :: SD_StageTime(1) = [1000.0]   ! Array containing the time to spend in each shutdown stage [s]
+    INTEGER(IntKi)                :: SD_Stage_N = 1              ! Number of shutdown stages (should equal number of values in SD_MaxPitchRate and SD_MaxTorqueRate) [-]
+    INTEGER(IntKi)                :: Fl_Mode = 1                 ! Floating specific feedback mode {0 - no nacelle velocity feedback, 1 - nacelle velocity feedback}
+    INTEGER(IntKi)                :: Fl_n = 1                    ! Number of Fl_Kp for gain scheduling
+    REAL(DbKi)                    :: Fl_Kp(1) = [-0.0724]        ! Nacelle velocity proportional feedback gain [s]
+    REAL(DbKi)                    :: Fl_U(1) = [10.5]            ! Wind speeds for scheduling Fl_Kp [m/s]
+    INTEGER(IntKi)                :: Flp_Mode = 0                ! Flap actuator mode {0 - off, 1 - fixed flap position, 2 - PI flap control}
+    REAL(DbKi)                    :: Flp_Angle = 0.0             ! Fixed flap angle (degrees)
+    REAL(DbKi)                    :: Flp_Kp = 0.0                ! PI flap control proportional gain
+    REAL(DbKi)                    :: Flp_Ki = 0.0                ! PI flap control integral gain
+    REAL(DbKi)                    :: Flp_MaxPit = 0.1745         ! Maximum (and minimum) flap pitch angle [rad]
+    CHARACTER(1024)               :: OL_Filename = 'unused'      ! Input file with open loop timeseries
+    INTEGER(IntKi)                :: OL_Mode = 0                 ! Open loop control mode {0 - no open loop control, 1 - open loop control vs. time, 2 - open loop control vs. wind speed}
+    INTEGER(IntKi)                :: OL_BP_Mode = 0              ! Open loop control mode {0 - no open loop control, 1 - open loop control vs. time, 2 - open loop control vs. wind speed}
+    REAL(DbKi)                    :: OL_BP_FiltFreq = 0.0        ! First order low pass filter cutoff frequency for open loop breakpoint
+    INTEGER(IntKi)                :: Ind_Breakpoint = 0          ! The column in OL_Filename that contains the breakpoint (time if OL_Mode = 1)
+    INTEGER(IntKi)                :: Ind_BldPitch(3) = [0, 0, 0]   ! The columns in OL_Filename that contains the blade pitch inputs (1,2,3) in rad
+    INTEGER(IntKi)                :: Ind_GenTq = 0               ! The column in OL_Filename that contains the generator torque in Nm
+    INTEGER(IntKi)                :: Ind_YawRate = 0             ! The column in OL_Filename that contains the generator torque in Nm
+    INTEGER(IntKi)                :: Ind_R_Speed = 0             ! The column in OL_Filename that contains the R_Speed input
+    INTEGER(IntKi)                :: Ind_R_Torque = 0            ! The column in OL_Filename that contains the R_Torque input
+    INTEGER(IntKi)                :: Ind_R_Pitch = 0             ! The column in OL_Filename that contains the R_Pitch input
+    INTEGER(IntKi)                :: Ind_Azimuth = 0             ! The column in OL_Filename that contains the desired azimuth position in rad (used if OL_Mode = 2)
+    REAL(DbKi)                    :: RP_Gains(4) = [0.0, 0.0, 0.0, 0.0]   ! PID gains and Tf on derivative term for rotor position control (used if OL_Mode = 2)
+    INTEGER(IntKi)                :: Ind_CableControl(1) = [0]   ! The column in OL_Filename that contains the cable control inputs in m
+    INTEGER(IntKi)                :: Ind_StructControl(1) = [0]   ! The column in OL_Filename that contains the structural control inputs in various units
     REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: OL_Breakpoints              ! Open loop breakpoints in timeseries
     REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: OL_BldPitch1                ! Open loop blade pitch 1 timeseries
     REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: OL_BldPitch2                ! Open loop blade pitch 2 timeseries
@@ -192,46 +192,46 @@ TYPE, PUBLIC :: ControlParameters
     REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: OL_R_Torque                 ! Open loop R_Torque timeseries
     REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: OL_R_Pitch                  ! Open loop R_Pitch timeseries
     REAL(DbKi), DIMENSION(:,:), ALLOCATABLE     :: OL_Channels                 ! Open loop channels in timeseries
-    INTEGER(IntKi)                :: PA_Mode                     ! Pitch actuator mode {0 - not used, 1 - first order filter, 2 - second order filter}
-    REAL(DbKi)                    :: PA_CornerFreq               ! Pitch actuator bandwidth/cut-off frequency [rad/s]
-    REAL(DbKi)                    :: PA_Damping                  ! Pitch actuator damping ratio [-, unused if PA_Mode = 1]
-    INTEGER(IntKi)                :: AWC_Mode                    ! Active wake control mode [0 - unused, 1 - complex number method, 2 - Coleman transform method]
-    INTEGER(IntKi)                :: AWC_NumModes                ! AWC- Number of modes to include [-]
-    INTEGER(IntKi), DIMENSION(:), ALLOCATABLE     :: AWC_n                       ! AWC azimuthal mode [-]
-    INTEGER(IntKi), DIMENSION(:), ALLOCATABLE     :: AWC_harmonic                ! AWC Coleman transform harmonic [-]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: AWC_freq                    ! AWC frequency [Hz]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: AWC_amp                     ! AWC amplitude [deg]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: AWC_clockangle              ! AWC clocking angle [deg]
-    REAL(DbKi)                    :: AWC_phaseoffset             ! AWC azimuth offset for Coleman transform [deg]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: AWC_CntrGains               ! AWC KP and KI/KR gain of the controller [-]
-    INTEGER(IntKi)                :: PF_Mode                     ! Pitch actuator fault mode {0 - not used, 1 - offsets on one or more blades}
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: PF_Offsets                  ! Pitch actuator fault offsets for blade 1-3 [rad/s]
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: PF_TimeStuck                ! Time for pitch actuator fault to be stuck for blade 1-3 [s]
-    INTEGER(IntKi)                :: Ext_Mode                    ! External control mode (0 - not used, 1 - call external control library)
-    CHARACTER(1024)               :: DLL_FileName                ! File name of external dynamic library
-    CHARACTER(1024)               :: DLL_InFile                  ! Name of input file called by dynamic library (DISCON.IN, e.g.)
-    CHARACTER(1024)               :: DLL_ProcName                ! Process name of subprocess called in DLL_Filename (Usually DISCON)
-    INTEGER(IntKi)                :: ZMQ_Mode                    ! Flag for ZeroMQ (0-off, 1-yaw}
-    CHARACTER(256)                :: ZMQ_CommAddress             ! Comm Address to zeroMQ client
-    REAL(DbKi)                    :: ZMQ_UpdatePeriod            ! Integer for zeromq update frequency
-    INTEGER(IntKi)                :: CC_Mode                     ! Flag for ZeroMQ (0-off, 1-yaw}
-    INTEGER(IntKi)                :: CC_Group_N                  ! Number of cable control groups
-    REAL(DbKi)                    :: CC_ActTau                   ! Time constant for line actuator [s]
-    INTEGER(IntKi), DIMENSION(:), ALLOCATABLE     :: CC_GroupIndex               ! Cable control group indices
-    INTEGER(IntKi)                :: StC_Mode                    ! Flag for StC Control
-    INTEGER(IntKi)                :: StC_Group_N                 ! Number of cable control groups
-    INTEGER(IntKi), DIMENSION(:), ALLOCATABLE     :: StC_GroupIndex              ! Cable control group indices
-    REAL(DbKi)                    :: StC_F_FiltFreq              ! Frequency of 1st order LPF filter on pitch/roll motion
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: StC_F_PID                   ! PID gains of controller from pitch/roll to force
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: StC_F_Lims                  ! Min and max force at each leg
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: StC_F_Rates                 ! Min and max force rates (at each leg?)
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: StC_T_Roll                  ! Transformation from F_Roll (output of PID control) to StC_Force (length should match StC_Group_N), will be normalized to max of 1, must sum to 0
-    REAL(DbKi), DIMENSION(:), ALLOCATABLE     :: StC_T_Pitch                 ! Transformation from F_Pitch (output of PID control) to StC_Force (length should match StC_Group_N), will be normalized to max of 1, must sum to 0
-    REAL(DbKi)                    :: StC_Target_Period           ! Period that fill (force) target periods are updated
-    REAL(DbKi)                    :: StC_Fill_Period             ! Period that actual fill settings are updated
-    REAL(DbKi)                    :: StC_Offset_DB               ! Deadband on offset
-    REAL(DbKi)                    :: StC_Fill_DB                 ! Deadband on fill amount
-    REAL(DbKi)                    :: StC_F_Gain                  ! Proportional gain on force targets
+    INTEGER(IntKi)                :: PA_Mode = 2                 ! Pitch actuator mode {0 - not used, 1 - first order filter, 2 - second order filter}
+    REAL(DbKi)                    :: PA_CornerFreq = 1.5708      ! Pitch actuator bandwidth/cut-off frequency [rad/s]
+    REAL(DbKi)                    :: PA_Damping = 0.707          ! Pitch actuator damping ratio [-, unused if PA_Mode = 1]
+    INTEGER(IntKi)                :: AWC_Mode = 0                ! Active wake control mode [0 - unused, 1 - complex number method, 2 - Coleman transform method]
+    INTEGER(IntKi)                :: AWC_NumModes = 1            ! AWC- Number of modes to include [-]
+    INTEGER(IntKi)                :: AWC_n(1) = [1]              ! AWC azimuthal mode [-]
+    INTEGER(IntKi)                :: AWC_harmonic(1) = [1]       ! AWC Coleman transform harmonic [-]
+    REAL(DbKi)                    :: AWC_freq(1) = [0.05]        ! AWC frequency [Hz]
+    REAL(DbKi)                    :: AWC_amp(1) = [1.0]          ! AWC amplitude [deg]
+    REAL(DbKi)                    :: AWC_clockangle(1) = [0.0]   ! AWC clocking angle [deg]
+    REAL(DbKi)                    :: AWC_phaseoffset = 0.0       ! AWC azimuth offset for Coleman transform [deg]
+    REAL(DbKi)                    :: AWC_CntrGains(2) = [0.0, 0.0]   ! AWC KP and KI/KR gain of the controller [-]
+    INTEGER(IntKi)                :: PF_Mode = 0                 ! Pitch actuator fault mode {0 - not used, 1 - offsets on one or more blades}
+    REAL(DbKi)                    :: PF_Offsets(3) = [0.0, 0.0, 0.0]   ! Pitch actuator fault offsets for blade 1-3 [rad/s]
+    REAL(DbKi)                    :: PF_TimeStuck(3) = [9999.0, 9999.0, 9999.0]   ! Time for pitch actuator fault to be stuck for blade 1-3 [s]
+    INTEGER(IntKi)                :: Ext_Mode = 0                ! External control mode (0 - not used, 1 - call external control library)
+    CHARACTER(1024)               :: DLL_FileName = 'unused'     ! File name of external dynamic library
+    CHARACTER(1024)               :: DLL_InFile = 'unused'       ! Name of input file called by dynamic library (DISCON.IN, e.g.)
+    CHARACTER(1024)               :: DLL_ProcName = 'DISCON'     ! Process name of subprocess called in DLL_Filename (Usually DISCON)
+    INTEGER(IntKi)                :: ZMQ_Mode = 0                ! Flag for ZeroMQ (0-off, 1-yaw}
+    CHARACTER(256)                :: ZMQ_CommAddress = 'tcp://localhost:5555'   ! Comm Address to zeroMQ client
+    REAL(DbKi)                    :: ZMQ_UpdatePeriod = 1.0      ! Integer for zeromq update frequency
+    INTEGER(IntKi)                :: CC_Mode = 0                 ! Flag for ZeroMQ (0-off, 1-yaw}
+    INTEGER(IntKi)                :: CC_Group_N = 1              ! Number of cable control groups
+    REAL(DbKi)                    :: CC_ActTau = 20.0            ! Time constant for line actuator [s]
+    INTEGER(IntKi)                :: CC_GroupIndex(1) = [0]      ! Cable control group indices
+    INTEGER(IntKi)                :: StC_Mode = 3                ! Flag for StC Control
+    INTEGER(IntKi)                :: StC_Group_N = 6             ! Number of cable control groups
+    INTEGER(IntKi)                :: StC_GroupIndex(6) = [2818, 2838, 2858, 2878, 2898, 2918]   ! Cable control group indices
+    REAL(DbKi)                    :: StC_F_FiltFreq = 0.02       ! Frequency of 1st order LPF filter on pitch/roll motion
+    REAL(DbKi)                    :: StC_F_PID(3) = [0.0, 0.0, 0.0]   ! PID gains of controller from pitch/roll to force
+    REAL(DbKi)                    :: StC_F_Lims(2) = [-1000000.0, 1000000.0]   ! Min and max force at each leg
+    REAL(DbKi)                    :: StC_F_Rates(2) = [-5000.0, 5000.0]   ! Min and max force rates (at each leg?)
+    REAL(DbKi)                    :: StC_T_Roll(6) = [0.0, -0.866, -0.866, 0.0, 0.866, 0.866]   ! Transformation from F_Roll (output of PID control) to StC_Force (length should match StC_Group_N), will be normalized to max of 1, must sum to 0
+    REAL(DbKi)                    :: StC_T_Pitch(6) = [-1.0, -0.5, 0.5, 1.0, 0.5, -0.5]   ! Transformation from F_Pitch (output of PID control) to StC_Force (length should match StC_Group_N), will be normalized to max of 1, must sum to 0
+    REAL(DbKi)                    :: StC_Target_Period = 2.0     ! Period that fill (force) target periods are updated
+    REAL(DbKi)                    :: StC_Fill_Period = 50.0      ! Period that actual fill settings are updated
+    REAL(DbKi)                    :: StC_Offset_DB = 0.008727    ! Deadband on offset
+    REAL(DbKi)                    :: StC_Fill_DB = 1000.0        ! Deadband on fill amount
+    REAL(DbKi)                    :: StC_F_Gain = 15000000.0     ! Proportional gain on force targets
     INTEGER(IntKi)                :: n_DT_StC_Target             ! Number of timesteps until target StC force is updated
     REAL(DbKi)                    :: F_Roll_Target               ! Target on force to zero roll offset
     REAL(DbKi)                    :: F_Pitch_Target              ! Target on force to zero pitch offset

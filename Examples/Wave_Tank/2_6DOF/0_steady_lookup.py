@@ -64,20 +64,20 @@ def main():
     os.chdir(os.path.dirname(__file__))
     df_6dof = pd.read_csv('steady_6dof_lookup.csv')
 
-    if False: # read turbsim file and make plane-average input
+    if True: # read turbsim file and make plane-average input
 
-        ts_file = TurbSimFile('/Users/dzalkind/Downloads/weis_job_0_NTM_U11.400000_Seed438466540.0.bts')
+        ts_file = TurbSimFile('/Users/dzalkind/Library/CloudStorage/Box-Box/USFLOWT_PII/05_SimModel/OpenFAST/2026.04.01_WaveVerification/rank_0/wind/weis_job_0_NTM_U11.400000_Seed714712467.0.bts')
         ts_file.read()
         u_avg = np.mean(ts_file['u'][0,:, :, :], axis=(1,2))
-        tt = ts_file['t']
+        u_tt = ts_file['t']
 
-        plt.plot(tt, u_avg)
+        plt.plot(u_tt, u_avg)
         plt.xlabel('Time (s)')
         plt.ylabel('Average Wind Speed (m/s)')
         plt.title('Plane-Average Wind Speed')
         plt.show()
 
-        M = np.c_[tt,u_avg]
+        M = np.c_[u_tt,u_avg]
         np.savetxt('plane_avg_wind.csv', M, header='Time(s),U_avg(m/s)', delimiter=',')
     else:
         df_u = pd.read_csv('plane_avg_wind.csv')

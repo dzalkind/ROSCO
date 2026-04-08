@@ -5,6 +5,7 @@ False                  Echo        - Echo input data to <RootName>.ech (flag)
 "FATAL"                AbortLevel  - Error level when simulation should abort (string) {"WARNING", "SEVERE", "FATAL"}
 10                     TMax        - Total run time (s)
 0.0125                 DT          - Recommended module time step (s)
+          1            ModCoupling     - Module coupling method (switch) {1=loose; 2=tight with fixed Jacobian updates (DT_UJac); 3=tight with automatic Jacobian updates}
 2                      InterpOrder - Interpolation order for input/output time history (-) {1=linear, 2=quadratic}
 0                      NumCrctn    - Numerical damping parameter for tight coupling generalized-alpha integrator (-) [0.0 to 1.0]
 0.5                    RhoInf      - Convergence iteration error tolerance for tight coupling generalized alpha integrator (-)
@@ -23,6 +24,7 @@ False                  Echo        - Echo input data to <RootName>.ech (flag)
 0                      CompSub     - Compute sub-structural dynamics (switch) {0=None; 1=SubDyn; 2=External Platform MCKF}
 3                      CompMooring - Compute mooring system (switch) {0=None; 1=MAP++; 2=FEAMooring; 3=MoorDyn; 4=OrcaFlex}
 0                      CompIce     - Compute ice loads (switch) {0=None; 1=IceFloe; 2=IceDyn}
+          0   CompSoil        - Compute soil-structural dynamics (switch) {0=None; 1=SoilDyn}
 0                      MHK         - MHK turbine type (switch) {0=Not an MHK turbine; 1=Fixed MHK turbine; 2=Floating MHK turbine}
 0                      RotorDir    - List of rotor rotation directions [1 to NRotors] {0=CCW, 1=CW}
 ---------------------- ENVIRONMENTAL CONDITIONS --------------------------------
@@ -48,6 +50,7 @@ False                  Echo        - Echo input data to <RootName>.ech (flag)
 "USFLOWT_Definition/SubDyn_FreeLeg_4p5m_cans.dat" SubFile     - Name of file containing sub-structural input parameters (quoted string)
 "USFLOWT_10_MoorDyn.dat" MooringFile - Name of file containing mooring system input parameters (quoted string)
 "unused"               IceFile     - Name of file containing ice input parameters (quoted string)
+"unused"      SoilFile        - Name of the file containing the SoilDyn input parameters (quoted string)
 ---------------------- OUTPUT --------------------------------------------------
 False                  SumPrint    - Print summary data to "<RootName>.sum" (flag)
 5.0                    SttsTime    - Amount of time between screen status messages (s)

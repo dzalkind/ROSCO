@@ -91,6 +91,7 @@ class Sim():
         nac_yaw = np.ones_like(t_array) * yaw_init
         nac_yawerr = np.ones_like(t_array) * 0.0
         nac_yawrate = np.ones_like(t_array) * 0.0
+        rot_thrust = np.zeros_like(t_array)
 
         # check for wind direction array
         if isinstance(wd_array, (list, np.ndarray)):
@@ -110,6 +111,7 @@ class Sim():
             tsr = rot_speed[i-1] * self.turbine.rotor_radius / ws
             cq = self.turbine.Cq.interp_surface(bld_pitch[i-1], tsr)
             cp = self.turbine.Cp.interp_surface(bld_pitch[i-1], tsr)
+            ct = self.turbine.Ct.interp_surface(bld_pitch[i-1], tsr)
             # Update the turbine state
             #       -- 1DOF model: rotor speed and generator speed (scaled by Ng)
             aero_torque[i] = 0.5 * self.turbine.rho * (np.pi * R**3) * (cp/tsr) * ws**2
@@ -144,6 +146,9 @@ class Sim():
             # Calculate the nacelle position
             nac_yaw[i] = nac_yaw[i-1] + nac_yawrate[i] * dt
 
+            # Calculate rotor thrust
+            rot_thrust[i] = ct * 0.5 * self.turbine.rho * (np.pi * R**2) * ws**2
+        
         self.controller_int.kill_discon()
 
         # Save these values
@@ -157,11 +162,12 @@ class Sim():
         self.ws_array = ws_array
         self.wd_array = wd_array
         self.nac_yaw = nac_yaw
+        self.rot_thrust = rot_thrust
 
         if make_plots:
             # if sum(nac_yaw) > 0:
             if True:
-                fig, axarr = plt.subplots(5, 1, sharex=True, figsize=(6, 10))
+                fig, axarr = plt.subplots(6, 1, sharex=True, figsize=(6, 10))
 
                 ax = axarr[0]
                 ax.plot(self.t_array, self.ws_array)
@@ -185,6 +191,11 @@ class Sim():
                 ax = axarr[4]
                 ax.plot(self.t_array, self.bld_pitch*rad2deg)
                 ax.set_ylabel('Bld Pitch (deg)')
+                ax.set_xlabel('Time (s)')
+                ax.grid()
+                ax = axarr[5]
+                ax.plot(self.t_array, self.rot_thrust/1000)
+                ax.set_ylabel('Rotor Thrust (kN)')
                 ax.set_xlabel('Time (s)')
                 ax.grid()
 

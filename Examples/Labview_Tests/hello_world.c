@@ -1,21 +1,22 @@
 #include <stdio.h>
 #include <string.h>
-#include <direct.h>
 
 // Export macro — required on Windows
 #ifdef _WIN32
+  #include <direct.h>
   #define EXPORT __declspec(dllexport)
+  #define GETCWD _getcwd
 #else
+  #include <unistd.h>
   #define EXPORT
+  #define GETCWD getcwd
 #endif
 
 extern void hello_fortran(char* input_string);
 
 EXPORT void hello_world(char* output, int max_len, const char* logName) {
-  _chdir("C:/Users/schamot/Documents/Code/ROSCO-USFLOWT/Examples/Labview_Tests/Logs"); // Change to the desired directory, not system32 done in Labview now  
-  
   char cwd[FILENAME_MAX];  
-  _getcwd(cwd, sizeof(cwd));
+  GETCWD(cwd, sizeof(cwd));
 
   const char* message = cwd; // Message to log, which is the current working directory
   FILE* log_file;

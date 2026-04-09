@@ -14,10 +14,11 @@ def windio_to_discon(windio_dict):
     rosco_vt_from_windio = {}
 
     # Convert back from windIO to ROSCO units and format
-    rosco_vt_from_windio['VS_MinOMSpd']     = windio_dict['control']['min_rotor_speed'] / radps2rpm
-    rosco_vt_from_windio['PC_RefSpd']       = windio_dict['control']['rated_rotor_speed'] / radps2rpm
+    gb_ratio = windio_dict['components']['drivetrain']['gearbox']['gear_ratio']
+    rosco_vt_from_windio['VS_MinOMSpd']     = windio_dict['control']['min_rotor_speed'] / radps2rpm * gb_ratio
+    rosco_vt_from_windio['PC_RefSpd']       = windio_dict['control']['rated_rotor_speed'] / radps2rpm * gb_ratio
     rosco_vt_from_windio['VS_RtPwr']        = windio_dict['control']['rated_power']  # W in windIO, W in ROSCO
-    rosco_vt_from_windio['SD_MaxGenSpd']    = windio_dict['control']['max_rotor_speed'] / radps2rpm
+    rosco_vt_from_windio['SD_MaxGenSpd']    = windio_dict['control']['max_rotor_speed'] / radps2rpm * gb_ratio
     rosco_vt_from_windio['VS_MaxTq']        = windio_dict['control']['max_gen_torque']
     rosco_vt_from_windio['VS_MaxRat']       = windio_dict['control']['max_torque_rate']
 
@@ -55,11 +56,11 @@ def windio_to_discon(windio_dict):
 def discon_to_windio(rosco_vt):
 
     windio_control = {}
-    windio_control['min_rotor_speed']   = rosco_vt['VS_MinOMSpd'] * radps2rpm
-    windio_control['rated_rotor_speed'] = rosco_vt['PC_RefSpd'] * radps2rpm
+    windio_control['min_rotor_speed']   = rosco_vt['VS_MinOMSpd'] * radps2rpm / rosco_vt['WE_GearboxRatio']
+    windio_control['rated_rotor_speed'] = rosco_vt['PC_RefSpd'] * radps2rpm  / rosco_vt['WE_GearboxRatio']
     windio_control['rated_power']       = rosco_vt['VS_RtPwr']  # W in ROSCO, W in windIO
     
-    windio_control['max_rotor_speed']   = rosco_vt['SD_MaxGenSpd'] * radps2rpm
+    windio_control['max_rotor_speed']   = rosco_vt['SD_MaxGenSpd'] * radps2rpm  / rosco_vt['WE_GearboxRatio']
     windio_control['max_gen_torque']    = rosco_vt['VS_MaxTq']  # Nm in ROSCO, N*m in windIO
     windio_control['max_torque_rate']   = rosco_vt['VS_MaxRat']  # Nm/s in ROSCO, N*m/s in windIO
     

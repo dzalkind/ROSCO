@@ -24,6 +24,7 @@ def main():
     discon_yaml_map = {
         os.path.join(examples_dir,'Test_Cases','IEA-15-240-RWT', 'IEA-15-240-RWT-UMaineSemi', 'IEA-15-240-RWT-UMaineSemi_DISCON.IN'): os.path.join(examples_dir,'example_inputs', 'windio', 'IEA-15-240-RWT.yaml'),
         os.path.join(examples_dir,'Test_Cases','IEA-15-240-RWT', 'IEA-15-240-RWT-Monopile', 'IEA-15-240-RWT-Monopile_DISCON.IN'): os.path.join(examples_dir,'example_inputs', 'windio', 'IEA-15-240-RWT.yaml'),
+        os.path.join(examples_dir,'Test_Cases','NREL-5MW', 'DISCON.IN'): os.path.join(examples_dir,'example_inputs', 'windio', 'nrel5mw.yaml'),
     }
 
     # # For updating windIO repo

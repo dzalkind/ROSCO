@@ -438,7 +438,10 @@ static void read_config_files(float* avrSWAP, char* accINFILE, int accINFILE_siz
 extern "C" __attribute__((visibility("default")))
 void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* avcOUTNAME, char* avcMSG) {
 
+    // Extract message buffer size before try — needed in catch handlers
     int size_avcMSG     = (int)avrSWAP[48];   // avrSWAP(49) in Fortran (1-based)
+    try {
+
     int accINFILE_size  = (int)avrSWAP[49];    // avrSWAP(50)
     int avcOUTNAME_size = (int)avrSWAP[50];    // avrSWAP(51)
 
@@ -630,4 +633,17 @@ error_handling:
 
     *aviFAIL = ErrVar.aviFAIL;
     memset(ErrVar.ErrMsg, ' ', sizeof(ErrVar.ErrMsg));
+
+    } catch (const std::exception& e) {
+        *aviFAIL = -1;
+        int n = size_avcMSG > 1 ? size_avcMSG - 1 : 0;
+        std::strncpy(avcMSG, e.what(), (size_t)n);
+        avcMSG[n] = '\0';
+    } catch (...) {
+        *aviFAIL = -1;
+        const char* msg = "Unknown C++ exception in DISCON";
+        int n = size_avcMSG > 1 ? size_avcMSG - 1 : 0;
+        std::strncpy(avcMSG, msg, (size_t)n);
+        avcMSG[n] = '\0';
+    }
 }

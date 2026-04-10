@@ -3,13 +3,6 @@ import rosco.toolbox
 import os
 from rosco.toolbox.ofTools.util.FileTools import load_yaml
 
-def generate(yfile):
-    '''
-    Generates full registry and ROSCO I/O files
-    '''
-    write_types(yfile)
-    write_roscoio(yfile)
-
 def write_types(yfile):
     '''
     Writes ROSCO_types.f90
@@ -470,6 +463,343 @@ def read_type(param):
 
 
     return f90type
+
+def generate(yfile):
+    '''
+    Generates full registry and ROSCO I/O files (Fortran + C++)
+    '''
+    write_types(yfile)
+    write_roscoio(yfile)
+    generate_cpp(yfile)
+
+# ============================================================
+# C++ Code Generation
+# ============================================================
+
+def _extract_sections(yfile, typename):
+    """
+    Parse raw YAML text to map parameter names to their section comment label.
+    Section comments are lines like '    # Filters' (4-space indent).
+    Returns dict: {param_name: section_label}
+    """
+    result = {}
+    current = None
+    in_type = False
+    with open(yfile) as f:
+        for raw in f:
+            stripped = raw.strip()
+            if not in_type:
+                if stripped == f'{typename}:':
+                    in_type = True
+                continue
+            # Exit when we hit a new top-level YAML key (no leading whitespace)
+            if raw and raw[0] not in ' \t\n\r' and ':' in stripped and not stripped.startswith('#'):
+                break
+            # Section comment: exactly 4-space indent + '#'
+            if raw.startswith('    #') and stripped.startswith('#'):
+                current = stripped.lstrip('#').strip()
+            # Parameter name: 4-space indent, ends with ':', no spaces, not a comment
+            elif (raw.startswith('    ') and not raw.startswith('      ')
+                  and not stripped.startswith('#')
+                  and stripped.endswith(':') and ' ' not in stripped):
+                result[stripped.rstrip(':')] = current
+    return result
+
+
+def _cpp_type(param):
+    """
+    Return (cpp_type_str, is_2d_alloc) for a YAML parameter entry.
+    Returns (None, False) for types to skip (derived_type, c_pointer, etc.).
+    """
+    ptype  = param.get('type', '')
+    alloc  = param.get('allocatable', False)
+    dim    = param.get('dimension', None)
+    is_2d  = bool(alloc and dim and ',' in str(dim))
+
+    if alloc:
+        if ptype in ('real', 'float', 'complex'):
+            return 'std::vector<double>', is_2d
+        elif ptype in ('integer', 'c_integer', 'logical'):
+            return 'std::vector<int>', is_2d
+        elif ptype == 'c_float':
+            return 'std::vector<float>', is_2d
+        elif ptype == 'character':
+            return 'std::vector<std::string>', is_2d
+        else:
+            return None, False
+    else:
+        if ptype in ('integer', 'c_integer'):
+            return 'int', False
+        elif ptype in ('real', 'complex', 'float'):
+            return 'double', False
+        elif ptype == 'c_float':
+            return 'float', False
+        elif ptype == 'logical':
+            return 'int', False
+        elif ptype == 'character':
+            return 'std::string', False
+        elif ptype in ('c_pointer', 'c_funptr', 'c_intptr_t', 'derived_type'):
+            return None, False
+        else:
+            return None, False
+
+
+def _default_val(cpp_type, param):
+    """Return initializer string for a plain (non-vector) C++ field."""
+    eq = param.get('equals')
+    if eq is not None:
+        return str(eq)
+    if cpp_type == 'double':
+        return '0.0'
+    if cpp_type == 'float':
+        return '0.0f'
+    return '0'
+
+
+def generate_cpp(yfile):
+    """
+    Generate C++ files from rosco_types.yaml:
+      - src/include/rosco_types.hpp   : ControlParameters struct (std::vector, std::string)
+      - src/rosco_types_io.cpp        : TOML loader + populate_view()
+      - ../../Examples/DISCON_template.toml : annotated TOML input template
+    """
+    _write_cpp_header(yfile)
+    _write_cpp_io(yfile)
+    _write_toml_template(yfile)
+
+
+def _write_cpp_header(yfile):
+    """Generate rosco/controller/src/include/rosco_types.hpp"""
+    reg = load_yaml(yfile)
+    reg.pop('default_types', None)
+
+    src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src')
+    out_path = os.path.join(src_dir, 'include', 'rosco_types.hpp')
+
+    sections = _extract_sections(yfile, 'ControlParameters')
+    params   = reg['ControlParameters']
+
+    with open(out_path, 'w') as f:
+        f.write('// AUTO-GENERATED from rosco_types.yaml\n')
+        f.write('// Do not edit manually — run write_registry.py to regenerate.\n')
+        f.write('#pragma once\n')
+        f.write('#include <vector>\n')
+        f.write('#include <string>\n')
+        f.write('#include "vit_types.h"\n')
+        f.write('\n')
+        f.write('struct ControlParameters {\n')
+
+        prev_section = None
+        for name, param in params.items():
+            cpp_type, is_2d = _cpp_type(param)
+            if cpp_type is None:
+                continue
+
+            section = sections.get(name)
+            if section and section != prev_section:
+                f.write(f'\n    // --- {section} ---\n')
+                prev_section = section
+
+            desc = (param.get('description') or '').strip()
+            if desc:
+                desc = desc[:120] + '...' if len(desc) > 120 else desc
+                f.write(f'    // {desc}\n')
+
+            if 'vector' in cpp_type or cpp_type == 'std::string':
+                f.write(f'    {cpp_type} {name};\n')
+                if is_2d:
+                    f.write(f'    int {name}_rows = 0;\n')
+                    f.write(f'    int {name}_cols = 0;\n')
+            else:
+                default = _default_val(cpp_type, param)
+                f.write(f'    {cpp_type:<8s} {name} = {default};\n')
+
+        f.write('\n')
+        f.write('    // Load all parameters from a TOML file (replaces DISCON.IN two-pass parser)\n')
+        f.write('    bool load_from_toml(const std::string& path, errorvariables_t* err);\n')
+        f.write('\n')
+        f.write('    // Populate legacy controlparameters_view_t for translated functions\n')
+        f.write('    void populate_view(controlparameters_view_t* v) const;\n')
+        f.write('};\n')
+
+
+def _write_cpp_io(yfile):
+    """Generate rosco/controller/src/rosco_types_io.cpp"""
+    reg = load_yaml(yfile)
+    reg.pop('default_types', None)
+    params = reg['ControlParameters']
+
+    src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src')
+    out_path = os.path.join(src_dir, 'rosco_types_io.cpp')
+
+    with open(out_path, 'w') as f:
+        f.write('// AUTO-GENERATED from rosco_types.yaml\n')
+        f.write('// Do not edit manually — run write_registry.py to regenerate.\n')
+        f.write('#include "include/rosco_types.hpp"\n')
+        f.write('#include <toml++/toml.hpp>\n')
+        f.write('#include <cstring>\n')
+        f.write('#include <cstdio>\n')
+        f.write('\n')
+        f.write('// Space-pad a C char array in Fortran style\n')
+        f.write('static void set_fstr(char* dest, int maxLen, const std::string& src) {\n')
+        f.write('    std::memset(dest, \' \', maxLen);\n')
+        f.write('    size_t n = src.size() < (size_t)maxLen ? src.size() : (size_t)maxLen;\n')
+        f.write('    std::memcpy(dest, src.c_str(), n);\n')
+        f.write('}\n')
+        f.write('\n')
+
+        # ---- load_from_toml ----
+        f.write('bool ControlParameters::load_from_toml(const std::string& path, errorvariables_t* err) {\n')
+        f.write('    toml::table tbl;\n')
+        f.write('    try {\n')
+        f.write('        tbl = toml::parse_file(path);\n')
+        f.write('    } catch (const toml::parse_error& e) {\n')
+        f.write('        err->aviFAIL = -1;\n')
+        f.write('        std::snprintf(err->ErrMsg, 1024, "TOML parse error in %s: %s",\n')
+        f.write('                      path.c_str(), e.description().data());\n')
+        f.write('        return false;\n')
+        f.write('    }\n')
+        f.write('\n')
+
+        for name, param in params.items():
+            cpp_type, is_2d = _cpp_type(param)
+            if cpp_type is None:
+                continue
+            ptype = param.get('type', '')
+            alloc = param.get('allocatable', False)
+
+            if alloc:
+                if 'double' in cpp_type:
+                    f.write(f'    if (auto* arr = tbl["{name}"].as_array()) {{\n')
+                    f.write(f'        {name}.clear();\n')
+                    if is_2d:
+                        # 2D: read row-by-row, then store in column-major order
+                        # (matching Fortran/existing translated-function convention)
+                        f.write(f'        std::vector<std::vector<double>> _tmp_{name};\n')
+                        f.write(f'        for (auto& _row : *arr) {{\n')
+                        f.write(f'            if (auto* _ra = _row.as_array()) {{\n')
+                        f.write(f'                std::vector<double> _rv;\n')
+                        f.write(f'                for (auto& el : *_ra) _rv.push_back(el.value_or(0.0));\n')
+                        f.write(f'                _tmp_{name}.push_back(std::move(_rv));\n')
+                        f.write(f'            }}\n')
+                        f.write(f'        }}\n')
+                        f.write(f'        {name}_rows = (int)_tmp_{name}.size();\n')
+                        f.write(f'        {name}_cols = {name}_rows > 0 ? (int)_tmp_{name}[0].size() : 0;\n')
+                        f.write(f'        {name}.resize((size_t){name}_rows * {name}_cols);\n')
+                        f.write(f'        for (int _c = 0; _c < {name}_cols; ++_c)\n')
+                        f.write(f'            for (int _r = 0; _r < {name}_rows; ++_r)\n')
+                        f.write(f'                {name}[_c * {name}_rows + _r] = _tmp_{name}[_r][_c];\n')
+                    else:
+                        f.write(f'        for (auto& el : *arr) {name}.push_back(el.value_or(0.0));\n')
+                    f.write(f'    }}\n')
+                elif 'int' in cpp_type:
+                    f.write(f'    if (auto* arr = tbl["{name}"].as_array()) {{\n')
+                    f.write(f'        {name}.clear();\n')
+                    f.write(f'        for (auto& el : *arr) {name}.push_back((int)el.value_or((int64_t)0));\n')
+                    f.write(f'    }}\n')
+            elif ptype == 'character':
+                length = param.get('length', 1024)
+                f.write(f'    {name} = tbl["{name}"].value_or(std::string{{}});\n')
+            elif cpp_type == 'double':
+                f.write(f'    {name} = tbl["{name}"].value_or(0.0);\n')
+            elif cpp_type == 'int':
+                f.write(f'    {name} = (int)tbl["{name}"].value_or((int64_t)0);\n')
+            elif cpp_type == 'float':
+                f.write(f'    {name} = (float)tbl["{name}"].value_or(0.0);\n')
+
+        f.write('\n    return err->aviFAIL >= 0;\n')
+        f.write('}\n')
+        f.write('\n')
+
+        # ---- populate_view ----
+        f.write('void ControlParameters::populate_view(controlparameters_view_t* v) const {\n')
+
+        for name, param in params.items():
+            cpp_type, is_2d = _cpp_type(param)
+            if cpp_type is None:
+                continue
+            ptype = param.get('type', '')
+            alloc = param.get('allocatable', False)
+
+            if alloc:
+                if is_2d:
+                    # view has: double* name; int32_t n_name_rows; int32_t n_name_cols;
+                    f.write(f'    v->{name} = {name}.empty() ? nullptr : const_cast<double*>({name}.data());\n')
+                    f.write(f'    v->n_{name}_rows = (int32_t){name}_rows;\n')
+                    f.write(f'    v->n_{name}_cols = (int32_t){name}_cols;\n')
+                elif 'double' in cpp_type:
+                    f.write(f'    v->{name} = {name}.empty() ? nullptr : const_cast<double*>({name}.data());\n')
+                    f.write(f'    v->n_{name} = (int32_t){name}.size();\n')
+                elif 'int' in cpp_type:
+                    f.write(f'    v->{name} = {name}.empty() ? nullptr : const_cast<int*>({name}.data());\n')
+                    f.write(f'    v->n_{name} = (int32_t){name}.size();\n')
+            elif ptype == 'character':
+                length = param.get('length', 1024)
+                f.write(f'    set_fstr(v->{name}, {length}, {name});\n')
+            else:
+                f.write(f'    v->{name} = {name};\n')
+
+        f.write('}\n')
+
+
+def _write_toml_template(yfile):
+    """Generate Examples/DISCON_template.toml"""
+    reg = load_yaml(yfile)
+    reg.pop('default_types', None)
+    params = reg['ControlParameters']
+
+    sections = _extract_sections(yfile, 'ControlParameters')
+
+    # DISCON_template.toml goes next to existing DISCON.IN examples
+    examples_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+        'Examples')
+    out_path = os.path.join(examples_dir, 'DISCON_template.toml')
+
+    with open(out_path, 'w') as f:
+        f.write('# ROSCO Controller Configuration — TOML format\n')
+        f.write('# AUTO-GENERATED template from rosco_types.yaml\n')
+        f.write('# Edit this file to configure your controller.\n')
+        f.write('# Array parameters: use TOML native array syntax, e.g. PC_GS_angles = [0.1, 0.2, 0.3]\n')
+        f.write('# Count scalars (PC_GS_n, VS_n, etc.) are derived from array length — omit them.\n')
+        f.write('\n')
+
+        prev_section = None
+        for name, param in params.items():
+            cpp_type, is_2d = _cpp_type(param)
+            if cpp_type is None:
+                continue
+            ptype  = param.get('type', '')
+            alloc  = param.get('allocatable', False)
+
+            section = sections.get(name)
+            if section and section != prev_section:
+                f.write(f'\n# ===== {section} =====\n')
+                prev_section = section
+
+            desc = (param.get('description') or '').strip()
+            if desc:
+                f.write(f'# {desc}\n')
+
+            eq = param.get('equals')
+
+            if alloc:
+                if is_2d:
+                    f.write(f'# {name} = [[...], [...]]  # 2D array (rows x cols)\n')
+                else:
+                    f.write(f'# {name} = []  # array\n')
+            elif ptype == 'character':
+                val = f'"{eq}"' if eq else '""'
+                f.write(f'{name} = {val}\n')
+            elif cpp_type == 'double':
+                val = eq if eq is not None else 0.0
+                f.write(f'{name} = {val}\n')
+            elif cpp_type == 'int':
+                val = eq if eq is not None else 0
+                f.write(f'{name} = {val}\n')
+            else:
+                f.write(f'# {name} = ...\n')
+
 
 if __name__ == '__main__':
     fname = os.path.join(os.path.dirname(os.path.abspath(__file__)),'rosco_types.yaml')

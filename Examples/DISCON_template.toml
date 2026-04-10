@@ -1,0 +1,476 @@
+# ROSCO Controller Configuration — TOML format
+# AUTO-GENERATED template from rosco_types.yaml
+# Edit this file to configure your controller.
+# Array parameters: use TOML native array syntax, e.g. PC_GS_angles = [0.1, 0.2, 0.3]
+# Count scalars (PC_GS_n, VS_n, etc.) are derived from array length — omit them.
+
+# 0000 - 9999, Identifier of the rosco, used for zeromq interface only
+ZMQ_ID = 0
+# 0 - write no debug files, 1 - write standard output .dbg-file, 2 - write standard output .dbg-file and complete avrSWAP-array .dbg2-file
+LoggingLevel = 0
+# 0 - no Echo, 1 - Echo input data to <RootName>.echo
+Echo = 0
+# 0 - use standard bladed interface, 1 - Use the extened DLL interface introduced in OpenFAST 3.5.0.
+Ext_Interface = 0
+# Output time step
+DT_Out = 0.0
+# output every this many steps
+n_DT_Out = 0
+# Send measurements to ZMQ after this many time steps
+n_DT_ZMQ = 0
+
+# ===== Filters =====
+# Low pass filter on the rotor and generator speed {1 - first-order low-pass filter, 2 - second-order low-pass filter}, [rad/s]
+F_LPFType = 0
+# Corner frequency (-3dB point) in the first-order low-pass filter, [rad/s]
+F_LPFCornerFreq = 0.0
+# Damping coefficient [used only when F_FilterType = 2]
+F_LPFDamping = 0.0
+# Number of notch filters
+F_NumNotchFilts = 0
+# Number of gen speed notch filters
+F_GenSpdNotch_N = 0
+# Indices of gen speed notch filters
+# F_GenSpdNotch_Ind = []  # array
+# Number of tower top notch filters
+F_TwrTopNotch_N = 0
+# Indices of tower top notch filters
+# F_TwrTopNotch_Ind = []  # array
+# Natural frequencies of notch filters, [rad/s]
+# F_NotchFreqs = []  # array
+# Notch Filter Numerator damping (determines width)
+# F_NotchBetaNum = []  # array
+# Notch Filter Numerator damping (determines depth?)
+# F_NotchBetaDen = []  # array
+# Corner frequency (-3dB point) in the first order low pass filter for the setpoint smoother [rad/s]
+F_SSCornerFreq = 0.0
+# Corner frequency (-3dB point) in the first order low pass filter for the wind speed estimate [rad/s]
+F_WECornerFreq = 0.0
+# Corner frequency (-3dB point) in the second order low pass filter of the tower-top fore-aft motion for floating feedback control [rad/s].
+# F_FlCornerFreq = []  # array
+# Natural frequency of first-roder high-pass filter for nacelle fore-aft motion [rad/s].
+F_FlHighPassFreq = 0.0
+# Corner low pass filter corner frequency for yaw controller [rad/s].
+F_YawErr = 0.0
+# Corner frequency (-3dB point) in the second order low pass filter of the blade root bending moment for flap control [rad/s].
+# F_FlpCornerFreq = []  # array
+# Corner frequency (-3dB point) in the first order low pass filter of the generator speed reference used for TSR tracking torque control [rad/s].
+F_VSRefSpdCornerFreq = 0.0
+
+# ===== Tower fore-aft damping =====
+# Tower Fore-Aft control mode {0 - no fore-aft control, 1 - Tower fore-aft damping, 2 -Frequency exclusion zone, 3- Options 1 and 2}
+TRA_Mode = 0
+# Rotor speed for exclusion [LSS] [rad/s]
+TRA_ExclSpeed = 0.0
+# One-half of the total frequency exclusion band. Torque controller reference will be TRA_ExclFreq +/- TRA_ExlBand [rad/s]
+TRA_ExclBand = 0.0
+# Time constant for gain change when in exclusion zone [s]
+TRA_RateLimit = 0.0
+# Tower Fore-Aft control mode {0 - no fore-aft control, 1 - Tower fore-aft damping, 2 -Frequency exclusion zone, 3- Options 1 and 2}
+TD_Mode = 0
+# Corner frequency (-3dB point) in the high-pass filter on the fore-aft acceleration signal [rad/s]
+FA_HPFCornerFreq = 0.0
+# Integrator saturation (maximum signal amplitude contrbution to pitch from FA damper), [rad]
+FA_IntSat = 0.0
+# Integral gain for the fore-aft tower damper controller, -1 = off / >0 = on [rad s/m]
+FA_KI = 0.0
+
+# ===== Individual Pitch Control =====
+# Turn Individual Pitch Control (IPC) for fatigue load reductions (pitch contribution) {0 - off, 1 - 1P reductions, 2 - 1P+2P reductions}
+IPC_ControlMode = 0
+# Wind speeds for IPC cut-in sigma function [m/s]
+# IPC_Vramp = []  # array
+# Integrator saturation (maximum signal amplitude contrbution to pitch from IPC)
+IPC_IntSat = 0.0
+# IPC Saturation method IPC Saturation method (0 - no saturation (except by PC_MinPit), 1 - saturate by PS_BldPitchMin, 2 - saturate sotfly (full IPC cycle) by PC_MinPit, 3 - saturate softly by PS_BldPitchMin)
+IPC_SatMode = 0
+# Integral gain for the individual pitch controller, [-].
+# IPC_KP = []  # array
+# Integral gain for the individual pitch controller, [-].
+# IPC_KI = []  # array
+# Phase offset added to the azimuth angle for the individual pitch controller, [rad].
+# IPC_aziOffset = []  # array
+# Corner frequency of the first-order actuators model, to induce a phase lag in the IPC signal {0 - Disable}, [rad/s]
+IPC_CornerFreqAct = 0.0
+
+# ===== Collective Pitch Controller =====
+# Blade pitch control mode {0 - No pitch, fix to fine pitch, 1 - active PI blade pitch control}
+PC_ControlMode = 0
+# Amount of gain-scheduling table entries
+PC_GS_n = 0
+# Gain-schedule table - pitch angles
+# PC_GS_angles = []  # array
+# Gain-schedule table - pitch controller kp gains
+# PC_GS_KP = []  # array
+# Gain-schedule table - pitch controller ki gains
+# PC_GS_KI = []  # array
+# Gain-schedule table - pitch controller kd gains
+# PC_GS_KD = []  # array
+# Gain-schedule table - pitch controller tf gains (derivative filter)
+# PC_GS_TF = []  # array
+# Maximum physical pitch limit, [rad].
+PC_MaxPit = 0.0
+# Minimum physical pitch limit, [rad].
+PC_MinPit = 0.0
+# Maximum pitch rate (in absolute value) in pitch controller, [rad/s].
+PC_MaxRat = 0.0
+# Minimum pitch rate (in absolute value) in pitch controller, [rad/s].
+PC_MinRat = 0.0
+# Desired (reference) HSS speed for pitch controller, [rad/s].
+PC_RefSpd = 0.0
+# Record 5 - Below-rated pitch angle set-point (deg) [used only with Bladed Interface]
+PC_FinePit = 0.0
+# Angle above lowest minimum pitch angle for switch [rad]
+PC_Switch = 0.0
+
+# ===== Generator Torque Controller =====
+# Generator torque control mode in below rated conditions {0 - no torque control, 1 - komega^2 with PI trans, 2 - WSE TSR Tracking, 3 - Power TSR Tracking, 4 - Torque TSR Tracking}
+VS_ControlMode = 0
+# Constant power torque control
+VS_ConstPower = 0
+# Fixed blade pitch control mode in above rated conditions {0 - variable pitch (defer to PC_ControlMode and VS_ConstPower), 1 - P/omega overspeed control law, 2 - PI reference tracking based on WSE lookup table, 3 - PI reference tracking based on torque lookup table (must have VS_FBP_Tau be a monotonic function)}
+VS_FBP = 0
+# Generator efficiency mechanical power -> electrical power [-]
+VS_GenEff = 0.0
+# Above rated generator torque PI control saturation, [Nm]
+VS_ArSatTq = 0.0
+# Maximum torque rate (in absolute value) in torque controller, [Nm/s].
+VS_MaxRat = 0.0
+# Maximum generator torque in Region 3 (HSS side), [Nm].
+VS_MaxTq = 0.0
+# Minimum generator torque (HSS side), [Nm].
+VS_MinTq = 0.0
+# Optimal mode minimum speed, [rad/s]
+VS_MinOMSpd = 0.0
+# Generator torque constant in Region 2 (HSS side), N-m/(rad/s)^2
+VS_Rgn2K = 0.0
+# Wind turbine rated power [W]
+VS_RtPwr = 0.0
+# Rated torque, [Nm].
+VS_RtTq = 0.0
+# Rated generator speed [rad/s]
+VS_RefSpd = 0.0
+# Number of controller gains
+VS_n = 0
+# Proportional gain for generator PI torque controller, used in the transitional 2.5 region
+# VS_KP = []  # array
+# Integral gain for generator PI torque controller, used in the transitional 2.5 region
+# VS_KI = []  # array
+# Power-maximizing region 2 tip-speed ratio [rad]
+VS_TSRopt = 0.0
+# Number of operating schedule entries for fixed blade pitch control
+VS_FBP_n = 0
+# Operating schedule for fixed blade pitch control - Wind speed
+# VS_FBP_U = []  # array
+# Operating schedule for fixed blade pitch control - Generator speed
+# VS_FBP_Omega = []  # array
+# Operating schedule for fixed blade pitch control - Generator torque
+# VS_FBP_Tau = []  # array
+
+# ===== Setpoint Smoother =====
+# Setpoint Smoother mode {0 - no setpoint smoothing, 1 - introduce setpoint smoothing}
+SS_Mode = 0
+# Variable speed torque controller setpoint smoother gain, [-].
+SS_VSGain = 0.0
+# Collective pitch controller setpoint smoother gain, [-].
+SS_PCGain = 0.0
+
+# ===== Power reference tracking =====
+# Power reference tracking mode, 0- use standard rotor speed set points, 1- use PRC rotor speed setpoints
+PRC_Mode = 0
+# Power reference communication mode, 0- use constant DISCON inputs, 1- use open loop inputs, 2- use ZMQ inputs
+PRC_Comm = 0
+# Array of wind speeds used in rotor speed vs. wind speed lookup table
+# PRC_WindSpeeds = []  # array
+# Array of rotor speeds corresponding to PRC_WindSpeeds
+# PRC_GenSpeeds = []  # array
+# Number of elements in PRC_WindSpeeds and PRC_GenSpeeds array
+PRC_n = 0
+# Frequency of the low pass filter on the wind speed estimate used to set PRC_GenSpeeds [rad/s]
+PRC_LPF_Freq = 0.0
+# Power rating through changing the rated torque, default is 1, effective above rated [-]
+PRC_R_Torque = 0.0
+# Power rating through changing the rated generator speed, default is 1, effective above rated [-]
+PRC_R_Speed = 0.0
+# Power rating through changing the fine pitch angle, default is 1, effective below rated [-]
+PRC_R_Pitch = 0.0
+# Number of elements in PRC_R to _Pitch table
+PRC_Table_n = 0
+# Table of fine pitch versus PRC_R_Table, length should be PRC_Table_n [rad]
+# PRC_Pitch_Table = []  # array
+# Table of turbine rating versus fine pitch (PRC_Pitch_Table), length should be PRC_Table_n, default is 1 [-]
+# PRC_R_Table = []  # array
+
+# ===== Wind Speed Estimator =====
+# Wind speed estimator mode {0 - One-second low pass filtered hub height wind speed, 1 - Imersion and Invariance Estimator (Ortega et al.)
+WE_Mode = 0
+# Blade length [m]
+WE_BladeRadius = 0.0
+# Amount of parameters in the Cp array
+WE_CP_n = 0
+# Parameters that define the parameterized CP(\lambda) function
+# WE_CP = []  # array
+# Adaption gain of the wind speed estimator algorithm [m/rad]
+WE_Gamma = 0.0
+# Gearbox ratio, >=1  [-]
+WE_GearboxRatio = 0.0
+# Total drivetrain inertia, including blades, hub and casted generator inertia to LSS [kg m^2]
+WE_Jtot = 0.0
+# Air density [kg m^-3]
+WE_RhoAir = 0.0
+# File containing rotor performance tables (Cp,Ct,Cq)
+PerfFileName = ""
+# Size of rotor performance tables, first number refers to number of blade pitch angles, second number referse to number of tip-speed ratios
+# PerfTableSize = []  # array
+# Number of first-order system poles used in EKF
+WE_FOPoles_N = 0
+# Wind speeds corresponding to first-order system poles [m/s]
+# WE_FOPoles_v = []  # array
+# First order system poles
+# WE_FOPoles = []  # array
+
+# ===== Yaw Controller =====
+# Yaw control mode {0 - no yaw control, 1 - yaw rate control}
+Y_ControlMode = 0
+# Wind speed to switch between Y_ErrThresh. If zero, only the first value of Y_ErrThresh is used [m/s]
+Y_uSwitch = 0.0
+# Error threshold [rad]. Turbine begins to yaw when it passes this
+# Y_ErrThresh = []  # array
+# Yaw rate [rad/s]
+Y_Rate = 0.0
+# Yaw alignment error, setpoint (for wake steering) [rad]
+Y_MErrSet = 0.0
+# Integrator saturation (maximum signal amplitude contrbution to pitch from yaw-by-IPC)
+Y_IPC_IntSat = 0.0
+# Yaw-by-IPC proportional controller gain Kp
+Y_IPC_KP = 0.0
+# Yaw-by-IPC integral controller gain Ki
+Y_IPC_KI = 0.0
+
+# ===== Pitch Saturation =====
+# Pitch saturation mode {0 - no peak shaving, 1 -  implement pitch saturation}
+PS_Mode = 0
+# Number of values in minimum blade pitch lookup table (should equal number of values in PS_WindSpeeds and PS_BldPitchMin)
+PS_BldPitchMin_N = 0
+# Wind speeds corresponding to minimum blade pitch angles [m/s]
+# PS_WindSpeeds = []  # array
+# Minimum blade pitch angles [rad]
+# PS_BldPitchMin = []  # array
+
+# ===== Startup =====
+# Startup mode {0 - no startup procedure, 1 - enable startup}
+SU_Mode = 0
+# Time to start start up routine
+SU_StartTime = 0.0
+# Free-wheel minimum duration [s]
+SU_FW_MinDuration = 0.0
+# Rotor speed threshhold to switch from freewheel to loads [rad/s]
+SU_RotorSpeedThresh = 0.0
+# Cutoff Frequency for first order low-pass filter for rotor speed for startup, [rad/s]
+SU_RotorSpeedCornerFreq = 0.0
+# Number of load staged for startup (should equal number of values in SU_LoadStages, SU_LoadRampDuration and SU_LoadHoldDuration) [-]
+SU_LoadStages_N = 0
+# Array containing loads as a fraction of full generator torque during startup [-]
+# SU_LoadStages = []  # array
+# Array containing ramp duration to reach the corresponding partial loads during startup [s]
+# SU_LoadRampDuration = []  # array
+# Array containing duration to hold the partial loads during startup [s]
+# SU_LoadHoldDuration = []  # array
+
+# ===== Shutdown =====
+# Shutdown mode {0 - no shutdown procedure, 1 - enable shutdown}
+SD_Mode = 0
+# Time to acitvate shutdown modes, [s]
+SD_TimeActivate = 0.0
+# Shutdown when collective blade pitch exceeds a threshold, [-]
+SD_EnablePitch = 0
+# Shutdown when yaw error exceeds a threshold, [-]
+SD_EnableYawError = 0
+# Shutdown when generator speed exceeds a threshold, [-]
+SD_EnableGenSpeed = 0
+# Shutdown at a predefined time, [-]
+SD_EnableTime = 0
+# Maximum blade pitch angle to initiate shutdown, [rad]
+SD_MaxPit = 0.0
+# Cutoff Frequency for first order low-pass filter for blade pitch angle for shutdown, [rad/s]
+SD_PitchCornerFreq = 0.0
+# Maximum yaw error to initiate shutdown, [deg]
+SD_MaxYawError = 0.0
+# Cutoff Frequency for first order low-pass filter for yaw error for shutdown, [rad/s]
+SD_YawErrorCornerFreq = 0.0
+# Maximum generator speed to initiate shutdown, [rad/s]
+SD_MaxGenSpd = 0.0
+# Cutoff Frequency for first order low-pass filter for generator speed for shutdown, [rad/s]
+SD_GenSpdCornerFreq = 0.0
+# Shutdown time, [s]
+SD_Time = 0.0
+# Shutdown method {1 - Reduce generator torque and increase blade pitch}, [-]
+SD_Method = 0
+# Maximum torque rate for shutdown, [Nm/s]
+# SD_MaxTorqueRate = []  # array
+# Maximum pitch rate used for shutdown, [rad/s]
+# SD_MaxPitchRate = []  # array
+# Array containing the pitch angle to reach in each shutdown stage [rad]
+# SD_StagePitch = []  # array
+# Array containing the time to spend in each shutdown stage [s]
+# SD_StageTime = []  # array
+# Number of shutdown stages (should equal number of values in SD_MaxPitchRate and SD_MaxTorqueRate) [-]
+SD_Stage_N = 0
+
+# ===== Floating =====
+# Floating specific feedback mode {0 - no nacelle velocity feedback, 1 - nacelle velocity feedback}
+Fl_Mode = 0
+# Number of Fl_Kp for gain scheduling
+Fl_n = 0
+# Nacelle velocity proportional feedback gain [s]
+# Fl_Kp = []  # array
+# Wind speeds for scheduling Fl_Kp [m/s]
+# Fl_U = []  # array
+
+# ===== Trailing edge flaps =====
+# Flap actuator mode {0 - off, 1 - fixed flap position, 2 - PI flap control}
+Flp_Mode = 0
+# Fixed flap angle (degrees)
+Flp_Angle = 0.0
+# PI flap control proportional gain
+Flp_Kp = 0.0
+# PI flap control integral gain
+Flp_Ki = 0.0
+# Maximum (and minimum) flap pitch angle [rad]
+Flp_MaxPit = 0.0
+
+# ===== Open-loop Control =====
+# Input file with open loop timeseries
+OL_Filename = ""
+# Open loop control mode {0 - no open loop control, 1 - open loop control vs. time, 2 - open loop control vs. wind speed}
+OL_Mode = 0
+# Open loop control mode {0 - no open loop control, 1 - open loop control vs. time, 2 - open loop control vs. wind speed}
+OL_BP_Mode = 0
+# First order low pass filter cutoff frequency for open loop breakpoint
+OL_BP_FiltFreq = 0.0
+# The column in OL_Filename that contains the breakpoint (time if OL_Mode = 1)
+Ind_Breakpoint = 0
+# The columns in OL_Filename that contains the blade pitch inputs (1,2,3) in rad
+# Ind_BldPitch = []  # array
+# The column in OL_Filename that contains the generator torque in Nm
+Ind_GenTq = 0
+# The column in OL_Filename that contains the generator torque in Nm
+Ind_YawRate = 0
+# The column in OL_Filename that contains the R_Speed input
+Ind_R_Speed = 0
+# The column in OL_Filename that contains the R_Torque input
+Ind_R_Torque = 0
+# The column in OL_Filename that contains the R_Pitch input
+Ind_R_Pitch = 0
+# The column in OL_Filename that contains the desired azimuth position in rad (used if OL_Mode = 2)
+Ind_Azimuth = 0
+# PID gains and Tf on derivative term for rotor position control (used if OL_Mode = 2)
+# RP_Gains = []  # array
+# The column in OL_Filename that contains the cable control inputs in m
+# Ind_CableControl = []  # array
+# The column in OL_Filename that contains the structural control inputs in various units
+# Ind_StructControl = []  # array
+# Open loop breakpoints in timeseries
+# OL_Breakpoints = []  # array
+# Open loop blade pitch 1 timeseries
+# OL_BldPitch1 = []  # array
+# Open loop blade pitch 2 timeseries
+# OL_BldPitch2 = []  # array
+# Open loop blade pitch 3 timeseries
+# OL_BldPitch3 = []  # array
+# OL_CableControl = [[...], [...]]  # 2D array (rows x cols)
+# OL_StructControl = [[...], [...]]  # 2D array (rows x cols)
+# Open loop generator torque timeseries
+# OL_GenTq = []  # array
+# Open loop yaw rate timeseries
+# OL_YawRate = []  # array
+# Open loop azimuth timeseries
+# OL_Azimuth = []  # array
+# Open loop R_Speed timeseries
+# OL_R_Speed = []  # array
+# Open loop R_Torque timeseries
+# OL_R_Torque = []  # array
+# Open loop R_Pitch timeseries
+# OL_R_Pitch = []  # array
+# Open loop channels in timeseries
+# OL_Channels = [[...], [...]]  # 2D array (rows x cols)
+
+# ===== Pitch actuator =====
+# Pitch actuator mode {0 - not used, 1 - first order filter, 2 - second order filter}
+PA_Mode = 0
+# Pitch actuator bandwidth/cut-off frequency [rad/s]
+PA_CornerFreq = 0.0
+# Pitch actuator damping ratio [-, unused if PA_Mode = 1]
+PA_Damping = 0.0
+
+# ===== Active wake control =====
+# Active wake control mode [0 - unused, 1 - complex number method, 2 - Coleman transform method]
+AWC_Mode = 0
+# AWC- Number of modes to include [-]
+AWC_NumModes = 0
+# AWC azimuthal mode [-]
+# AWC_n = []  # array
+# AWC Coleman transform harmonic [-]
+# AWC_harmonic = []  # array
+# AWC frequency [Hz]
+# AWC_freq = []  # array
+# AWC amplitude [deg]
+# AWC_amp = []  # array
+# AWC clocking angle [deg]
+# AWC_clockangle = []  # array
+# AWC azimuth offset for Coleman transform [deg]
+AWC_phaseoffset = 0.0
+# AWC KP and KI/KR gain of the controller [-]
+# AWC_CntrGains = []  # array
+
+# ===== Pitch actuator error =====
+# Pitch actuator fault mode {0 - not used, 1 - offsets on one or more blades}
+PF_Mode = 0
+# Pitch actuator fault offsets for blade 1-3 [rad/s]
+# PF_Offsets = []  # array
+# Time for pitch actuator fault to be stuck for blade 1-3 [s]
+# PF_TimeStuck = []  # array
+
+# ===== External Control =====
+# External control mode (0 - not used, 1 - call external control library)
+Ext_Mode = 0
+# File name of external dynamic library
+DLL_FileName = ""
+# Name of input file called by dynamic library (DISCON.IN, e.g.)
+DLL_InFile = ""
+# Process name of subprocess called in DLL_Filename (Usually DISCON)
+DLL_ProcName = ""
+
+# ===== ZeroMQ =====
+# Flag for ZeroMQ (0-off, 1-yaw}
+ZMQ_Mode = 0
+# Comm Address to zeroMQ client
+ZMQ_CommAddress = ""
+# Integer for zeromq update frequency
+ZMQ_UpdatePeriod = 0.0
+
+# ===== Cable control =====
+# Flag for ZeroMQ (0-off, 1-yaw}
+CC_Mode = 0
+# Number of cable control groups
+CC_Group_N = 0
+# Time constant for line actuator [s]
+CC_ActTau = 0.0
+# Cable control group indices
+# CC_GroupIndex = []  # array
+
+# ===== StC Control =====
+# Flag for StC Control
+StC_Mode = 0
+# Number of cable control groups
+StC_Group_N = 0
+# Cable control group indices
+# StC_GroupIndex = []  # array
+
+# ===== Calculated =====
+# 99% of the rated torque value, using for switching between pitch and torque control, [Nm].
+PC_RtTq99 = 0.0
+# Maximum torque at the end of the below-rated region 2, [Nm]
+VS_MaxOMTq = 0.0
+# Minimum torque at the beginning of the below-rated region 2, [Nm]
+VS_MinOMTq = 0.0

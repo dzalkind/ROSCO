@@ -1,14 +1,29 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.14)
 project(ROSCO VERSION 2.9.0 LANGUAGES C CXX)
 
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Choose the build type: Debug RelWithDebInfo Release" FORCE)
 endif()
 
+# C++17 required for toml++
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # VIT: -ffp-contract=off for bit-identical verification during translation phase.
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffp-contract=off")
 
+# toml++ (single-header, C++17, no external deps)
+include(FetchContent)
+FetchContent_Declare(
+    tomlplusplus
+    GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
+    GIT_TAG        v3.4.0
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(tomlplusplus)
+
 set(SOURCES
+    src/rosco_types_io.cpp
     src/discon.cpp
     src/ControllerBlocks/computevariablessetpoints.cpp
     src/ControllerBlocks/pitchsaturation.cpp
@@ -79,7 +94,7 @@ endif()
 
 add_library(discon SHARED ${SOURCES})
 target_include_directories(discon PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../translations)
-target_link_libraries(discon PRIVATE stdc++ dl)
+target_link_libraries(discon PRIVATE stdc++ dl tomlplusplus::tomlplusplus)
 
 if(PC_ZeroMQ_FOUND)
     target_include_directories(discon PUBLIC ${ZeroMQ_INCLUDE_DIR})

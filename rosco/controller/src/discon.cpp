@@ -4,6 +4,7 @@
 // directly via _c entry points, eliminating the Fortran interop layer.
 
 #include "include/vit_types.h"
+#include "include/rosco_types.hpp"
 #include "include/rosco_constants.h"
 #include <cstdio>
 #include <cstring>
@@ -22,6 +23,8 @@ static const char* ROSCO_VERSION = "2.10.1";
 // ============================================================
 // Static state — persists for DLL lifetime (replaces Fortran SAVE)
 // ============================================================
+// New C++ struct owning memory via std::vector (replaces the 'alloc' struct for TOML path)
+static ControlParameters CntrParOwner;
 static controlparameters_view_t CntrPar = {};
 static localvariables_t LocalVar = {};
 static objectinstances_t objInst = {};
@@ -333,6 +336,18 @@ static void allocate_perfdata_arrays(controlparameters_view_t* cp, performanceda
 // Read config files: two-pass ALLOCATE protocol + ReadCpFile
 // Used by both iStatus==0 and iStatus==-9 (restart) paths
 // ============================================================
+// Returns true if filename ends with ".toml" (case-insensitive)
+static bool is_toml_file(const char* filename) {
+    size_t len = std::strlen(filename);
+    if (len < 5) return false;
+    const char* ext = filename + len - 5;
+    return (ext[0]=='.' &&
+            (ext[1]=='t'||ext[1]=='T') &&
+            (ext[2]=='o'||ext[2]=='O') &&
+            (ext[3]=='m'||ext[3]=='M') &&
+            (ext[4]=='l'||ext[4]=='L'));
+}
+
 static void read_config_files(float* avrSWAP, char* accINFILE, int accINFILE_size) {
     // Extract null-terminated filename from accINFILE
     char filename[1024] = {};
@@ -344,42 +359,51 @@ static void read_config_files(float* avrSWAP, char* accINFILE, int accINFILE_siz
     }
     filename[fnLen] = '\0';
 
-    // Extract directory path (priPath) from filename
-    char priPath[1024] = {};
-    int lastSep = -1;
-    for (int i = fnLen - 1; i >= 0; i--) {
-        if (filename[i] == '/' || filename[i] == '\\') {
-            lastSep = i;
-            break;
-        }
-    }
-    if (lastSep >= 0) {
-        memcpy(priPath, filename, lastSep + 1);
-        priPath[lastSep + 1] = '\0';
+    if (is_toml_file(filename)) {
+        // ---- TOML path: single-pass, vector-based, no manual allocation ----
+        CntrParOwner = ControlParameters{};   // reset to defaults
+        CntrParOwner.load_from_toml(filename, &ErrVar);
+        if (ErrVar.aviFAIL < 0) return;
+        CntrParOwner.populate_view(&CntrPar);
     } else {
-        priPath[0] = '.'; priPath[1] = '/'; priPath[2] = '\0';
-    }
+        // ---- Legacy DISCON.IN path (two-pass) ----
 
-    // Pass 1: parse scalars + count OL rows
-    int32_t n_OL_rows = 0, OL_Count = 0;
-    ReadControlParameterFileSub_pass1(&CntrPar, &LocalVar, filename, priPath, &ErrVar, &n_OL_rows, &OL_Count);
-    if (ErrVar.aviFAIL < 0) {
-        char tmp[sizeof(ErrVar.ErrMsg)];
-        snprintf(tmp, sizeof(tmp), "SetParameters:%s", ErrVar.ErrMsg);
-        memcpy(ErrVar.ErrMsg, tmp, sizeof(ErrVar.ErrMsg));
-        return;
-    }
+        // Extract directory path (priPath) from filename
+        char priPath[1024] = {};
+        int lastSep = -1;
+        for (int i = fnLen - 1; i >= 0; i--) {
+            if (filename[i] == '/' || filename[i] == '\\') {
+                lastSep = i;
+                break;
+            }
+        }
+        if (lastSep >= 0) {
+            memcpy(priPath, filename, lastSep + 1);
+            priPath[lastSep + 1] = '\0';
+        } else {
+            priPath[0] = '.'; priPath[1] = '/'; priPath[2] = '\0';
+        }
 
-    // Allocate all ALLOCATABLE arrays
-    allocate_cntrpar_arrays(&CntrPar, n_OL_rows, OL_Count);
+        // Pass 1: parse scalars + count OL rows
+        int32_t n_OL_rows = 0, OL_Count = 0;
+        ReadControlParameterFileSub_pass1(&CntrPar, &LocalVar, filename, priPath, &ErrVar, &n_OL_rows, &OL_Count);
+        if (ErrVar.aviFAIL < 0) {
+            char tmp[sizeof(ErrVar.ErrMsg)];
+            snprintf(tmp, sizeof(tmp), "SetParameters:%s", ErrVar.ErrMsg);
+            memcpy(ErrVar.ErrMsg, tmp, sizeof(ErrVar.ErrMsg));
+            return;
+        }
 
-    // Pass 2: fill arrays + computed constants
-    ReadControlParameterFileSub_pass2(&CntrPar, &LocalVar, filename, priPath, &ErrVar);
+        // Allocate all ALLOCATABLE arrays
+        allocate_cntrpar_arrays(&CntrPar, n_OL_rows, OL_Count);
 
-    // Allocate and populate OL_CableControl/OL_StructControl from OL_Channels
-    // (must happen after pass2 fills Ind_CableControl/Ind_StructControl values
-    // and OL_Channels data)
-    if (CntrPar.OL_Mode > 0 && CntrPar.n_OL_Channels_rows > 0) {
+        // Pass 2: fill arrays + computed constants
+        ReadControlParameterFileSub_pass2(&CntrPar, &LocalVar, filename, priPath, &ErrVar);
+
+        // Allocate and populate OL_CableControl/OL_StructControl from OL_Channels
+        // (must happen after pass2 fills Ind_CableControl/Ind_StructControl values
+        // and OL_Channels data)
+        if (CntrPar.OL_Mode > 0 && CntrPar.n_OL_Channels_rows > 0) {
         int nRows = CntrPar.n_OL_Channels_rows;
         // OL_CableControl
         int nOlCables = 0;
@@ -423,9 +447,10 @@ static void read_config_files(float* avrSWAP, char* accINFILE, int accINFILE_siz
                 }
             }
         }
-    }
+        } // end OL_Mode block
+    } // end DISCON.IN else branch
 
-    // ReadCpFile (performance tables)
+    // ReadCpFile (performance tables) — common to both TOML and DISCON.IN paths
     if (CntrPar.WE_Mode > 0) {
         allocate_perfdata_arrays(&CntrPar, &PerfData);
         ReadCpFile(&CntrPar, &PerfData, &ErrVar);
@@ -505,7 +530,7 @@ void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* avcOUTNAME, cha
             // First call: banner + file reading + init
             printf("                                                                              \n"
                    "------------------------------------------------------------------------------\n"
-                   "Running ROSCO-%s\n"
+                   "Running ROSCO-%s (c++ version)\n"
                    "A wind turbine controller framework for public use in the scientific field    \n"
                    "Developed in collaboration: National Renewable Energy Laboratory              \n"
                    "                            Delft University of Technology, The Netherlands   \n"

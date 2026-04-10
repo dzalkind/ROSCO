@@ -23,7 +23,9 @@ PLANE_AVG_WIND_CSV     = os.path.join(WAVE_TANK_DIR, '2_6DOF', 'plane_avg_wind.c
 INTERP_6DOF_RESP_CSV   = os.path.join(WAVE_TANK_DIR, '2_6DOF', 'interp_6dof_responses.csv')
 FILTERED_WIND_CSV      = os.path.join(WAVE_TANK_DIR, '3_model_verification', 'filtered_rt_vavghx.csv')
 SIM_1DOF_OUT_CSV       = os.path.join(WAVE_TANK_DIR, '1dof_sim_outs.csv')
-ROSCO_YAML             = os.path.join(WAVE_TANK_DIR, 'USFLOWT_ROSCO_opt.yaml')
+ROSCO_YAML             = os.path.join(WAVE_TANK_DIR, '0_shared', 'USFLOWT_ROSCO_opt.yaml')
+TURBINE_PICKLE         = os.path.join(WAVE_TANK_DIR, 'USFLOWT_10.p')
+DISCON_IN_FILE         = os.path.join(WAVE_TANK_DIR, '1_ElastoDyn', 'USFLOWT_10_DISCON.IN')
 
 # Shared channel lists
 CHANNELS_COMPARE = [

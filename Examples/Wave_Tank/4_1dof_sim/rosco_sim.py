@@ -29,7 +29,7 @@ import re
 import matplotlib.pyplot as plt
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '0_shared'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '0_shared'))
 import config as wt_config
 # ROSCO toolbox modules 
 from rosco import discon_lib_path as lib_name
@@ -83,45 +83,38 @@ def parse_dbg3_file(filename):
     return result
 
 def main():
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    # chdir to Wave_Tank root so ROSCO writes sim outputs there
+    os.chdir(wt_config.WAVE_TANK_DIR)
 
-    # Load yaml file 
-    this_dir = os.path.dirname(os.path.abspath(__file__))
-    tune_dir =  os.path.join(this_dir,'Tune_Cases')
+    # Load yaml file
     parameter_filename = wt_config.ROSCO_YAML
     inps = load_rosco_yaml(parameter_filename)
     path_params         = inps['path_params']
     turbine_params      = inps['turbine_params']
     controller_params   = inps['controller_params']
 
-    # Specify controller dynamic library path and name
-
-    #directories
-    rosco_dir           = os.path.dirname(this_dir)
-    example_out_dir     = os.path.join(this_dir,'examples_out')
-    os.makedirs(example_out_dir,exist_ok=True)
-
     # # Load turbine model from saved pickle
     turbine         = ROSCO_turbine.Turbine
-    turbine         = turbine.load('USFLOWT_10.p')
+    turbine         = turbine.load(wt_config.TURBINE_PICKLE)
 
     # Load turbine data from OpenFAST and rotor performance text file
-    cp_filename = os.path.join(os.path.dirname(parameter_filename),path_params['rotor_performance_filename'])
+    cp_filename = os.path.join(wt_config.WAVE_TANK_DIR, path_params['rotor_performance_filename'])
     turbine.load_from_fast(
         path_params['FAST_InputFile'],
-        os.path.join(os.path.dirname(parameter_filename),path_params['FAST_directory']),
+        os.path.join(wt_config.WAVE_TANK_DIR, path_params['FAST_directory']),
         rot_source='txt',txt_filename=cp_filename
         )
 
-    # Tune controller 
+    # Tune controller
     controller      = ROSCO_controller.Controller(controller_params)
     controller.tune_controller(turbine)
 
     # Write parameter input file
-    param_filename = os.path.join(this_dir,'1_ElastoDyn','USFLOWT_10_DISCON.IN')
+    param_filename = wt_config.DISCON_IN_FILE
 
     if True:
         # Load controller library
+        lib_name = '/Users/dzalkind/Tools/ROSCO-C/rosco/lib/libdiscon.dylib'
         controller_int = ROSCO_ci.ControllerInterface(lib_name,param_filename=param_filename,sim_name='sim1')
 
         # Load the simulator

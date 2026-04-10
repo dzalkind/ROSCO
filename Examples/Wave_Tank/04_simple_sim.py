@@ -22,13 +22,15 @@ Notes:
 """
 # Python modules
 import gc
+import os
+import sys
 import pandas as pd
 import re
-
-
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
 import numpy as np
-import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '0_shared'))
+import config as wt_config
 # ROSCO toolbox modules 
 from rosco import discon_lib_path as lib_name
 from rosco.toolbox import controller as ROSCO_controller
@@ -86,7 +88,7 @@ def main():
     # Load yaml file 
     this_dir = os.path.dirname(os.path.abspath(__file__))
     tune_dir =  os.path.join(this_dir,'Tune_Cases')
-    parameter_filename = os.path.join(this_dir,'USFLOWT_ROSCO_opt.yaml')
+    parameter_filename = wt_config.ROSCO_YAML
     inps = load_rosco_yaml(parameter_filename)
     path_params         = inps['path_params']
     turbine_params      = inps['turbine_params']
@@ -125,14 +127,14 @@ def main():
         # Load the simulator
         sim_1 = ROSCO_sim.Sim(turbine,controller_int)
 
-        wind_input = '/Users/dzalkind/Tools/ROSCO-USFLOWT/Examples/Wave_Tank/3_model_verification/filtered_rt_vavghx.csv'
-        offset = 0
+        wind_input = wt_config.FILTERED_WIND_CSV
+        offset = wt_config.SIM_OFFSET
 
         # Define a wind speed history
         if wind_input == 'step':
-            dt = 0.025
-            tlen = 1000      # length of time to simulate (s)
-            ws0 = 7         # initial wind speed (m/s)
+            dt = wt_config.SIM_DT
+            tlen = wt_config.SIM_TLEN   # length of time to simulate (s)
+            ws0 = wt_config.SIM_WS0     # initial wind speed (m/s)
             t= np.arange(0,tlen,dt) 
             ws = np.ones_like(t) * ws0
             # add steps at every 100s
@@ -155,7 +157,7 @@ def main():
         outs['RtAeroFxi'] = sim_1.rot_thrust
         outs['RtAeroMxi'] = sim_1.aero_torque
 
-        pd.DataFrame(outs).to_csv(os.path.join(this_dir,'1dof_sim_outs.csv'), index=False)
+        pd.DataFrame(outs).to_csv(wt_config.SIM_1DOF_OUT_CSV, index=False)
 
     #         channels = [
     #     'RtVAvgxh',

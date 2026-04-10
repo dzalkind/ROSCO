@@ -1,10 +1,14 @@
 import numpy as np
 import pandas as pd
 import os
+import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 
 from openfast_io.turbsim_file import TurbSimFile
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '0_shared'))
+import config as wt_config
 
 
 def interpolate_1d(
@@ -62,11 +66,11 @@ def interpolate_1d(
 
 def main():
     os.chdir(os.path.dirname(__file__))
-    df_6dof = pd.read_csv('steady_6dof_lookup.csv')
+    df_6dof = pd.read_csv(wt_config.STEADY_6DOF_LOOKUP_CSV)
 
     if True: # read turbsim file and make plane-average input
 
-        ts_file = TurbSimFile('/Users/dzalkind/Library/CloudStorage/Box-Box/USFLOWT_PII/05_SimModel/OpenFAST/2026.04.01_WaveVerification/rank_0/wind/weis_job_0_NTM_U11.400000_Seed714712467.0.bts')
+        ts_file = TurbSimFile(wt_config.TURBSIM_BTS_FILE)
         ts_file.read()
         u_avg = np.mean(ts_file['u'][0,:, :, :], axis=(1,2))
         u_tt = ts_file['t']
@@ -78,18 +82,15 @@ def main():
         plt.show()
 
         M = np.c_[u_tt,u_avg]
-        np.savetxt('plane_avg_wind.csv', M, header='Time(s),U_avg(m/s)', delimiter=',')
+        np.savetxt(wt_config.PLANE_AVG_WIND_CSV, M, header='Time(s),U_avg(m/s)', delimiter=',')
     else:
-        df_u = pd.read_csv('plane_avg_wind.csv')
+        df_u = pd.read_csv(wt_config.PLANE_AVG_WIND_CSV)
         u_avg = df_u['U_avg(m/s)'].to_numpy()
         u_tt = df_u['# Time(s)'].to_numpy()
 
     # Interpolate df based on u_avg and plot the 6DOF responses
 
-    responses = [
-        'RtAeroFxi', 'RtAeroFyi', 'RtAeroFzi',
-        'RtAeroMxi', 'RtAeroMyi', 'RtAeroMzi',
-    ]
+    responses = wt_config.CHANNELS_6DOF
 
     interp_outs = {}
 
@@ -110,7 +111,7 @@ def main():
         plt.show()
         fig.align_ylabels()
 
-    pd.DataFrame(interp_outs).to_csv('interp_6dof_responses.csv', index=False)
+    pd.DataFrame(interp_outs).to_csv(wt_config.INTERP_6DOF_RESP_CSV, index=False)
 
 
 

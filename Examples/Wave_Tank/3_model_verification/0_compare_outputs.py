@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 from rosco.toolbox.ofTools.fast_io.output_processing import output_processing
 from scipy.signal import butter, sosfiltfilt
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '0_shared'))
+import config as wt_config
+
 def plot_not_available(ax, channel):
     return
     ax.set_ylabel(channel)
@@ -16,17 +19,12 @@ def main():
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     
 
-    channels = [
-        'RtVAvgxh',
-        'BldPitch1', 'GenSpeed', 'GenTq', 'GenPwr',
-        'RtAeroFxi', #'RtAeroFyi', 'RtAeroFzi',
-        'RtAeroMxi', #'RtAeroMyi', 'RtAeroMzi',
-    ]
+    channels = wt_config.CHANNELS_COMPARE
 
 
     ## 6-DOF
-    u_rot = pd.read_csv('/Users/dzalkind/Tools/ROSCO-USFLOWT/Examples/Wave_Tank/2_6DOF/plane_avg_wind.csv')
-    resp_6 = pd.read_csv('/Users/dzalkind/Tools/ROSCO-USFLOWT/Examples/Wave_Tank/2_6DOF/interp_6dof_responses.csv')
+    u_rot = pd.read_csv(wt_config.PLANE_AVG_WIND_CSV)
+    resp_6 = pd.read_csv(wt_config.INTERP_6DOF_RESP_CSV)
 
     fig, axs = plt.subplots(len(channels), 1, sharex=True, figsize=(10, 2 * len(channels)), constrained_layout=True)
     
@@ -43,7 +41,7 @@ def main():
 
 
     ## 1-DOF
-    resp_1 = pd.read_csv('/Users/dzalkind/Tools/ROSCO-USFLOWT/Examples/Wave_Tank/1dof_sim_outs.csv')
+    resp_1 = pd.read_csv(wt_config.SIM_1DOF_OUT_CSV)
 
     resp_1['GenPwr'] = resp_1['GenTq'] * resp_1['GenSpeed'] * 2 * np.pi / 60  # convert to kW
 
@@ -59,7 +57,7 @@ def main():
     
     
     ## OpenFAST output file
-    filename = '/Users/dzalkind/Library/CloudStorage/Box-Box/USFLOWT_PII/05_SimModel/OpenFAST/2026.04.01_WaveVerification/rank_0/DLC1.6_6_weis_job_1.out'
+    filename = wt_config.OPENFAST_OUT_FILE
 
     op = output_processing()
     fastout = op.load_fast_out(filename)
@@ -69,10 +67,10 @@ def main():
 
     if True:
         dt = np.mean(np.diff(fast_data['Time']))
-        sos = butter(4, 1.0 / 2.0, btype='low', fs=1.0 / dt, output='sos')
+        sos = butter(wt_config.FILTER_ORDER, wt_config.FILTER_CUTOFF / 2.0, btype='low', fs=1.0 / dt, output='sos')
         rt_avg = sosfiltfilt(sos, fast_data['RtVAvgxh'])
         
-        pd.DataFrame({'# Time(s)': fast_data['Time'], 'U_avg(m/s)': rt_avg}).to_csv('filtered_rt_vavghx.csv', index=False)
+        pd.DataFrame({'# Time(s)': fast_data['Time'], 'U_avg(m/s)': rt_avg}).to_csv(wt_config.FILTERED_WIND_CSV, index=False)
 
 
     for ax, channel in zip(axs, channels):

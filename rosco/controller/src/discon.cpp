@@ -448,6 +448,9 @@ static void read_config_files(float* avrSWAP, char* accINFILE, int accINFILE_siz
             }
         }
         } // end OL_Mode block
+
+        // Sync view data into CntrParOwner so migrated functions can use const ControlParameters&
+        CntrParOwner.sync_from_view(CntrPar);
     } // end DISCON.IN else branch
 
     // ReadCpFile (performance tables) — common to both TOML and DISCON.IN paths
@@ -518,7 +521,7 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         // Callee dispatch: re-read config files (same as iStatus==0)
         read_config_files(avrSWAP, LocalVar.ACC_INFILE, LocalVar.ACC_INFILE_SIZE);
         if (CntrPar.LoggingLevel > 0) {
-            Debug(&LocalVar, &CntrPar, &DebugVar, &ErrVar, avrSWAP, RootName, avcOUTNAME_size);
+            Debug(&LocalVar, CntrParOwner, &DebugVar, &ErrVar, avrSWAP, RootName, avcOUTNAME_size);
         }
     }
 
@@ -574,14 +577,14 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
             ExtDLL.avrSWAP = alloc.ExtDLL_avrSWAP;
             ExtDLL.n_avrSWAP = 2000;
         }
-        ExtController(avrSWAP, &CntrPar, &LocalVar, &ExtDLL, &ErrVar);
+        ExtController(avrSWAP, CntrParOwner, &LocalVar, &ExtDLL, &ErrVar);
     }
 
     // ============================================================
     // Filter signals
     // ============================================================
     if (ErrVar.aviFAIL >= 0) {
-        PreFilterMeasuredSignals(&CntrPar, &LocalVar, &DebugVar, &objInst, &ErrVar);
+        PreFilterMeasuredSignals(CntrParOwner, &LocalVar, &DebugVar, &objInst, &ErrVar);
     }
 
     // ============================================================
@@ -592,44 +595,44 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
             WriteRestartFile(&LocalVar, &CntrPar, &ErrVar, &objInst, RootName, avcOUTNAME_size);
         }
         if (CntrPar.ZMQ_Mode > 0) {
-            UpdateZeroMQ(&LocalVar, &CntrPar, &ErrVar);
+            UpdateZeroMQ(&LocalVar, CntrParOwner, &ErrVar);
         }
         if (CntrPar.SD_Mode > 0) {
-            Shutdown(&LocalVar, &CntrPar, &objInst, &ErrVar);
+            Shutdown(&LocalVar, CntrParOwner, &objInst, &ErrVar);
         }
-        WindSpeedEstimator(&LocalVar, &CntrPar, &objInst, &PerfData, &DebugVar, &ErrVar);
-        PowerControlSetpoints(&CntrPar, &LocalVar, &objInst, &DebugVar, &ErrVar);
+        WindSpeedEstimator(&LocalVar, CntrParOwner, &objInst, &PerfData, &DebugVar, &ErrVar);
+        PowerControlSetpoints(CntrParOwner, &LocalVar, &objInst, &DebugVar, &ErrVar);
         if (CntrPar.SU_Mode > 0) {
-            Startup(&LocalVar, &CntrPar, &objInst, &ErrVar);
+            Startup(&LocalVar, CntrParOwner, &objInst, &ErrVar);
         }
-        ComputeVariablesSetpoints(&CntrPar, &LocalVar, &objInst, &DebugVar, &ErrVar);
-        StateMachine(&CntrPar, &LocalVar);
-        SetpointSmoother(&LocalVar, &CntrPar, &objInst);
-        VariableSpeedControl(avrSWAP, &CntrPar, &LocalVar, &objInst, &ErrVar);
+        ComputeVariablesSetpoints(CntrParOwner, &LocalVar, &objInst, &DebugVar, &ErrVar);
+        StateMachine(CntrParOwner, &LocalVar);
+        SetpointSmoother(&LocalVar, CntrParOwner, &objInst);
+        VariableSpeedControl(avrSWAP, CntrParOwner, &LocalVar, &objInst, &ErrVar);
         if (CntrPar.PC_ControlMode > 0) {
-            PitchControl(avrSWAP, &CntrPar, &LocalVar, &objInst, &DebugVar, &ErrVar);
+            PitchControl(avrSWAP, CntrParOwner, &LocalVar, &objInst, &DebugVar, &ErrVar);
         }
         if (CntrPar.Y_ControlMode > 0) {
-            YawRateControl(avrSWAP, &CntrPar, &LocalVar, &objInst, &DebugVar, &ErrVar);
+            YawRateControl(avrSWAP, CntrParOwner, &LocalVar, &objInst, &DebugVar, &ErrVar);
         }
         if (CntrPar.Flp_Mode > 0) {
-            FlapControl(avrSWAP, &CntrPar, &LocalVar, &objInst);
+            FlapControl(avrSWAP, CntrParOwner, &LocalVar, &objInst);
         }
         if (CntrPar.CC_Mode > 0) {
-            CableControl(avrSWAP, &CntrPar, &LocalVar, &objInst, &ErrVar);
+            CableControl(avrSWAP, CntrParOwner, &LocalVar, &objInst, &ErrVar);
         }
         if (CntrPar.StC_Mode > 0) {
-            StructuralControl(avrSWAP, &CntrPar, &LocalVar, &objInst, &ErrVar);
+            StructuralControl(avrSWAP, CntrParOwner, &LocalVar, &objInst, &ErrVar);
         }
     } else if ((LocalVar.iStatus == -1) && (CntrPar.ZMQ_Mode > 0)) {
-        UpdateZeroMQ(&LocalVar, &CntrPar, &ErrVar);
+        UpdateZeroMQ(&LocalVar, CntrParOwner, &ErrVar);
     }
 
     // ============================================================
     // Debug logging
     // ============================================================
     if ((CntrPar.LoggingLevel > 0) && (ErrVar.aviFAIL >= 0)) {
-        Debug(&LocalVar, &CntrPar, &DebugVar, &ErrVar, avrSWAP, RootName, avcOUTNAME_size);
+        Debug(&LocalVar, CntrParOwner, &DebugVar, &ErrVar, avrSWAP, RootName, avcOUTNAME_size);
     }
 
     // ============================================================

@@ -1,41 +1,36 @@
 #include "../include/vit_types.h"
+
 double SecLPFilter_Vel(double InputSignal, double DT, double CornerFreq, double Damp, filterparameters_t* FP, int iStatus, int reset, int* inst, int has_InitialValue, double InitialValue) {
-    int idx = *inst - 1;  // Fortran 1-based → C 0-based
+    int idx = *inst - 1;
+    LPFVState& s = inst_ref(FP->lpfV, idx);
 
-    // OPTIONAL handling
-    double InitialValue_ = InputSignal;
-    if (has_InitialValue) InitialValue_ = InitialValue;
+    double InitialValue_ = has_InitialValue ? InitialValue : InputSignal;
 
-    // Initialization
     if (iStatus == 0 || reset) {
-        FP->lpfV_OutputSignalLast1[idx] = InitialValue_;
-        FP->lpfV_OutputSignalLast2[idx] = InitialValue_;
-        FP->lpfV_InputSignalLast1[idx] = InitialValue_;
-        FP->lpfV_InputSignalLast2[idx] = InitialValue_;
+        s.output_last1 = InitialValue_;
+        s.output_last2 = InitialValue_;
+        s.input_last1  = InitialValue_;
+        s.input_last2  = InitialValue_;
 
-        // Coefficients (velocity output variant — b terms differ from SecLPFilter)
-        FP->lpfV_a2[idx] = DT * DT * CornerFreq * CornerFreq + 4.0 + 4.0 * Damp * CornerFreq * DT;
-        FP->lpfV_a1[idx] = 2.0 * DT * DT * CornerFreq * CornerFreq - 8.0;
-        FP->lpfV_a0[idx] = DT * DT * CornerFreq * CornerFreq + 4.0 - 4.0 * Damp * CornerFreq * DT;
-        FP->lpfV_b2[idx] = 2.0 * DT * CornerFreq * CornerFreq;
-        FP->lpfV_b1[idx] = 0.0;
-        FP->lpfV_b0[idx] = -2.0 * DT * CornerFreq * CornerFreq;
+        s.a2 = DT * DT * CornerFreq * CornerFreq + 4.0 + 4.0 * Damp * CornerFreq * DT;
+        s.a1 = 2.0 * DT * DT * CornerFreq * CornerFreq - 8.0;
+        s.a0 = DT * DT * CornerFreq * CornerFreq + 4.0 - 4.0 * Damp * CornerFreq * DT;
+        s.b2 =  2.0 * DT * CornerFreq * CornerFreq;
+        s.b1 =  0.0;
+        s.b0 = -2.0 * DT * CornerFreq * CornerFreq;
     }
 
-    // Filter
-    double result = 1.0 / FP->lpfV_a2[idx] *
-        (FP->lpfV_b2[idx] * InputSignal
-         + FP->lpfV_b1[idx] * FP->lpfV_InputSignalLast1[idx]
-         + FP->lpfV_b0[idx] * FP->lpfV_InputSignalLast2[idx]
-         - FP->lpfV_a1[idx] * FP->lpfV_OutputSignalLast1[idx]
-         - FP->lpfV_a0[idx] * FP->lpfV_OutputSignalLast2[idx]);
+    double result = 1.0 / s.a2 *
+        (s.b2 * InputSignal
+         + s.b1 * s.input_last1
+         + s.b0 * s.input_last2
+         - s.a1 * s.output_last1
+         - s.a0 * s.output_last2);
 
-    // Save signals for next time step
-    FP->lpfV_InputSignalLast2[idx] = FP->lpfV_InputSignalLast1[idx];
-    FP->lpfV_InputSignalLast1[idx] = InputSignal;
-    FP->lpfV_OutputSignalLast2[idx] = FP->lpfV_OutputSignalLast1[idx];
-    FP->lpfV_OutputSignalLast1[idx] = result;
-
+    s.input_last2  = s.input_last1;
+    s.input_last1  = InputSignal;
+    s.output_last2 = s.output_last1;
+    s.output_last1 = result;
     *inst = *inst + 1;
 
     return result;

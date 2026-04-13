@@ -1,4 +1,5 @@
 #include "../include/vit_types.h"
+#include "../include/rosco_types.hpp"
 #include <dlfcn.h>
 #include <cstdio>
 #include <cstring>
@@ -6,7 +7,7 @@
 // Bladed DLL legacy interface — function pointer typedef
 typedef void (*bladed_dll_proc_t)(float*, int*, char*, char*, char*);
 
-void ExtController(float* avrSWAP, controlparameters_view_t* CntrPar, localvariables_t* LocalVar, extcontroltype_view_t* ExtDLL, errorvariables_t* ErrVar) {
+void ExtController(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, extcontroltype_view_t* ExtDLL, errorvariables_t* ErrVar) {
     static void* dll_handle = nullptr;
     static bladed_dll_proc_t dll_proc = nullptr;
 
@@ -20,8 +21,8 @@ void ExtController(float* avrSWAP, controlparameters_view_t* CntrPar, localvaria
     // DLL_InFile
     char accINFILE[1024];
     int infile_len = 0;
-    while (infile_len < 1023 && CntrPar->DLL_InFile[infile_len] != ' ' && CntrPar->DLL_InFile[infile_len] != '\0') {
-        accINFILE[infile_len] = CntrPar->DLL_InFile[infile_len];
+    while (infile_len < 1023 && CntrPar.DLL_InFile[infile_len] != ' ' && CntrPar.DLL_InFile[infile_len] != '\0') {
+        accINFILE[infile_len] = CntrPar.DLL_InFile[infile_len];
         infile_len++;
     }
     accINFILE[infile_len] = '\0';
@@ -41,8 +42,8 @@ void ExtController(float* avrSWAP, controlparameters_view_t* CntrPar, localvaria
         // Build null-terminated filename
         char dll_filename[1024];
         int fn_len = 0;
-        while (fn_len < 1023 && CntrPar->DLL_FileName[fn_len] != ' ' && CntrPar->DLL_FileName[fn_len] != '\0') {
-            dll_filename[fn_len] = CntrPar->DLL_FileName[fn_len];
+        while (fn_len < 1023 && CntrPar.DLL_FileName[fn_len] != ' ' && CntrPar.DLL_FileName[fn_len] != '\0') {
+            dll_filename[fn_len] = CntrPar.DLL_FileName[fn_len];
             fn_len++;
         }
         dll_filename[fn_len] = '\0';
@@ -50,8 +51,8 @@ void ExtController(float* avrSWAP, controlparameters_view_t* CntrPar, localvaria
         // Build null-terminated proc name
         char dll_procname[1024];
         int pn_len = 0;
-        while (pn_len < 1023 && CntrPar->DLL_ProcName[pn_len] != ' ' && CntrPar->DLL_ProcName[pn_len] != '\0') {
-            dll_procname[pn_len] = CntrPar->DLL_ProcName[pn_len];
+        while (pn_len < 1023 && CntrPar.DLL_ProcName[pn_len] != ' ' && CntrPar.DLL_ProcName[pn_len] != '\0') {
+            dll_procname[pn_len] = CntrPar.DLL_ProcName[pn_len];
             pn_len++;
         }
         dll_procname[pn_len] = '\0';

@@ -3,7 +3,7 @@
 #include <cmath>
 #include "../include/rosco_constants.h"
 
-void YawRateControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
+void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
     // YawRateControl: yaw rate control using yaw drive
     //   Y_ControlMode = 1: active yaw rate control
 
@@ -13,7 +13,7 @@ void YawRateControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvari
     static double NacHeadingError = 0.0;
     static int Tidx = 0;
 
-    if (CntrPar->Y_ControlMode == 1) {
+    if (CntrPar.Y_ControlMode == 1) {
         // Compass wind direction in degrees
         LocalVar->WindDir = wrap_180(LocalVar->NacHeading + LocalVar->NacVane);
 
@@ -24,20 +24,20 @@ void YawRateControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvari
         }
 
         // Compute/apply offset
-        if (CntrPar->ZMQ_Mode == 1) {
+        if (CntrPar.ZMQ_Mode == 1) {
             NacVaneOffset = LocalVar->ZMQ_YawOffset;
         } else {
-            NacVaneOffset = CntrPar->Y_MErrSet;
+            NacVaneOffset = CntrPar.Y_MErrSet;
         }
 
         // Update filtered wind direction
         double WindDirPlusOffset = wrap_180(LocalVar->WindDir + NacVaneOffset);
         double WindDirPlusOffsetCosF = LPFilter(
-            cos(WindDirPlusOffset * D2R), LocalVar->DT, CntrPar->F_YawErr,
+            cos(WindDirPlusOffset * D2R), LocalVar->DT, CntrPar.F_YawErr,
             &LocalVar->FP, LocalVar->iStatus, 0, &objInst->instLPF,
             0, 0.0);
         double WindDirPlusOffsetSinF = LPFilter(
-            sin(WindDirPlusOffset * D2R), LocalVar->DT, CntrPar->F_YawErr,
+            sin(WindDirPlusOffset * D2R), LocalVar->DT, CntrPar.F_YawErr,
             &LocalVar->FP, LocalVar->iStatus, 0, &objInst->instLPF,
             0, 0.0);
         double NacHeadingTarget = wrap_180(atan2(WindDirPlusOffsetSinF, WindDirPlusOffsetCosF) * R2D);
@@ -47,10 +47,10 @@ void YawRateControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvari
 
         // Check for deadband
         double deadband;
-        if (LocalVar->WE_Vw_F <= CntrPar->Y_uSwitch) {
-            deadband = CntrPar->Y_ErrThresh[0];  // Fortran(1) → C[0]
+        if (LocalVar->WE_Vw_F <= CntrPar.Y_uSwitch) {
+            deadband = CntrPar.Y_ErrThresh[0];  // Fortran(1) → C[0]
         } else {
-            deadband = CntrPar->Y_ErrThresh[1];  // Fortran(2) → C[1]
+            deadband = CntrPar.Y_ErrThresh[1];  // Fortran(2) → C[1]
         }
 
         // Yaw state machine
@@ -61,7 +61,7 @@ void YawRateControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvari
                 YawRateCom = 0.0;
                 YawState = 0;
             } else {
-                YawRateCom = CntrPar->Y_Rate;
+                YawRateCom = CntrPar.Y_Rate;
                 YawState = 1;
             }
         } else if (YawState == -1) {
@@ -70,7 +70,7 @@ void YawRateControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvari
                 YawRateCom = 0.0;
                 YawState = 0;
             } else {
-                YawRateCom = -CntrPar->Y_Rate;
+                YawRateCom = -CntrPar.Y_Rate;
                 YawState = -1;
             }
         } else {
@@ -88,10 +88,10 @@ void YawRateControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvari
         avrSWAP[47] = YawRateCom * D2R;
 
         // Open loop yaw rate control override
-        if ((CntrPar->OL_Mode > 0) && (CntrPar->Ind_YawRate > 0)) {
-            if (LocalVar->Time >= CntrPar->OL_Breakpoints[0]) {
-                avrSWAP[47] = interp1d({CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints},
-                                       {CntrPar->OL_YawRate,      CntrPar->n_OL_YawRate},
+        if ((CntrPar.OL_Mode > 0) && (CntrPar.Ind_YawRate > 0)) {
+            if (LocalVar->Time >= CntrPar.OL_Breakpoints[0]) {
+                avrSWAP[47] = interp1d(CntrPar.OL_Breakpoints,
+                                       CntrPar.OL_YawRate,
                                        LocalVar->OL_Index, ErrVar);
             }
         }

@@ -4,12 +4,12 @@
 #include <cstdio>
 #include "../include/rosco_constants.h"
 
-void CableControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
+void CableControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
     // CableControl: cable length control
     //   CC_Mode = 1: user-defined step inputs
     //   CC_Mode = 2: open-loop from lookup table
 
-    if (CntrPar->CC_Mode == 1) {
+    if (CntrPar.CC_Mode == 1) {
         // User-defined control — step change at t > 500
         if (LocalVar->Time > 500) {
             LocalVar->CC_DesiredL[0] = -14.51;
@@ -17,18 +17,18 @@ void CableControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvariab
             LocalVar->CC_DesiredL[2] = -10.332;
         }
 
-    } else if (CntrPar->CC_Mode == 2) {
+    } else if (CntrPar.CC_Mode == 2) {
         // Open-loop control
-        for (int I_GROUP = 0; I_GROUP < CntrPar->CC_Group_N; I_GROUP++) {
-            if (CntrPar->Ind_CableControl[I_GROUP] > 0) {
+        for (int I_GROUP = 0; I_GROUP < CntrPar.CC_Group_N; I_GROUP++) {
+            if (CntrPar.Ind_CableControl[I_GROUP] > 0) {
                 // Extract row from column-major 2D array
-                int n_rows = CntrPar->n_OL_CableControl_rows;
-                int n_cols = CntrPar->n_OL_CableControl_cols;
+                int n_rows = CntrPar.OL_CableControl_rows;
+                int n_cols = CntrPar.OL_CableControl_cols;
                 double row_slice[n_cols];
                 for (int col = 0; col < n_cols; col++) {
-                    row_slice[col] = CntrPar->OL_CableControl[col * n_rows + I_GROUP];
+                    row_slice[col] = CntrPar.OL_CableControl[col * n_rows + I_GROUP];
                 }
-                LocalVar->CC_DesiredL[I_GROUP] = interp1d({CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints},
+                LocalVar->CC_DesiredL[I_GROUP] = interp1d(CntrPar.OL_Breakpoints,
                                                           {row_slice, n_cols},
                                                           LocalVar->Time, ErrVar);
             }
@@ -36,12 +36,12 @@ void CableControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvariab
     }
 
     // Convert desired to actuated line length and delta length for all groups
-    for (int I_GROUP = 0; I_GROUP < CntrPar->CC_Group_N; I_GROUP++) {
+    for (int I_GROUP = 0; I_GROUP < CntrPar.CC_Group_N; I_GROUP++) {
         // Get actuated deltaL via second-order low-pass filter
         LocalVar->CC_ActuatedDL[I_GROUP] = SecLPFilter_Vel(
             LocalVar->CC_DesiredL[I_GROUP],
             LocalVar->DT,
-            2.0 * PI / CntrPar->CC_ActTau,   // CornerFreq
+            2.0 * PI / CntrPar.CC_ActTau,   // CornerFreq
             1.0,                                  // Damp
             &LocalVar->FP,
             LocalVar->iStatus,
@@ -66,9 +66,9 @@ void CableControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvariab
     }
 
     // Assign to avrSWAP
-    for (int I_GROUP = 0; I_GROUP < CntrPar->CC_Group_N; I_GROUP++) {
+    for (int I_GROUP = 0; I_GROUP < CntrPar.CC_Group_N; I_GROUP++) {
         // Fortran: avrSWAP(CC_GroupIndex(I_GROUP)) and +1, 1-indexed
-        int idx = CntrPar->CC_GroupIndex[I_GROUP] - 1;  // 0-indexed
+        int idx = CntrPar.CC_GroupIndex[I_GROUP] - 1;  // 0-indexed
         avrSWAP[idx] = LocalVar->CC_ActuatedL[I_GROUP];
         avrSWAP[idx + 1] = LocalVar->CC_ActuatedDL[I_GROUP];
     }

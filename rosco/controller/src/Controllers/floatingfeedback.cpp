@@ -1,14 +1,14 @@
 #include "../include/vit_types.h"
 #include "../include/vit_translated.h"
 
-double FloatingFeedback(localvariables_t* LocalVar, controlparameters_view_t* CntrPar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
+double FloatingFeedback(localvariables_t* LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
     // FloatingFeedback: pitch contribution from nacelle velocity feedback
     //   Fl_Mode = 1: proportional feedback of translational nacelle velocity
     //   Fl_Mode = 2: proportional feedback of rotational nacelle velocity
 
     // Gain scheduling — interpolate Kp_Float from wind speed
-    LocalVar->Kp_Float = interp1d({CntrPar->Fl_U, CntrPar->n_Fl_U},
-                                    {CntrPar->Fl_Kp, CntrPar->n_Fl_Kp},
+    LocalVar->Kp_Float = interp1d(CntrPar.Fl_U,
+                                    CntrPar.Fl_Kp,
                                     LocalVar->WE_Vw_F, ErrVar);
 
     // Integrate fore-aft acceleration to get velocity (KP=0, KI=1 → pure integrator)
@@ -40,9 +40,9 @@ double FloatingFeedback(localvariables_t* LocalVar, controlparameters_view_t* Cn
 
     // Select velocity signal based on mode and apply gain
     double result = 0.0;
-    if (CntrPar->Fl_Mode == 1) {
+    if (CntrPar.Fl_Mode == 1) {
         result = (0.0 - FA_vel) * LocalVar->Kp_Float;
-    } else if (CntrPar->Fl_Mode == 2) {
+    } else if (CntrPar.Fl_Mode == 2) {
         result = (0.0 - NacIMU_FA_vel) * LocalVar->Kp_Float;
     }
 

@@ -489,4 +489,7 @@ struct ControlParameters {
 
     // Populate legacy controlparameters_view_t for translated functions
     void populate_view(controlparameters_view_t* v) const;
+
+    // Copy all fields from a populated controlparameters_view_t (DISCON.IN path bridge)
+    void sync_from_view(const controlparameters_view_t& v);
 };

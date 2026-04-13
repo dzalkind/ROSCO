@@ -12,7 +12,7 @@
 #define WE_xh(i)   LocalVar->WE.xh[(i)-1][0]
 #define WE_K(i)    LocalVar->WE.K[(i)-1][0]
 
-void WindSpeedEstimator(localvariables_t* LocalVar, controlparameters_view_t* CntrPar,
+void WindSpeedEstimator(localvariables_t* LocalVar, const ControlParameters& CntrPar,
                         objectinstances_t* objInst, performancedata_view_t* PerfData,
                         debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
 
@@ -21,24 +21,24 @@ void WindSpeedEstimator(localvariables_t* LocalVar, controlparameters_view_t* Cn
 
     // Saturate inputs to WSE
     // Rotor speed
-    if (LocalVar->RotSpeedF < 0.25 * CntrPar->VS_MinOMSpd / CntrPar->WE_GearboxRatio) {
-        WE_Inp_Speed = 0.25 * CntrPar->VS_MinOMSpd / CntrPar->WE_GearboxRatio + eps;
+    if (LocalVar->RotSpeedF < 0.25 * CntrPar.VS_MinOMSpd / CntrPar.WE_GearboxRatio) {
+        WE_Inp_Speed = 0.25 * CntrPar.VS_MinOMSpd / CntrPar.WE_GearboxRatio + eps;
     } else {
         WE_Inp_Speed = LocalVar->RotSpeedF;
     }
 
     // Blade pitch
-    if (CntrPar->WE_Mode > 0) {
+    if (CntrPar.WE_Mode > 0) {
         // PerfData%Beta_vec(SIZE(PerfData%Beta_vec)) — last element, 0-based
         Max_Op_Pitch = PerfData->Beta_vec[PerfData->n_Beta_vec - 1] * D2R;
     } else {
         Max_Op_Pitch = 0.0;
     }
-    WE_Inp_Pitch = saturate(LocalVar->BlPitchCMeas, CntrPar->PC_MinPit, Max_Op_Pitch);
+    WE_Inp_Pitch = saturate(LocalVar->BlPitchCMeas, CntrPar.PC_MinPit, Max_Op_Pitch);
 
     // Gen torque
-    if (LocalVar->VS_LastGenTrqF < 0.0001 * CntrPar->VS_RtTq) {
-        WE_Inp_Torque = 0.0001 * CntrPar->VS_RtTq;
+    if (LocalVar->VS_LastGenTrqF < 0.0001 * CntrPar.VS_RtTq) {
+        WE_Inp_Torque = 0.0001 * CntrPar.VS_RtTq;
     } else {
         WE_Inp_Torque = LocalVar->VS_LastGenTrqF;
     }
@@ -58,7 +58,7 @@ void WindSpeedEstimator(localvariables_t* LocalVar, controlparameters_view_t* Cn
     // Restart flag for WSE
     LocalVar->RestartWSE = LocalVar->iStatus;
 
-    if (CntrPar->WE_Mode > 0) {
+    if (CntrPar.WE_Mode > 0) {
         if (LocalVar->WE_Op == 0 && LocalVar->WE_Op_Last == 1) {
             // Print warning (matches Fortran PRINT behavior)
             fprintf(stderr, "\n***************************************************************************************************************************************\n"
@@ -74,7 +74,7 @@ void WindSpeedEstimator(localvariables_t* LocalVar, controlparameters_view_t* Cn
 
     // Filter hub height wind speed (with OPTIONAL InitialValue = WE_Vw)
     LocalVar->HorWindV_F = std::cos(LocalVar->NacVaneF * D2R) *
-        LPFilter(LocalVar->HorWindV, LocalVar->DT, CntrPar->F_WECornerFreq / 10.0,
+        LPFilter(LocalVar->HorWindV, LocalVar->DT, CntrPar.F_WECornerFreq / 10.0,
                    &LocalVar->FP, LocalVar->RestartWSE,
                    (LocalVar->restart != 0) ? 1 : 0,
                    &objInst->instLPF, 1, LocalVar->WE_Vw);
@@ -88,18 +88,18 @@ void WindSpeedEstimator(localvariables_t* LocalVar, controlparameters_view_t* Cn
     double Tau_r = 0.0, Cp_op = 0.0, lambda = 0.0;
 
     // Inversion and Invariance Filter
-    if (CntrPar->WE_Mode == 1 && LocalVar->WE_Op > 0) {
+    if (CntrPar.WE_Mode == 1 && LocalVar->WE_Op > 0) {
         Tau_r = AeroDynTorque(LocalVar->RotSpeedF, LocalVar->BlPitchCMeas,
                                 LocalVar, CntrPar, PerfData, ErrVar);
 
-        LocalVar->WE_VwIdot = CntrPar->WE_Gamma / CntrPar->WE_Jtot *
-            (LocalVar->VS_LastGenTrq * CntrPar->WE_GearboxRatio - Tau_r);
+        LocalVar->WE_VwIdot = CntrPar.WE_Gamma / CntrPar.WE_Jtot *
+            (LocalVar->VS_LastGenTrq * CntrPar.WE_GearboxRatio - Tau_r);
         LocalVar->WE_VwI = LocalVar->WE_VwI + LocalVar->WE_VwIdot * LocalVar->DT;
-        LocalVar->WE_Vw = LocalVar->WE_VwI + CntrPar->WE_Gamma * LocalVar->RotSpeedF;
+        LocalVar->WE_Vw = LocalVar->WE_VwI + CntrPar.WE_Gamma * LocalVar->RotSpeedF;
 
     // Extended Kalman Filter (EKF)
-    } else if (CntrPar->WE_Mode == 2 && LocalVar->WE_Op > 0) {
-        double L = 6.0 * CntrPar->WE_BladeRadius;
+    } else if (CntrPar.WE_Mode == 2 && LocalVar->WE_Op > 0) {
+        double L = 6.0 * CntrPar.WE_BladeRadius;
         double Ti = 0.18;
         double R_m = 0.02;
 
@@ -120,7 +120,7 @@ void WindSpeedEstimator(localvariables_t* LocalVar, controlparameters_view_t* Cn
             LocalVar->WE.v_m = LocalVar->HorWindV_F > 3.0 ? LocalVar->HorWindV_F : 3.0;
             LocalVar->WE.v_h = LocalVar->HorWindV_F > 3.0 ? LocalVar->HorWindV_F : 3.0;
             LocalVar->WE_Vw = LocalVar->WE.v_m + LocalVar->WE.v_t;
-            lambda = WE_Inp_Speed * CntrPar->WE_BladeRadius / LocalVar->WE.v_h;
+            lambda = WE_Inp_Speed * CntrPar.WE_BladeRadius / LocalVar->WE.v_h;
 
             // xh = [om_r, v_t, v_m]^T (column-major 3x1)
             WE_xh(1) = LocalVar->WE.om_r;
@@ -142,11 +142,11 @@ void WindSpeedEstimator(localvariables_t* LocalVar, controlparameters_view_t* Cn
 
         } else {
             // Find estimated operating Cp and system pole
-            double A_op = interp1d({CntrPar->WE_FOPoles_v, CntrPar->n_WE_FOPoles_v},
-                                   {CntrPar->WE_FOPoles,   CntrPar->n_WE_FOPoles},
+            double A_op = interp1d(CntrPar.WE_FOPoles_v,
+                                   CntrPar.WE_FOPoles,
                                    LocalVar->WE.v_h, ErrVar);
 
-            lambda = (WE_Inp_Speed > eps ? WE_Inp_Speed : eps) * CntrPar->WE_BladeRadius / LocalVar->WE.v_h;
+            lambda = (WE_Inp_Speed > eps ? WE_Inp_Speed : eps) * CntrPar.WE_BladeRadius / LocalVar->WE.v_h;
             Cp_op = interp2d(PerfData->Beta_vec, PerfData->n_Beta_vec,
                                PerfData->TSR_vec, PerfData->n_TSR_vec,
                                PerfData->Cp_mat, PerfData->n_Cp_mat_rows, PerfData->n_Cp_mat_cols,
@@ -155,8 +155,8 @@ void WindSpeedEstimator(localvariables_t* LocalVar, controlparameters_view_t* Cn
 
             // Update Jacobian F
             FM(1,1) = A_op;
-            double F12 = 1.0 / (2.0 * CntrPar->WE_Jtot) * CntrPar->WE_RhoAir * PI *
-                         (CntrPar->WE_BladeRadius * CntrPar->WE_BladeRadius) *
+            double F12 = 1.0 / (2.0 * CntrPar.WE_Jtot) * CntrPar.WE_RhoAir * PI *
+                         (CntrPar.WE_BladeRadius * CntrPar.WE_BladeRadius) *
                          1.0 / LocalVar->WE.om_r * 3.0 * Cp_op *
                          (LocalVar->WE.v_h * LocalVar->WE.v_h);
             FM(1,2) = F12;
@@ -173,7 +173,7 @@ void WindSpeedEstimator(localvariables_t* LocalVar, controlparameters_view_t* Cn
             Tau_r = AeroDynTorque(WE_Inp_Speed, WE_Inp_Pitch, LocalVar, CntrPar, PerfData, ErrVar);
             double a = PI * LocalVar->WE.v_m / (2.0 * L);
             double dxh[3];
-            dxh[0] = 1.0 / CntrPar->WE_Jtot * (Tau_r - CntrPar->WE_GearboxRatio * WE_Inp_Torque);
+            dxh[0] = 1.0 / CntrPar.WE_Jtot * (Tau_r - CntrPar.WE_GearboxRatio * WE_Inp_Torque);
             dxh[1] = -a * LocalVar->WE.v_t;
             dxh[2] = 0.0;
 

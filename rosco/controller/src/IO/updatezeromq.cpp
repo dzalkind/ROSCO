@@ -1,4 +1,5 @@
 #include "../include/vit_types.h"
+#include "../include/rosco_types.hpp"
 #include <cstring>
 
 #ifdef ZMQ_CLIENT
@@ -7,9 +8,9 @@ extern "C" {
 }
 #endif
 
-void UpdateZeroMQ(localvariables_t* LocalVar, controlparameters_view_t* CntrPar, errorvariables_t* ErrVar) {
+void UpdateZeroMQ(localvariables_t* LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar) {
     // Only communicate at ZMQ update interval or on final timestep
-    if (LocalVar->n_DT % CntrPar->n_DT_ZMQ == 0 || LocalVar->iStatus == -1) {
+    if (LocalVar->n_DT % CntrPar.n_DT_ZMQ == 0 || LocalVar->iStatus == -1) {
 
         // Pack 17 turbine measurements
         double turbine_measurements[17];
@@ -34,8 +35,8 @@ void UpdateZeroMQ(localvariables_t* LocalVar, controlparameters_view_t* CntrPar,
         // Format ZMQ address with null terminator
         char zmq_address[256];
         int len = 0;
-        while (len < 255 && CntrPar->ZMQ_CommAddress[len] != ' ' && CntrPar->ZMQ_CommAddress[len] != '\0') {
-            zmq_address[len] = CntrPar->ZMQ_CommAddress[len];
+        while (len < 255 && CntrPar.ZMQ_CommAddress[len] != ' ' && CntrPar.ZMQ_CommAddress[len] != '\0') {
+            zmq_address[len] = CntrPar.ZMQ_CommAddress[len];
             len++;
         }
         zmq_address[len] = '\0';
@@ -47,7 +48,7 @@ void UpdateZeroMQ(localvariables_t* LocalVar, controlparameters_view_t* CntrPar,
 #else
         // ZMQ client not compiled — set error if ZMQ_Mode > 0
         ErrVar->aviFAIL = -1;
-        if (CntrPar->ZMQ_Mode > 0) {
+        if (CntrPar.ZMQ_Mode > 0) {
             const char* msg = "UpdateZeroMQ: >> The ZeroMQ client has not been properly installed, "
                               "please install it to use ZMQ_Mode > 0.";
             int mlen = (int)strlen(msg);

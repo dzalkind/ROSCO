@@ -769,3 +769,320 @@ void ControlParameters::populate_view(controlparameters_view_t* v) const {
     v->VS_MaxOMTq = VS_MaxOMTq;
     v->VS_MinOMTq = VS_MinOMTq;
 }
+
+void ControlParameters::sync_from_view(const controlparameters_view_t& v) {
+    ZMQ_ID = v.ZMQ_ID;
+    LoggingLevel = v.LoggingLevel;
+    Echo = v.Echo;
+    Ext_Interface = v.Ext_Interface;
+    DT_Out = v.DT_Out;
+    n_DT_Out = v.n_DT_Out;
+    n_DT_ZMQ = v.n_DT_ZMQ;
+    F_LPFType = v.F_LPFType;
+    F_LPFCornerFreq = v.F_LPFCornerFreq;
+    F_LPFDamping = v.F_LPFDamping;
+    F_NumNotchFilts = v.F_NumNotchFilts;
+    F_GenSpdNotch_N = v.F_GenSpdNotch_N;
+    if (v.F_GenSpdNotch_Ind && v.n_F_GenSpdNotch_Ind > 0)
+        F_GenSpdNotch_Ind.assign(v.F_GenSpdNotch_Ind, v.F_GenSpdNotch_Ind + v.n_F_GenSpdNotch_Ind);
+    F_TwrTopNotch_N = v.F_TwrTopNotch_N;
+    if (v.F_TwrTopNotch_Ind && v.n_F_TwrTopNotch_Ind > 0)
+        F_TwrTopNotch_Ind.assign(v.F_TwrTopNotch_Ind, v.F_TwrTopNotch_Ind + v.n_F_TwrTopNotch_Ind);
+    if (v.F_NotchFreqs && v.n_F_NotchFreqs > 0)
+        F_NotchFreqs.storage.assign(v.F_NotchFreqs, v.F_NotchFreqs + v.n_F_NotchFreqs);
+    if (v.F_NotchBetaNum && v.n_F_NotchBetaNum > 0)
+        F_NotchBetaNum.storage.assign(v.F_NotchBetaNum, v.F_NotchBetaNum + v.n_F_NotchBetaNum);
+    if (v.F_NotchBetaDen && v.n_F_NotchBetaDen > 0)
+        F_NotchBetaDen.storage.assign(v.F_NotchBetaDen, v.F_NotchBetaDen + v.n_F_NotchBetaDen);
+    F_SSCornerFreq = v.F_SSCornerFreq;
+    F_WECornerFreq = v.F_WECornerFreq;
+    if (v.F_FlCornerFreq && v.n_F_FlCornerFreq > 0)
+        F_FlCornerFreq.storage.assign(v.F_FlCornerFreq, v.F_FlCornerFreq + v.n_F_FlCornerFreq);
+    F_FlHighPassFreq = v.F_FlHighPassFreq;
+    F_YawErr = v.F_YawErr;
+    if (v.F_FlpCornerFreq && v.n_F_FlpCornerFreq > 0)
+        F_FlpCornerFreq.storage.assign(v.F_FlpCornerFreq, v.F_FlpCornerFreq + v.n_F_FlpCornerFreq);
+    F_VSRefSpdCornerFreq = v.F_VSRefSpdCornerFreq;
+    TRA_Mode = v.TRA_Mode;
+    TRA_ExclSpeed = v.TRA_ExclSpeed;
+    TRA_ExclBand = v.TRA_ExclBand;
+    TRA_RateLimit = v.TRA_RateLimit;
+    TD_Mode = v.TD_Mode;
+    FA_HPFCornerFreq = v.FA_HPFCornerFreq;
+    FA_IntSat = v.FA_IntSat;
+    FA_KI = v.FA_KI;
+    IPC_ControlMode = v.IPC_ControlMode;
+    if (v.IPC_Vramp && v.n_IPC_Vramp > 0)
+        IPC_Vramp.storage.assign(v.IPC_Vramp, v.IPC_Vramp + v.n_IPC_Vramp);
+    IPC_IntSat = v.IPC_IntSat;
+    IPC_SatMode = v.IPC_SatMode;
+    if (v.IPC_KP && v.n_IPC_KP > 0)
+        IPC_KP.storage.assign(v.IPC_KP, v.IPC_KP + v.n_IPC_KP);
+    if (v.IPC_KI && v.n_IPC_KI > 0)
+        IPC_KI.storage.assign(v.IPC_KI, v.IPC_KI + v.n_IPC_KI);
+    if (v.IPC_aziOffset && v.n_IPC_aziOffset > 0)
+        IPC_aziOffset.storage.assign(v.IPC_aziOffset, v.IPC_aziOffset + v.n_IPC_aziOffset);
+    IPC_CornerFreqAct = v.IPC_CornerFreqAct;
+    PC_ControlMode = v.PC_ControlMode;
+    PC_GS_n = v.PC_GS_n;
+    if (v.PC_GS_angles && v.n_PC_GS_angles > 0)
+        PC_GS_angles.storage.assign(v.PC_GS_angles, v.PC_GS_angles + v.n_PC_GS_angles);
+    if (v.PC_GS_KP && v.n_PC_GS_KP > 0)
+        PC_GS_KP.storage.assign(v.PC_GS_KP, v.PC_GS_KP + v.n_PC_GS_KP);
+    if (v.PC_GS_KI && v.n_PC_GS_KI > 0)
+        PC_GS_KI.storage.assign(v.PC_GS_KI, v.PC_GS_KI + v.n_PC_GS_KI);
+    if (v.PC_GS_KD && v.n_PC_GS_KD > 0)
+        PC_GS_KD.storage.assign(v.PC_GS_KD, v.PC_GS_KD + v.n_PC_GS_KD);
+    if (v.PC_GS_TF && v.n_PC_GS_TF > 0)
+        PC_GS_TF.storage.assign(v.PC_GS_TF, v.PC_GS_TF + v.n_PC_GS_TF);
+    PC_MaxPit = v.PC_MaxPit;
+    PC_MinPit = v.PC_MinPit;
+    PC_MaxRat = v.PC_MaxRat;
+    PC_MinRat = v.PC_MinRat;
+    PC_RefSpd = v.PC_RefSpd;
+    PC_FinePit = v.PC_FinePit;
+    PC_Switch = v.PC_Switch;
+    VS_ControlMode = v.VS_ControlMode;
+    VS_ConstPower = v.VS_ConstPower;
+    VS_FBP = v.VS_FBP;
+    VS_GenEff = v.VS_GenEff;
+    VS_ArSatTq = v.VS_ArSatTq;
+    VS_MaxRat = v.VS_MaxRat;
+    VS_MaxTq = v.VS_MaxTq;
+    VS_MinTq = v.VS_MinTq;
+    VS_MinOMSpd = v.VS_MinOMSpd;
+    VS_Rgn2K = v.VS_Rgn2K;
+    VS_RtPwr = v.VS_RtPwr;
+    VS_RtTq = v.VS_RtTq;
+    VS_RefSpd = v.VS_RefSpd;
+    VS_n = v.VS_n;
+    if (v.VS_KP && v.n_VS_KP > 0)
+        VS_KP.storage.assign(v.VS_KP, v.VS_KP + v.n_VS_KP);
+    if (v.VS_KI && v.n_VS_KI > 0)
+        VS_KI.storage.assign(v.VS_KI, v.VS_KI + v.n_VS_KI);
+    VS_TSRopt = v.VS_TSRopt;
+    VS_FBP_n = v.VS_FBP_n;
+    if (v.VS_FBP_U && v.n_VS_FBP_U > 0)
+        VS_FBP_U.storage.assign(v.VS_FBP_U, v.VS_FBP_U + v.n_VS_FBP_U);
+    if (v.VS_FBP_Omega && v.n_VS_FBP_Omega > 0)
+        VS_FBP_Omega.storage.assign(v.VS_FBP_Omega, v.VS_FBP_Omega + v.n_VS_FBP_Omega);
+    if (v.VS_FBP_Tau && v.n_VS_FBP_Tau > 0)
+        VS_FBP_Tau.storage.assign(v.VS_FBP_Tau, v.VS_FBP_Tau + v.n_VS_FBP_Tau);
+    SS_Mode = v.SS_Mode;
+    SS_VSGain = v.SS_VSGain;
+    SS_PCGain = v.SS_PCGain;
+    PRC_Mode = v.PRC_Mode;
+    PRC_Comm = v.PRC_Comm;
+    if (v.PRC_WindSpeeds && v.n_PRC_WindSpeeds > 0)
+        PRC_WindSpeeds.storage.assign(v.PRC_WindSpeeds, v.PRC_WindSpeeds + v.n_PRC_WindSpeeds);
+    if (v.PRC_GenSpeeds && v.n_PRC_GenSpeeds > 0)
+        PRC_GenSpeeds.storage.assign(v.PRC_GenSpeeds, v.PRC_GenSpeeds + v.n_PRC_GenSpeeds);
+    PRC_n = v.PRC_n;
+    PRC_LPF_Freq = v.PRC_LPF_Freq;
+    PRC_R_Torque = v.PRC_R_Torque;
+    PRC_R_Speed = v.PRC_R_Speed;
+    PRC_R_Pitch = v.PRC_R_Pitch;
+    PRC_Table_n = v.PRC_Table_n;
+    if (v.PRC_Pitch_Table && v.n_PRC_Pitch_Table > 0)
+        PRC_Pitch_Table.storage.assign(v.PRC_Pitch_Table, v.PRC_Pitch_Table + v.n_PRC_Pitch_Table);
+    if (v.PRC_R_Table && v.n_PRC_R_Table > 0)
+        PRC_R_Table.storage.assign(v.PRC_R_Table, v.PRC_R_Table + v.n_PRC_R_Table);
+    WE_Mode = v.WE_Mode;
+    WE_BladeRadius = v.WE_BladeRadius;
+    WE_CP_n = v.WE_CP_n;
+    if (v.WE_CP && v.n_WE_CP > 0)
+        WE_CP.storage.assign(v.WE_CP, v.WE_CP + v.n_WE_CP);
+    WE_Gamma = v.WE_Gamma;
+    WE_GearboxRatio = v.WE_GearboxRatio;
+    WE_Jtot = v.WE_Jtot;
+    WE_RhoAir = v.WE_RhoAir;
+    {
+        int _len = 1024;
+        while (_len > 0 && v.PerfFileName[_len-1] == ' ') _len--;
+        PerfFileName = std::string(v.PerfFileName, _len);
+    }
+    if (v.PerfTableSize && v.n_PerfTableSize > 0)
+        PerfTableSize.assign(v.PerfTableSize, v.PerfTableSize + v.n_PerfTableSize);
+    WE_FOPoles_N = v.WE_FOPoles_N;
+    if (v.WE_FOPoles_v && v.n_WE_FOPoles_v > 0)
+        WE_FOPoles_v.storage.assign(v.WE_FOPoles_v, v.WE_FOPoles_v + v.n_WE_FOPoles_v);
+    if (v.WE_FOPoles && v.n_WE_FOPoles > 0)
+        WE_FOPoles.storage.assign(v.WE_FOPoles, v.WE_FOPoles + v.n_WE_FOPoles);
+    Y_ControlMode = v.Y_ControlMode;
+    Y_uSwitch = v.Y_uSwitch;
+    if (v.Y_ErrThresh && v.n_Y_ErrThresh > 0)
+        Y_ErrThresh.storage.assign(v.Y_ErrThresh, v.Y_ErrThresh + v.n_Y_ErrThresh);
+    Y_Rate = v.Y_Rate;
+    Y_MErrSet = v.Y_MErrSet;
+    Y_IPC_IntSat = v.Y_IPC_IntSat;
+    Y_IPC_KP = v.Y_IPC_KP;
+    Y_IPC_KI = v.Y_IPC_KI;
+    PS_Mode = v.PS_Mode;
+    PS_BldPitchMin_N = v.PS_BldPitchMin_N;
+    if (v.PS_WindSpeeds && v.n_PS_WindSpeeds > 0)
+        PS_WindSpeeds.storage.assign(v.PS_WindSpeeds, v.PS_WindSpeeds + v.n_PS_WindSpeeds);
+    if (v.PS_BldPitchMin && v.n_PS_BldPitchMin > 0)
+        PS_BldPitchMin.storage.assign(v.PS_BldPitchMin, v.PS_BldPitchMin + v.n_PS_BldPitchMin);
+    SU_Mode = v.SU_Mode;
+    SU_StartTime = v.SU_StartTime;
+    SU_FW_MinDuration = v.SU_FW_MinDuration;
+    SU_RotorSpeedThresh = v.SU_RotorSpeedThresh;
+    SU_RotorSpeedCornerFreq = v.SU_RotorSpeedCornerFreq;
+    SU_LoadStages_N = v.SU_LoadStages_N;
+    if (v.SU_LoadStages && v.n_SU_LoadStages > 0)
+        SU_LoadStages.storage.assign(v.SU_LoadStages, v.SU_LoadStages + v.n_SU_LoadStages);
+    if (v.SU_LoadRampDuration && v.n_SU_LoadRampDuration > 0)
+        SU_LoadRampDuration.storage.assign(v.SU_LoadRampDuration, v.SU_LoadRampDuration + v.n_SU_LoadRampDuration);
+    if (v.SU_LoadHoldDuration && v.n_SU_LoadHoldDuration > 0)
+        SU_LoadHoldDuration.storage.assign(v.SU_LoadHoldDuration, v.SU_LoadHoldDuration + v.n_SU_LoadHoldDuration);
+    SD_Mode = v.SD_Mode;
+    SD_TimeActivate = v.SD_TimeActivate;
+    SD_EnablePitch = v.SD_EnablePitch;
+    SD_EnableYawError = v.SD_EnableYawError;
+    SD_EnableGenSpeed = v.SD_EnableGenSpeed;
+    SD_EnableTime = v.SD_EnableTime;
+    SD_MaxPit = v.SD_MaxPit;
+    SD_PitchCornerFreq = v.SD_PitchCornerFreq;
+    SD_MaxYawError = v.SD_MaxYawError;
+    SD_YawErrorCornerFreq = v.SD_YawErrorCornerFreq;
+    SD_MaxGenSpd = v.SD_MaxGenSpd;
+    SD_GenSpdCornerFreq = v.SD_GenSpdCornerFreq;
+    SD_Time = v.SD_Time;
+    SD_Method = v.SD_Method;
+    if (v.SD_MaxTorqueRate && v.n_SD_MaxTorqueRate > 0)
+        SD_MaxTorqueRate.storage.assign(v.SD_MaxTorqueRate, v.SD_MaxTorqueRate + v.n_SD_MaxTorqueRate);
+    if (v.SD_MaxPitchRate && v.n_SD_MaxPitchRate > 0)
+        SD_MaxPitchRate.storage.assign(v.SD_MaxPitchRate, v.SD_MaxPitchRate + v.n_SD_MaxPitchRate);
+    if (v.SD_StagePitch && v.n_SD_StagePitch > 0)
+        SD_StagePitch.storage.assign(v.SD_StagePitch, v.SD_StagePitch + v.n_SD_StagePitch);
+    if (v.SD_StageTime && v.n_SD_StageTime > 0)
+        SD_StageTime.storage.assign(v.SD_StageTime, v.SD_StageTime + v.n_SD_StageTime);
+    SD_Stage_N = v.SD_Stage_N;
+    Fl_Mode = v.Fl_Mode;
+    Fl_n = v.Fl_n;
+    if (v.Fl_Kp && v.n_Fl_Kp > 0)
+        Fl_Kp.storage.assign(v.Fl_Kp, v.Fl_Kp + v.n_Fl_Kp);
+    if (v.Fl_U && v.n_Fl_U > 0)
+        Fl_U.storage.assign(v.Fl_U, v.Fl_U + v.n_Fl_U);
+    Flp_Mode = v.Flp_Mode;
+    Flp_Angle = v.Flp_Angle;
+    Flp_Kp = v.Flp_Kp;
+    Flp_Ki = v.Flp_Ki;
+    Flp_MaxPit = v.Flp_MaxPit;
+    {
+        int _len = 1024;
+        while (_len > 0 && v.OL_Filename[_len-1] == ' ') _len--;
+        OL_Filename = std::string(v.OL_Filename, _len);
+    }
+    OL_Mode = v.OL_Mode;
+    OL_BP_Mode = v.OL_BP_Mode;
+    OL_BP_FiltFreq = v.OL_BP_FiltFreq;
+    Ind_Breakpoint = v.Ind_Breakpoint;
+    if (v.Ind_BldPitch && v.n_Ind_BldPitch > 0)
+        Ind_BldPitch.assign(v.Ind_BldPitch, v.Ind_BldPitch + v.n_Ind_BldPitch);
+    Ind_GenTq = v.Ind_GenTq;
+    Ind_YawRate = v.Ind_YawRate;
+    Ind_R_Speed = v.Ind_R_Speed;
+    Ind_R_Torque = v.Ind_R_Torque;
+    Ind_R_Pitch = v.Ind_R_Pitch;
+    Ind_Azimuth = v.Ind_Azimuth;
+    if (v.RP_Gains && v.n_RP_Gains > 0)
+        RP_Gains.storage.assign(v.RP_Gains, v.RP_Gains + v.n_RP_Gains);
+    if (v.Ind_CableControl && v.n_Ind_CableControl > 0)
+        Ind_CableControl.assign(v.Ind_CableControl, v.Ind_CableControl + v.n_Ind_CableControl);
+    if (v.Ind_StructControl && v.n_Ind_StructControl > 0)
+        Ind_StructControl.assign(v.Ind_StructControl, v.Ind_StructControl + v.n_Ind_StructControl);
+    if (v.OL_Breakpoints && v.n_OL_Breakpoints > 0)
+        OL_Breakpoints.storage.assign(v.OL_Breakpoints, v.OL_Breakpoints + v.n_OL_Breakpoints);
+    if (v.OL_BldPitch1 && v.n_OL_BldPitch1 > 0)
+        OL_BldPitch1.storage.assign(v.OL_BldPitch1, v.OL_BldPitch1 + v.n_OL_BldPitch1);
+    if (v.OL_BldPitch2 && v.n_OL_BldPitch2 > 0)
+        OL_BldPitch2.storage.assign(v.OL_BldPitch2, v.OL_BldPitch2 + v.n_OL_BldPitch2);
+    if (v.OL_BldPitch3 && v.n_OL_BldPitch3 > 0)
+        OL_BldPitch3.storage.assign(v.OL_BldPitch3, v.OL_BldPitch3 + v.n_OL_BldPitch3);
+    if (v.OL_CableControl && v.n_OL_CableControl_rows > 0 && v.n_OL_CableControl_cols > 0) {
+        OL_CableControl.storage.assign(v.OL_CableControl, v.OL_CableControl + (size_t)v.n_OL_CableControl_rows * v.n_OL_CableControl_cols);
+        OL_CableControl_rows = v.n_OL_CableControl_rows;
+        OL_CableControl_cols = v.n_OL_CableControl_cols;
+    }
+    if (v.OL_StructControl && v.n_OL_StructControl_rows > 0 && v.n_OL_StructControl_cols > 0) {
+        OL_StructControl.storage.assign(v.OL_StructControl, v.OL_StructControl + (size_t)v.n_OL_StructControl_rows * v.n_OL_StructControl_cols);
+        OL_StructControl_rows = v.n_OL_StructControl_rows;
+        OL_StructControl_cols = v.n_OL_StructControl_cols;
+    }
+    if (v.OL_GenTq && v.n_OL_GenTq > 0)
+        OL_GenTq.storage.assign(v.OL_GenTq, v.OL_GenTq + v.n_OL_GenTq);
+    if (v.OL_YawRate && v.n_OL_YawRate > 0)
+        OL_YawRate.storage.assign(v.OL_YawRate, v.OL_YawRate + v.n_OL_YawRate);
+    if (v.OL_Azimuth && v.n_OL_Azimuth > 0)
+        OL_Azimuth.storage.assign(v.OL_Azimuth, v.OL_Azimuth + v.n_OL_Azimuth);
+    if (v.OL_R_Speed && v.n_OL_R_Speed > 0)
+        OL_R_Speed.storage.assign(v.OL_R_Speed, v.OL_R_Speed + v.n_OL_R_Speed);
+    if (v.OL_R_Torque && v.n_OL_R_Torque > 0)
+        OL_R_Torque.storage.assign(v.OL_R_Torque, v.OL_R_Torque + v.n_OL_R_Torque);
+    if (v.OL_R_Pitch && v.n_OL_R_Pitch > 0)
+        OL_R_Pitch.storage.assign(v.OL_R_Pitch, v.OL_R_Pitch + v.n_OL_R_Pitch);
+    if (v.OL_Channels && v.n_OL_Channels_rows > 0 && v.n_OL_Channels_cols > 0) {
+        OL_Channels.storage.assign(v.OL_Channels, v.OL_Channels + (size_t)v.n_OL_Channels_rows * v.n_OL_Channels_cols);
+        OL_Channels_rows = v.n_OL_Channels_rows;
+        OL_Channels_cols = v.n_OL_Channels_cols;
+    }
+    PA_Mode = v.PA_Mode;
+    PA_CornerFreq = v.PA_CornerFreq;
+    PA_Damping = v.PA_Damping;
+    AWC_Mode = v.AWC_Mode;
+    AWC_NumModes = v.AWC_NumModes;
+    if (v.AWC_n && v.n_AWC_n > 0)
+        AWC_n.assign(v.AWC_n, v.AWC_n + v.n_AWC_n);
+    if (v.AWC_harmonic && v.n_AWC_harmonic > 0)
+        AWC_harmonic.assign(v.AWC_harmonic, v.AWC_harmonic + v.n_AWC_harmonic);
+    if (v.AWC_freq && v.n_AWC_freq > 0)
+        AWC_freq.storage.assign(v.AWC_freq, v.AWC_freq + v.n_AWC_freq);
+    if (v.AWC_amp && v.n_AWC_amp > 0)
+        AWC_amp.storage.assign(v.AWC_amp, v.AWC_amp + v.n_AWC_amp);
+    if (v.AWC_clockangle && v.n_AWC_clockangle > 0)
+        AWC_clockangle.storage.assign(v.AWC_clockangle, v.AWC_clockangle + v.n_AWC_clockangle);
+    AWC_phaseoffset = v.AWC_phaseoffset;
+    if (v.AWC_CntrGains && v.n_AWC_CntrGains > 0)
+        AWC_CntrGains.storage.assign(v.AWC_CntrGains, v.AWC_CntrGains + v.n_AWC_CntrGains);
+    PF_Mode = v.PF_Mode;
+    if (v.PF_Offsets && v.n_PF_Offsets > 0)
+        PF_Offsets.storage.assign(v.PF_Offsets, v.PF_Offsets + v.n_PF_Offsets);
+    if (v.PF_TimeStuck && v.n_PF_TimeStuck > 0)
+        PF_TimeStuck.storage.assign(v.PF_TimeStuck, v.PF_TimeStuck + v.n_PF_TimeStuck);
+    Ext_Mode = v.Ext_Mode;
+    {
+        int _len = 1024;
+        while (_len > 0 && v.DLL_FileName[_len-1] == ' ') _len--;
+        DLL_FileName = std::string(v.DLL_FileName, _len);
+    }
+    {
+        int _len = 1024;
+        while (_len > 0 && v.DLL_InFile[_len-1] == ' ') _len--;
+        DLL_InFile = std::string(v.DLL_InFile, _len);
+    }
+    {
+        int _len = 1024;
+        while (_len > 0 && v.DLL_ProcName[_len-1] == ' ') _len--;
+        DLL_ProcName = std::string(v.DLL_ProcName, _len);
+    }
+    ZMQ_Mode = v.ZMQ_Mode;
+    {
+        int _len = 256;
+        while (_len > 0 && v.ZMQ_CommAddress[_len-1] == ' ') _len--;
+        ZMQ_CommAddress = std::string(v.ZMQ_CommAddress, _len);
+    }
+    ZMQ_UpdatePeriod = v.ZMQ_UpdatePeriod;
+    CC_Mode = v.CC_Mode;
+    CC_Group_N = v.CC_Group_N;
+    CC_ActTau = v.CC_ActTau;
+    if (v.CC_GroupIndex && v.n_CC_GroupIndex > 0)
+        CC_GroupIndex.assign(v.CC_GroupIndex, v.CC_GroupIndex + v.n_CC_GroupIndex);
+    StC_Mode = v.StC_Mode;
+    StC_Group_N = v.StC_Group_N;
+    if (v.StC_GroupIndex && v.n_StC_GroupIndex > 0)
+        StC_GroupIndex.assign(v.StC_GroupIndex, v.StC_GroupIndex + v.n_StC_GroupIndex);
+    PC_RtTq99 = v.PC_RtTq99;
+    VS_MaxOMTq = v.VS_MaxOMTq;
+    VS_MinOMTq = v.VS_MinOMTq;
+}

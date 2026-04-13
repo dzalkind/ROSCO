@@ -621,6 +621,9 @@ def _write_cpp_header(yfile):
         f.write('\n')
         f.write('    // Populate legacy controlparameters_view_t for translated functions\n')
         f.write('    void populate_view(controlparameters_view_t* v) const;\n')
+        f.write('\n')
+        f.write('    // Copy all fields from a populated controlparameters_view_t (DISCON.IN path bridge)\n')
+        f.write('    void sync_from_view(const controlparameters_view_t& v);\n')
         f.write('};\n')
 
 
@@ -739,6 +742,42 @@ def _write_cpp_io(yfile):
                 f.write(f'    set_fstr(v->{name}, {length}, {name});\n')
             else:
                 f.write(f'    v->{name} = {name};\n')
+
+        f.write('}\n')
+
+        # ---- sync_from_view ----
+        f.write('\n')
+        f.write('void ControlParameters::sync_from_view(const controlparameters_view_t& v) {\n')
+
+        for name, param in params.items():
+            cpp_type, is_2d = _cpp_type(param)
+            if cpp_type is None:
+                continue
+            ptype = param.get('type', '')
+            alloc = param.get('allocatable', False)
+
+            if alloc:
+                if is_2d:
+                    f.write(f'    if (v.{name} && v.n_{name}_rows > 0 && v.n_{name}_cols > 0) {{\n')
+                    f.write(f'        {name}.storage.assign(v.{name}, v.{name} + (size_t)v.n_{name}_rows * v.n_{name}_cols);\n')
+                    f.write(f'        {name}_rows = v.n_{name}_rows;\n')
+                    f.write(f'        {name}_cols = v.n_{name}_cols;\n')
+                    f.write(f'    }}\n')
+                elif cpp_type == 'ParamArray':
+                    f.write(f'    if (v.{name} && v.n_{name} > 0)\n')
+                    f.write(f'        {name}.storage.assign(v.{name}, v.{name} + v.n_{name});\n')
+                elif 'int' in cpp_type:
+                    f.write(f'    if (v.{name} && v.n_{name} > 0)\n')
+                    f.write(f'        {name}.assign(v.{name}, v.{name} + v.n_{name});\n')
+            elif ptype == 'character':
+                length = param.get('length', 1024)
+                f.write(f'    {{\n')
+                f.write(f'        int _len = {length};\n')
+                f.write(f'        while (_len > 0 && v.{name}[_len-1] == \' \') _len--;\n')
+                f.write(f'        {name} = std::string(v.{name}, _len);\n')
+                f.write(f'    }}\n')
+            else:
+                f.write(f'    {name} = v.{name};\n')
 
         f.write('}\n')
 

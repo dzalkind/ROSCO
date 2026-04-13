@@ -1,4 +1,5 @@
 #include "../include/vit_types.h"
+#include "../include/rosco_types.hpp"
 #include "../include/rosco_constants.h"
 #include <fstream>
 #include <cmath>
@@ -67,7 +68,7 @@ static std::ofstream dbg2_file;
 static std::ofstream dbg3_file;
 static std::vector<int32_t> avr_indices;
 
-void Debug(localvariables_t* LocalVar, controlparameters_view_t* CntrPar,
+void Debug(localvariables_t* LocalVar, const ControlParameters& CntrPar,
            debugvariables_t* DebugVar, errorvariables_t* ErrVar,
            float* avrSWAP, char* RootName, int size_avcOUTNAME) {
 
@@ -204,7 +205,7 @@ void Debug(localvariables_t* LocalVar, controlparameters_view_t* CntrPar,
 
     // --- Initialize debug files on first call ---
     if (LocalVar->iStatus == 0 || LocalVar->iStatus == -9) {
-        if (CntrPar->LoggingLevel > 0) {
+        if (CntrPar.LoggingLevel > 0) {
             std::string dbg_path = root + ".RO.dbg";
             dbg_file.open(dbg_path);
             dbg_file << " Generated on " << current_date() << " at "
@@ -228,7 +229,7 @@ void Debug(localvariables_t* LocalVar, controlparameters_view_t* CntrPar,
             dbg_file << "\n";
         }
 
-        if (CntrPar->LoggingLevel > 1) {
+        if (CntrPar.LoggingLevel > 1) {
             std::string dbg2_path = root + ".RO.dbg2";
             dbg2_file.open(dbg2_path);
             dbg2_file << " Generated on " << current_date() << " at "
@@ -251,22 +252,22 @@ void Debug(localvariables_t* LocalVar, controlparameters_view_t* CntrPar,
             dbg2_file << "\n";
         }
 
-        if (CntrPar->LoggingLevel > 2) {
+        if (CntrPar.LoggingLevel > 2) {
             // Build avrIndices: base 85 indices + CC_GroupIndex + StC_GroupIndex
             avr_indices.clear();
             int avrBaseLength = 85;
             for (int i = 1; i <= avrBaseLength; i++) {
                 avr_indices.push_back(i);
             }
-            if (CntrPar->CC_Mode > 0) {
-                for (int i = 0; i < CntrPar->n_CC_GroupIndex; i++) {
-                    avr_indices.push_back(CntrPar->CC_GroupIndex[i]);
-                    avr_indices.push_back(CntrPar->CC_GroupIndex[i] + 1);
+            if (CntrPar.CC_Mode > 0) {
+                for (int i = 0; i < (int)CntrPar.CC_GroupIndex.size(); i++) {
+                    avr_indices.push_back(CntrPar.CC_GroupIndex[i]);
+                    avr_indices.push_back(CntrPar.CC_GroupIndex[i] + 1);
                 }
             }
-            if (CntrPar->StC_Mode > 0) {
-                for (int i = 0; i < CntrPar->n_StC_GroupIndex; i++) {
-                    avr_indices.push_back(CntrPar->StC_GroupIndex[i]);
+            if (CntrPar.StC_Mode > 0) {
+                for (int i = 0; i < (int)CntrPar.StC_GroupIndex.size(); i++) {
+                    avr_indices.push_back(CntrPar.StC_GroupIndex[i]);
                 }
             }
 
@@ -312,14 +313,14 @@ void Debug(localvariables_t* LocalVar, controlparameters_view_t* CntrPar,
     }
 
     // --- Write debug data ---
-    if (LocalVar->n_DT % CntrPar->n_DT_Out == 0) {
-        if (CntrPar->LoggingLevel > 0 && LocalVar->iStatus >= 0) {
+    if (LocalVar->n_DT % CntrPar.n_DT_Out == 0) {
+        if (CntrPar.LoggingLevel > 0 && LocalVar->iStatus >= 0) {
             write_debug_row(dbg_file, LocalVar->Time, DebugOutData, nDebugOuts);
         }
-        if (CntrPar->LoggingLevel > 1 && LocalVar->iStatus >= 0) {
+        if (CntrPar.LoggingLevel > 1 && LocalVar->iStatus >= 0) {
             write_debug_row(dbg2_file, LocalVar->Time, LocalVarOutData, nLocalVars);
         }
-        if (CntrPar->LoggingLevel > 2 && LocalVar->iStatus >= 0) {
+        if (CntrPar.LoggingLevel > 2 && LocalVar->iStatus >= 0) {
             // Write avrSWAP values at selected indices
             char buf[32];
             snprintf(buf, sizeof(buf), "%20.5f", LocalVar->Time);

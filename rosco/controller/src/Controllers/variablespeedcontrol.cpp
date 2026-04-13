@@ -5,54 +5,54 @@
 #include <cstdio>
 #include "../include/rosco_constants.h"
 
-void VariableSpeedControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
+void VariableSpeedControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
     // VariableSpeedControl: generator torque controller
     // State machine with K*Omega^2 law, PI transitions, constant torque/power modes
 
     // Pre-compute generator torque values
-    LocalVar->VS_KOmega2_GenTq = CntrPar->VS_Rgn2K * LocalVar->GenSpeedF * LocalVar->GenSpeedF;
-    LocalVar->VS_ConstPwr_GenTq = (CntrPar->VS_RtPwr / (CntrPar->VS_GenEff / 100.0)) / LocalVar->GenSpeedF * LocalVar->PRC_R_Torque;
+    LocalVar->VS_KOmega2_GenTq = CntrPar.VS_Rgn2K * LocalVar->GenSpeedF * LocalVar->GenSpeedF;
+    LocalVar->VS_ConstPwr_GenTq = (CntrPar.VS_RtPwr / (CntrPar.VS_GenEff / 100.0)) / LocalVar->GenSpeedF * LocalVar->PRC_R_Torque;
 
     // Determine maximum torque saturation limit
-    if (CntrPar->VS_FBP == VS_FBP_Variable_Pitch) {
-        if (CntrPar->VS_ConstPower == VS_Mode_ConstPwr) {
-            LocalVar->VS_MaxTq = std::min(LocalVar->VS_ConstPwr_GenTq, CntrPar->VS_MaxTq);
+    if (CntrPar.VS_FBP == VS_FBP_Variable_Pitch) {
+        if (CntrPar.VS_ConstPower == VS_Mode_ConstPwr) {
+            LocalVar->VS_MaxTq = std::min(LocalVar->VS_ConstPwr_GenTq, CntrPar.VS_MaxTq);
         } else {
-            LocalVar->VS_MaxTq = CntrPar->VS_RtTq * LocalVar->PRC_R_Torque;
+            LocalVar->VS_MaxTq = CntrPar.VS_RtTq * LocalVar->PRC_R_Torque;
         }
     } else {
-        LocalVar->VS_MaxTq = CntrPar->VS_MaxTq;
+        LocalVar->VS_MaxTq = CntrPar.VS_MaxTq;
     }
 
     // TSR tracking controller modes
-    if ((CntrPar->VS_ControlMode == VS_Mode_WSE_TSR) ||
-        (CntrPar->VS_ControlMode == VS_Mode_Power_TSR) ||
-        (CntrPar->VS_ControlMode == VS_Mode_Torque_TSR)) {
+    if ((CntrPar.VS_ControlMode == VS_Mode_WSE_TSR) ||
+        (CntrPar.VS_ControlMode == VS_Mode_Power_TSR) ||
+        (CntrPar.VS_ControlMode == VS_Mode_Torque_TSR)) {
 
         LocalVar->GenTq = PIController(
             LocalVar->VS_SpdErr,
-            CntrPar->VS_KP[0], CntrPar->VS_KI[0],
-            CntrPar->VS_MinTq, LocalVar->VS_MaxTq,
+            CntrPar.VS_KP[0], CntrPar.VS_KI[0],
+            CntrPar.VS_MinTq, LocalVar->VS_MaxTq,
             LocalVar->DT, LocalVar->VS_LastGenTrq,
             &LocalVar->piP, (LocalVar->restart != 0), &objInst->instPI);
 
-        if (CntrPar->VS_FBP == VS_FBP_Power_Overspeed) {
+        if (CntrPar.VS_FBP == VS_FBP_Power_Overspeed) {
             LocalVar->GenTq = std::min(LocalVar->VS_ConstPwr_GenTq, LocalVar->GenTq);
         }
 
-    } else if (CntrPar->VS_ControlMode == VS_Mode_KOmega) {
+    } else if (CntrPar.VS_ControlMode == VS_Mode_KOmega) {
         // K*Omega^2 with PI transitions
         LocalVar->GenArTq = PIController(
             LocalVar->VS_SpdErrAr,
-            CntrPar->VS_KP[0], CntrPar->VS_KI[0],
-            CntrPar->VS_MaxOMTq, CntrPar->VS_ArSatTq,
-            LocalVar->DT, CntrPar->VS_MaxOMTq,
+            CntrPar.VS_KP[0], CntrPar.VS_KI[0],
+            CntrPar.VS_MaxOMTq, CntrPar.VS_ArSatTq,
+            LocalVar->DT, CntrPar.VS_MaxOMTq,
             &LocalVar->piP, (LocalVar->restart != 0), &objInst->instPI);
         LocalVar->GenBrTq = PIController(
             LocalVar->VS_SpdErrBr,
-            CntrPar->VS_KP[0], CntrPar->VS_KI[0],
-            CntrPar->VS_MinTq, CntrPar->VS_MinOMTq,
-            LocalVar->DT, CntrPar->VS_MinOMTq,
+            CntrPar.VS_KP[0], CntrPar.VS_KI[0],
+            CntrPar.VS_MinTq, CntrPar.VS_MinOMTq,
+            LocalVar->DT, CntrPar.VS_MinOMTq,
             &LocalVar->piP, (LocalVar->restart != 0), &objInst->instPI);
 
         // State machine
@@ -63,13 +63,13 @@ void VariableSpeedControl(float* avrSWAP, controlparameters_view_t* CntrPar, loc
         } else if (LocalVar->VS_State == VS_State_Region_2_5) {
             LocalVar->GenTq = LocalVar->GenArTq;
         } else if (LocalVar->VS_State == VS_State_Region_3_ConstTrq) {
-            LocalVar->GenTq = CntrPar->VS_RtTq;
+            LocalVar->GenTq = CntrPar.VS_RtTq;
         } else if (LocalVar->VS_State == VS_State_Region_3_ConstPwr) {
             LocalVar->GenTq = LocalVar->VS_ConstPwr_GenTq;
         } else if (LocalVar->VS_State == VS_State_Region_3_FBP) {
-            if (CntrPar->VS_FBP == VS_FBP_Power_Overspeed) {
+            if (CntrPar.VS_FBP == VS_FBP_Power_Overspeed) {
                 LocalVar->GenTq = std::min(LocalVar->VS_ConstPwr_GenTq, LocalVar->VS_KOmega2_GenTq);
-            } else if ((CntrPar->VS_FBP == VS_FBP_WSE_Ref) || (CntrPar->VS_FBP == VS_FBP_Torque_Ref)) {
+            } else if ((CntrPar.VS_FBP == VS_FBP_WSE_Ref) || (CntrPar.VS_FBP == VS_FBP_Torque_Ref)) {
                 LocalVar->GenTq = LocalVar->GenArTq;
             }
         }
@@ -83,33 +83,33 @@ void VariableSpeedControl(float* avrSWAP, controlparameters_view_t* CntrPar, loc
     if (LocalVar->SD_Trigger == 0) {
         LocalVar->GenTq_SD = LocalVar->GenTq;
     } else {
-        if (CntrPar->SD_Method == 1 || CntrPar->SD_Method == 2) {
+        if (CntrPar.SD_Method == 1 || CntrPar.SD_Method == 2) {
             LocalVar->GenTq_SD = LocalVar->GenTq_SD - LocalVar->SD_MaxTorqueRate * LocalVar->DT;
-            LocalVar->GenTq_SD = saturate(LocalVar->GenTq_SD, CntrPar->VS_MinTq, CntrPar->VS_MaxTq);
+            LocalVar->GenTq_SD = saturate(LocalVar->GenTq_SD, CntrPar.VS_MinTq, CntrPar.VS_MaxTq);
         }
         LocalVar->GenTq = LocalVar->GenTq_SD;
     }
 
     // Saturate based on most stringent defined maximum
-    LocalVar->GenTq = saturate(LocalVar->GenTq, CntrPar->VS_MinTq,
-                                  std::min(CntrPar->VS_MaxTq, LocalVar->VS_MaxTq));
+    LocalVar->GenTq = saturate(LocalVar->GenTq, CntrPar.VS_MinTq,
+                                  std::min(CntrPar.VS_MaxTq, LocalVar->VS_MaxTq));
 
     // Rate limit
-    LocalVar->GenTq = ratelimit(LocalVar->GenTq, -CntrPar->VS_MaxRat, CntrPar->VS_MaxRat,
+    LocalVar->GenTq = ratelimit(LocalVar->GenTq, -CntrPar.VS_MaxRat, CntrPar.VS_MaxRat,
                                    LocalVar->DT, (LocalVar->restart != 0),
                                    &LocalVar->rlP, &objInst->instRL,
                                    0, 0.0);  // no ResetValue
 
     // Open loop torque control
-    if ((CntrPar->OL_Mode > 0) && (CntrPar->Ind_GenTq > 0)) {
-        if (LocalVar->Time >= CntrPar->OL_Breakpoints[0]) {
-            LocalVar->GenTq = interp1d({CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints},
-                                       {CntrPar->OL_GenTq,        CntrPar->n_OL_GenTq},
+    if ((CntrPar.OL_Mode > 0) && (CntrPar.Ind_GenTq > 0)) {
+        if (LocalVar->Time >= CntrPar.OL_Breakpoints[0]) {
+            LocalVar->GenTq = interp1d(CntrPar.OL_Breakpoints,
+                                       CntrPar.OL_GenTq,
                                        LocalVar->OL_Index, ErrVar);
         }
 
         // Azimuth tracking control (OL_Mode == 2)
-        if (CntrPar->OL_Mode == 2) {
+        if (CntrPar.OL_Mode == 2) {
             // Initialize azimuth buffer
             if (LocalVar->iStatus == 0) {
                 LocalVar->AzBuffer[0] = LocalVar->Azimuth;
@@ -128,8 +128,8 @@ void VariableSpeedControl(float* avrSWAP, controlparameters_view_t* CntrPar, loc
             LocalVar->AzUnwrapped = LocalVar->AzBuffer[1];
 
             // Desired azimuth from OL file
-            LocalVar->OL_Azimuth = interp1d({CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints},
-                                            {CntrPar->OL_Azimuth,      CntrPar->n_OL_Azimuth},
+            LocalVar->OL_Azimuth = interp1d(CntrPar.OL_Breakpoints,
+                                            CntrPar.OL_Azimuth,
                                             LocalVar->Time, ErrVar);
 
             LocalVar->AzError = LocalVar->OL_Azimuth - LocalVar->AzUnwrapped;
@@ -137,8 +137,8 @@ void VariableSpeedControl(float* avrSWAP, controlparameters_view_t* CntrPar, loc
             // PID controller for azimuth tracking torque
             LocalVar->GenTqAz = PIDController(
                 LocalVar->AzError,
-                CntrPar->RP_Gains[0], CntrPar->RP_Gains[1],
-                CntrPar->RP_Gains[2], CntrPar->RP_Gains[3],
+                CntrPar.RP_Gains[0], CntrPar.RP_Gains[1],
+                CntrPar.RP_Gains[2], CntrPar.RP_Gains[3],
                 -LocalVar->VS_MaxTq * 2.0, LocalVar->VS_MaxTq * 2.0,
                 LocalVar->DT, 0.0,
                 &LocalVar->piP, (LocalVar->restart != 0) ? 1 : 0,

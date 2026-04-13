@@ -4,6 +4,7 @@
 #define VIT_TRANSLATED_H
 
 #include "vit_types.h"
+#include "rosco_array.hpp"
 #include <stdint.h>
 
 // Functions
@@ -15,7 +16,7 @@ void ColemanTransform(double* rootMOOP, double aziAngle, int nHarmonic, double* 
 void ColemanTransformInverse(double axTIn, double axYIn, double aziAngle, int nHarmonic, double aziOffset, double* PitComIPC);
 void identity(int n, double* identity_result);
 double sigma(double x, double x0, double x1, double y0, double y1, errorvariables_t* ErrVar);
-double interp1d(double* xData, int n_xData, double* yData, int n_yData, double xq, errorvariables_t* ErrVar);
+double interp1d(ArrayView xData, ArrayView yData, double xq, errorvariables_t* ErrVar);
 double interp2d(double* xData, int n_xData, double* yData, int n_yData, double* zData, int n_zData_rows, int n_zData_cols, double xq, double yq, errorvariables_t* ErrVar);
 double AeroDynTorque(double RotSpeed, double BldPitch, localvariables_t* LocalVar, controlparameters_view_t* CntrPar, performancedata_view_t* PerfData, errorvariables_t* ErrVar);
 void unwrap(double* x, int n_x, errorvariables_t* ErrVar, double* unwrap_result);

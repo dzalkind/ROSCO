@@ -64,20 +64,21 @@ double interp2d(double* xData, int n_xData, double* yData, int n_yData,
         if (xData[k] > xMax) xMax = xData[k];
     }
 
+    ArrayView yv = {yData, n_yData};
+    ArrayView xv = {xData, n_xData};
     if (xq <= xMin || std::isnan(xq)) {
         // On lower x-bound: interp1d on column 0
-        // zData(:,1) in Fortran → column 0, contiguous at &zData[0]
-        return interp1d(yData, n_yData, &zData[0], n_zData_rows, yq, ErrVar);
+        return interp1d(yv, {&zData[0], n_zData_rows}, yq, ErrVar);
     } else if (xq >= xMax) {
         // On upper x-bound: interp1d on last column
         int last_col = n_xData - 1;
-        return interp1d(yData, n_yData, &zData[last_col * n_zData_rows], n_zData_rows, yq, ErrVar);
+        return interp1d(yv, {&zData[last_col * n_zData_rows], n_zData_rows}, yq, ErrVar);
     } else {
         jj = -1;
         for (j = 0; j < n_xData; j++) {
             if (xq == xData[j]) {
                 // On axis: interp1d on this column
-                return interp1d(yData, n_yData, &zData[j * n_zData_rows], n_zData_rows, yq, ErrVar);
+                return interp1d(yv, {&zData[j * n_zData_rows], n_zData_rows}, yq, ErrVar);
             } else if (xq < xData[j]) {
                 jj = j;
                 break;
@@ -97,11 +98,10 @@ double interp2d(double* xData, int n_xData, double* yData, int n_yData,
     }
 
     if (yq <= yMin || std::isnan(yq)) {
-        // On lower y-bound: interp1d on row 0
-        // zData(1,:) in Fortran → row 0, strided — need temp copy
+        // On lower y-bound: interp1d on row 0 (strided — need temp copy)
         double* row_temp = new double[n_xData];
         for (int k = 0; k < n_xData; k++) row_temp[k] = Z(0, k);
-        result = interp1d(xData, n_xData, row_temp, n_xData, xq, ErrVar);
+        result = interp1d(xv, {row_temp, n_xData}, xq, ErrVar);
         delete[] row_temp;
         return result;
     } else if (yq >= yMax) {
@@ -109,7 +109,7 @@ double interp2d(double* xData, int n_xData, double* yData, int n_yData,
         int last_row = n_yData - 1;
         double* row_temp = new double[n_xData];
         for (int k = 0; k < n_xData; k++) row_temp[k] = Z(last_row, k);
-        result = interp1d(xData, n_xData, row_temp, n_xData, xq, ErrVar);
+        result = interp1d(xv, {row_temp, n_xData}, xq, ErrVar);
         delete[] row_temp;
         return result;
     } else {
@@ -119,7 +119,7 @@ double interp2d(double* xData, int n_xData, double* yData, int n_yData,
                 // On axis: interp1d on this row
                 double* row_temp = new double[n_xData];
                 for (int k = 0; k < n_xData; k++) row_temp[k] = Z(i, k);
-                result = interp1d(xData, n_xData, row_temp, n_xData, xq, ErrVar);
+                result = interp1d(xv, {row_temp, n_xData}, xq, ErrVar);
                 delete[] row_temp;
                 return result;
             } else if (yq < yData[i]) {

@@ -142,9 +142,9 @@ void WindSpeedEstimator(localvariables_t* LocalVar, controlparameters_view_t* Cn
 
         } else {
             // Find estimated operating Cp and system pole
-            double A_op = interp1d(CntrPar->WE_FOPoles_v, CntrPar->n_WE_FOPoles_v,
-                                     CntrPar->WE_FOPoles, CntrPar->n_WE_FOPoles,
-                                     LocalVar->WE.v_h, ErrVar);
+            double A_op = interp1d({CntrPar->WE_FOPoles_v, CntrPar->n_WE_FOPoles_v},
+                                   {CntrPar->WE_FOPoles,   CntrPar->n_WE_FOPoles},
+                                   LocalVar->WE.v_h, ErrVar);
 
             lambda = (WE_Inp_Speed > eps ? WE_Inp_Speed : eps) * CntrPar->WE_BladeRadius / LocalVar->WE.v_h;
             Cp_op = interp2d(PerfData->Beta_vec, PerfData->n_Beta_vec,

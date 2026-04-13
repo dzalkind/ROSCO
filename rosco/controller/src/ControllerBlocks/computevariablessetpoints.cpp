@@ -14,9 +14,9 @@ void ComputeVariablesSetpoints(controlparameters_view_t* CntrPar, localvariables
                                           &LocalVar->FP, LocalVar->iStatus,
                                           (LocalVar->restart != 0) ? 1 : 0,
                                           &objInst->instLPF, 0, 0.0);
-        LocalVar->PC_RefSpd_PRC = interp1d(CntrPar->PRC_WindSpeeds, CntrPar->n_PRC_WindSpeeds,
-                                             CntrPar->PRC_GenSpeeds, CntrPar->n_PRC_GenSpeeds,
-                                             LocalVar->PRC_WSE_F, ErrVar);
+        LocalVar->PC_RefSpd_PRC = interp1d({CntrPar->PRC_WindSpeeds, CntrPar->n_PRC_WindSpeeds},
+                                           {CntrPar->PRC_GenSpeeds,  CntrPar->n_PRC_GenSpeeds},
+                                           LocalVar->PRC_WSE_F, ErrVar);
     }
 
     // Implement setpoint smoothing
@@ -50,13 +50,13 @@ void ComputeVariablesSetpoints(controlparameters_view_t* CntrPar, localvariables
     // Region 3 FBP reference logic
     if (LocalVar->VS_RefSpd_TSR > CntrPar->VS_RefSpd) {
         if (CntrPar->VS_FBP == VS_FBP_WSE_Ref) {
-            LocalVar->VS_RefSpd_TSR = interp1d(CntrPar->VS_FBP_U, CntrPar->n_VS_FBP_U,
-                                                 CntrPar->VS_FBP_Omega, CntrPar->n_VS_FBP_Omega,
-                                                 LocalVar->WE_Vw, ErrVar);
+            LocalVar->VS_RefSpd_TSR = interp1d({CntrPar->VS_FBP_U,   CntrPar->n_VS_FBP_U},
+                                               {CntrPar->VS_FBP_Omega, CntrPar->n_VS_FBP_Omega},
+                                               LocalVar->WE_Vw, ErrVar);
         } else if (CntrPar->VS_FBP == VS_FBP_Torque_Ref) {
-            LocalVar->VS_RefSpd_TSR = interp1d(CntrPar->VS_FBP_Tau, CntrPar->n_VS_FBP_Tau,
-                                                 CntrPar->VS_FBP_Omega, CntrPar->n_VS_FBP_Omega,
-                                                 LocalVar->GenTq, ErrVar);
+            LocalVar->VS_RefSpd_TSR = interp1d({CntrPar->VS_FBP_Tau,  CntrPar->n_VS_FBP_Tau},
+                                               {CntrPar->VS_FBP_Omega, CntrPar->n_VS_FBP_Omega},
+                                               LocalVar->GenTq, ErrVar);
         }
     }
 
@@ -81,9 +81,9 @@ void ComputeVariablesSetpoints(controlparameters_view_t* CntrPar, localvariables
 
     // Simple lookup table for generator speed (PRC_Mode 1)
     if (CntrPar->PRC_Mode == 1) {
-        LocalVar->VS_RefSpd = interp1d(CntrPar->PRC_WindSpeeds, CntrPar->n_PRC_WindSpeeds,
-                                         CntrPar->PRC_GenSpeeds, CntrPar->n_PRC_GenSpeeds,
-                                         LocalVar->PRC_WSE_F, ErrVar);
+        LocalVar->VS_RefSpd = interp1d({CntrPar->PRC_WindSpeeds, CntrPar->n_PRC_WindSpeeds},
+                                       {CntrPar->PRC_GenSpeeds,  CntrPar->n_PRC_GenSpeeds},
+                                       LocalVar->PRC_WSE_F, ErrVar);
     }
 
     // Implement setpoint smoothing

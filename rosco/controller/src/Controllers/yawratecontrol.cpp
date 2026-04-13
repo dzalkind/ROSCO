@@ -90,10 +90,9 @@ void YawRateControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvari
         // Open loop yaw rate control override
         if ((CntrPar->OL_Mode > 0) && (CntrPar->Ind_YawRate > 0)) {
             if (LocalVar->Time >= CntrPar->OL_Breakpoints[0]) {
-                avrSWAP[47] = interp1d(
-                    CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints,
-                    CntrPar->OL_YawRate, CntrPar->n_OL_YawRate,
-                    LocalVar->OL_Index, ErrVar);
+                avrSWAP[47] = interp1d({CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints},
+                                       {CntrPar->OL_YawRate,      CntrPar->n_OL_YawRate},
+                                       LocalVar->OL_Index, ErrVar);
             }
         }
 

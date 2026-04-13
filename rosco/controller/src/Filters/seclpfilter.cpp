@@ -1,41 +1,36 @@
 #include "../include/vit_types.h"
+
 double SecLPFilter(double InputSignal, double DT, double CornerFreq, double Damp, filterparameters_t* FP, int iStatus, int reset, int* inst, int has_InitialValue, double InitialValue) {
-    int idx = *inst - 1;  // Fortran 1-based → C 0-based
+    int idx = *inst - 1;
+    LPF2State& s = inst_ref(FP->lpf2, idx);
 
-    // OPTIONAL handling
-    double InitialValue_ = InputSignal;
-    if (has_InitialValue) InitialValue_ = InitialValue;
+    double InitialValue_ = has_InitialValue ? InitialValue : InputSignal;
 
-    // Initialization
     if (iStatus == 0 || reset) {
-        FP->lpf2_OutputSignalLast1[idx] = InitialValue_;
-        FP->lpf2_OutputSignalLast2[idx] = InitialValue_;
-        FP->lpf2_InputSignalLast1[idx] = InitialValue_;
-        FP->lpf2_InputSignalLast2[idx] = InitialValue_;
+        s.output_last1 = InitialValue_;
+        s.output_last2 = InitialValue_;
+        s.input_last1  = InitialValue_;
+        s.input_last2  = InitialValue_;
 
-        // Coefficients
-        FP->lpf2_a2[idx] = DT * DT * CornerFreq * CornerFreq + 4.0 + 4.0 * Damp * CornerFreq * DT;
-        FP->lpf2_a1[idx] = 2.0 * DT * DT * CornerFreq * CornerFreq - 8.0;
-        FP->lpf2_a0[idx] = DT * DT * CornerFreq * CornerFreq + 4.0 - 4.0 * Damp * CornerFreq * DT;
-        FP->lpf2_b2[idx] = DT * DT * CornerFreq * CornerFreq;
-        FP->lpf2_b1[idx] = 2.0 * DT * DT * CornerFreq * CornerFreq;
-        FP->lpf2_b0[idx] = DT * DT * CornerFreq * CornerFreq;
+        s.a2 = DT * DT * CornerFreq * CornerFreq + 4.0 + 4.0 * Damp * CornerFreq * DT;
+        s.a1 = 2.0 * DT * DT * CornerFreq * CornerFreq - 8.0;
+        s.a0 = DT * DT * CornerFreq * CornerFreq + 4.0 - 4.0 * Damp * CornerFreq * DT;
+        s.b2 = DT * DT * CornerFreq * CornerFreq;
+        s.b1 = 2.0 * DT * DT * CornerFreq * CornerFreq;
+        s.b0 = DT * DT * CornerFreq * CornerFreq;
     }
 
-    // Filter
-    double result = 1.0 / FP->lpf2_a2[idx] *
-        (FP->lpf2_b2[idx] * InputSignal
-         + FP->lpf2_b1[idx] * FP->lpf2_InputSignalLast1[idx]
-         + FP->lpf2_b0[idx] * FP->lpf2_InputSignalLast2[idx]
-         - FP->lpf2_a1[idx] * FP->lpf2_OutputSignalLast1[idx]
-         - FP->lpf2_a0[idx] * FP->lpf2_OutputSignalLast2[idx]);
+    double result = 1.0 / s.a2 *
+        (s.b2 * InputSignal
+         + s.b1 * s.input_last1
+         + s.b0 * s.input_last2
+         - s.a1 * s.output_last1
+         - s.a0 * s.output_last2);
 
-    // Save signals for next time step
-    FP->lpf2_InputSignalLast2[idx] = FP->lpf2_InputSignalLast1[idx];
-    FP->lpf2_InputSignalLast1[idx] = InputSignal;
-    FP->lpf2_OutputSignalLast2[idx] = FP->lpf2_OutputSignalLast1[idx];
-    FP->lpf2_OutputSignalLast1[idx] = result;
-
+    s.input_last2  = s.input_last1;
+    s.input_last1  = InputSignal;
+    s.output_last2 = s.output_last1;
+    s.output_last1 = result;
     *inst = *inst + 1;
 
     return result;

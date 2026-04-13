@@ -3,6 +3,7 @@
 #pragma once
 #include <vector>
 #include <string>
+#include "rosco_array.hpp"
 #include "vit_types.h"
 
 struct ControlParameters {
@@ -39,23 +40,23 @@ struct ControlParameters {
     // Indices of tower top notch filters
     std::vector<int> F_TwrTopNotch_Ind;
     // Natural frequencies of notch filters, [rad/s]
-    std::vector<double> F_NotchFreqs;
+    ParamArray F_NotchFreqs;
     // Notch Filter Numerator damping (determines width)
-    std::vector<double> F_NotchBetaNum;
+    ParamArray F_NotchBetaNum;
     // Notch Filter Numerator damping (determines depth?)
-    std::vector<double> F_NotchBetaDen;
+    ParamArray F_NotchBetaDen;
     // Corner frequency (-3dB point) in the first order low pass filter for the setpoint smoother [rad/s]
     double   F_SSCornerFreq = 0.0;
     // Corner frequency (-3dB point) in the first order low pass filter for the wind speed estimate [rad/s]
     double   F_WECornerFreq = 0.0;
     // Corner frequency (-3dB point) in the second order low pass filter of the tower-top fore-aft motion for floating feedback...
-    std::vector<double> F_FlCornerFreq;
+    ParamArray F_FlCornerFreq;
     // Natural frequency of first-roder high-pass filter for nacelle fore-aft motion [rad/s].
     double   F_FlHighPassFreq = 0.0;
     // Corner low pass filter corner frequency for yaw controller [rad/s].
     double   F_YawErr = 0.0;
     // Corner frequency (-3dB point) in the second order low pass filter of the blade root bending moment for flap control [rad...
-    std::vector<double> F_FlpCornerFreq;
+    ParamArray F_FlpCornerFreq;
     // Corner frequency (-3dB point) in the first order low pass filter of the generator speed reference used for TSR tracking ...
     double   F_VSRefSpdCornerFreq = 0.0;
 
@@ -81,17 +82,17 @@ struct ControlParameters {
     // Turn Individual Pitch Control (IPC) for fatigue load reductions (pitch contribution) {0 - off, 1 - 1P reductions, 2 - 1P...
     int      IPC_ControlMode = 0;
     // Wind speeds for IPC cut-in sigma function [m/s]
-    std::vector<double> IPC_Vramp;
+    ParamArray IPC_Vramp;
     // Integrator saturation (maximum signal amplitude contrbution to pitch from IPC)
     double   IPC_IntSat = 0.0;
     // IPC Saturation method IPC Saturation method (0 - no saturation (except by PC_MinPit), 1 - saturate by PS_BldPitchMin, 2 ...
     int      IPC_SatMode = 0;
     // Integral gain for the individual pitch controller, [-].
-    std::vector<double> IPC_KP;
+    ParamArray IPC_KP;
     // Integral gain for the individual pitch controller, [-].
-    std::vector<double> IPC_KI;
+    ParamArray IPC_KI;
     // Phase offset added to the azimuth angle for the individual pitch controller, [rad].
-    std::vector<double> IPC_aziOffset;
+    ParamArray IPC_aziOffset;
     // Corner frequency of the first-order actuators model, to induce a phase lag in the IPC signal {0 - Disable}, [rad/s]
     double   IPC_CornerFreqAct = 0.0;
 
@@ -101,15 +102,15 @@ struct ControlParameters {
     // Amount of gain-scheduling table entries
     int      PC_GS_n = 0;
     // Gain-schedule table - pitch angles
-    std::vector<double> PC_GS_angles;
+    ParamArray PC_GS_angles;
     // Gain-schedule table - pitch controller kp gains
-    std::vector<double> PC_GS_KP;
+    ParamArray PC_GS_KP;
     // Gain-schedule table - pitch controller ki gains
-    std::vector<double> PC_GS_KI;
+    ParamArray PC_GS_KI;
     // Gain-schedule table - pitch controller kd gains
-    std::vector<double> PC_GS_KD;
+    ParamArray PC_GS_KD;
     // Gain-schedule table - pitch controller tf gains (derivative filter)
-    std::vector<double> PC_GS_TF;
+    ParamArray PC_GS_TF;
     // Maximum physical pitch limit, [rad].
     double   PC_MaxPit = 0.0;
     // Minimum physical pitch limit, [rad].
@@ -155,19 +156,19 @@ struct ControlParameters {
     // Number of controller gains
     int      VS_n = 0;
     // Proportional gain for generator PI torque controller, used in the transitional 2.5 region
-    std::vector<double> VS_KP;
+    ParamArray VS_KP;
     // Integral gain for generator PI torque controller, used in the transitional 2.5 region
-    std::vector<double> VS_KI;
+    ParamArray VS_KI;
     // Power-maximizing region 2 tip-speed ratio [rad]
     double   VS_TSRopt = 0.0;
     // Number of operating schedule entries for fixed blade pitch control
     int      VS_FBP_n = 0;
     // Operating schedule for fixed blade pitch control - Wind speed
-    std::vector<double> VS_FBP_U;
+    ParamArray VS_FBP_U;
     // Operating schedule for fixed blade pitch control - Generator speed
-    std::vector<double> VS_FBP_Omega;
+    ParamArray VS_FBP_Omega;
     // Operating schedule for fixed blade pitch control - Generator torque
-    std::vector<double> VS_FBP_Tau;
+    ParamArray VS_FBP_Tau;
 
     // --- Setpoint Smoother ---
     // Setpoint Smoother mode {0 - no setpoint smoothing, 1 - introduce setpoint smoothing}
@@ -183,9 +184,9 @@ struct ControlParameters {
     // Power reference communication mode, 0- use constant DISCON inputs, 1- use open loop inputs, 2- use ZMQ inputs
     int      PRC_Comm = 0;
     // Array of wind speeds used in rotor speed vs. wind speed lookup table
-    std::vector<double> PRC_WindSpeeds;
+    ParamArray PRC_WindSpeeds;
     // Array of rotor speeds corresponding to PRC_WindSpeeds
-    std::vector<double> PRC_GenSpeeds;
+    ParamArray PRC_GenSpeeds;
     // Number of elements in PRC_WindSpeeds and PRC_GenSpeeds array
     int      PRC_n = 0;
     // Frequency of the low pass filter on the wind speed estimate used to set PRC_GenSpeeds [rad/s]
@@ -199,9 +200,9 @@ struct ControlParameters {
     // Number of elements in PRC_R to _Pitch table
     int      PRC_Table_n = 0;
     // Table of fine pitch versus PRC_R_Table, length should be PRC_Table_n [rad]
-    std::vector<double> PRC_Pitch_Table;
+    ParamArray PRC_Pitch_Table;
     // Table of turbine rating versus fine pitch (PRC_Pitch_Table), length should be PRC_Table_n, default is 1 [-]
-    std::vector<double> PRC_R_Table;
+    ParamArray PRC_R_Table;
 
     // --- Wind Speed Estimator ---
     // Wind speed estimator mode {0 - One-second low pass filtered hub height wind speed, 1 - Imersion and Invariance Estimator...
@@ -211,7 +212,7 @@ struct ControlParameters {
     // Amount of parameters in the Cp array
     int      WE_CP_n = 0;
     // Parameters that define the parameterized CP(\lambda) function
-    std::vector<double> WE_CP;
+    ParamArray WE_CP;
     // Adaption gain of the wind speed estimator algorithm [m/rad]
     double   WE_Gamma = 0.0;
     // Gearbox ratio, >=1  [-]
@@ -227,9 +228,9 @@ struct ControlParameters {
     // Number of first-order system poles used in EKF
     int      WE_FOPoles_N = 0;
     // Wind speeds corresponding to first-order system poles [m/s]
-    std::vector<double> WE_FOPoles_v;
+    ParamArray WE_FOPoles_v;
     // First order system poles
-    std::vector<double> WE_FOPoles;
+    ParamArray WE_FOPoles;
 
     // --- Yaw Controller ---
     // Yaw control mode {0 - no yaw control, 1 - yaw rate control}
@@ -237,7 +238,7 @@ struct ControlParameters {
     // Wind speed to switch between Y_ErrThresh. If zero, only the first value of Y_ErrThresh is used [m/s]
     double   Y_uSwitch = 0.0;
     // Error threshold [rad]. Turbine begins to yaw when it passes this
-    std::vector<double> Y_ErrThresh;
+    ParamArray Y_ErrThresh;
     // Yaw rate [rad/s]
     double   Y_Rate = 0.0;
     // Yaw alignment error, setpoint (for wake steering) [rad]
@@ -255,9 +256,9 @@ struct ControlParameters {
     // Number of values in minimum blade pitch lookup table (should equal number of values in PS_WindSpeeds and PS_BldPitchMin)
     int      PS_BldPitchMin_N = 0;
     // Wind speeds corresponding to minimum blade pitch angles [m/s]
-    std::vector<double> PS_WindSpeeds;
+    ParamArray PS_WindSpeeds;
     // Minimum blade pitch angles [rad]
-    std::vector<double> PS_BldPitchMin;
+    ParamArray PS_BldPitchMin;
 
     // --- Startup ---
     // Startup mode {0 - no startup procedure, 1 - enable startup}
@@ -273,11 +274,11 @@ struct ControlParameters {
     // Number of load staged for startup (should equal number of values in SU_LoadStages, SU_LoadRampDuration and SU_LoadHoldDu...
     int      SU_LoadStages_N = 0;
     // Array containing loads as a fraction of full generator torque during startup [-]
-    std::vector<double> SU_LoadStages;
+    ParamArray SU_LoadStages;
     // Array containing ramp duration to reach the corresponding partial loads during startup [s]
-    std::vector<double> SU_LoadRampDuration;
+    ParamArray SU_LoadRampDuration;
     // Array containing duration to hold the partial loads during startup [s]
-    std::vector<double> SU_LoadHoldDuration;
+    ParamArray SU_LoadHoldDuration;
 
     // --- Shutdown ---
     // Shutdown mode {0 - no shutdown procedure, 1 - enable shutdown}
@@ -309,13 +310,13 @@ struct ControlParameters {
     // Shutdown method {1 - Reduce generator torque and increase blade pitch}, [-]
     int      SD_Method = 0;
     // Maximum torque rate for shutdown, [Nm/s]
-    std::vector<double> SD_MaxTorqueRate;
+    ParamArray SD_MaxTorqueRate;
     // Maximum pitch rate used for shutdown, [rad/s]
-    std::vector<double> SD_MaxPitchRate;
+    ParamArray SD_MaxPitchRate;
     // Array containing the pitch angle to reach in each shutdown stage [rad]
-    std::vector<double> SD_StagePitch;
+    ParamArray SD_StagePitch;
     // Array containing the time to spend in each shutdown stage [s]
-    std::vector<double> SD_StageTime;
+    ParamArray SD_StageTime;
     // Number of shutdown stages (should equal number of values in SD_MaxPitchRate and SD_MaxTorqueRate) [-]
     int      SD_Stage_N = 0;
 
@@ -325,9 +326,9 @@ struct ControlParameters {
     // Number of Fl_Kp for gain scheduling
     int      Fl_n = 0;
     // Nacelle velocity proportional feedback gain [s]
-    std::vector<double> Fl_Kp;
+    ParamArray Fl_Kp;
     // Wind speeds for scheduling Fl_Kp [m/s]
-    std::vector<double> Fl_U;
+    ParamArray Fl_U;
 
     // --- Trailing edge flaps ---
     // Flap actuator mode {0 - off, 1 - fixed flap position, 2 - PI flap control}
@@ -367,39 +368,39 @@ struct ControlParameters {
     // The column in OL_Filename that contains the desired azimuth position in rad (used if OL_Mode = 2)
     int      Ind_Azimuth = 0;
     // PID gains and Tf on derivative term for rotor position control (used if OL_Mode = 2)
-    std::vector<double> RP_Gains;
+    ParamArray RP_Gains;
     // The column in OL_Filename that contains the cable control inputs in m
     std::vector<int> Ind_CableControl;
     // The column in OL_Filename that contains the structural control inputs in various units
     std::vector<int> Ind_StructControl;
     // Open loop breakpoints in timeseries
-    std::vector<double> OL_Breakpoints;
+    ParamArray OL_Breakpoints;
     // Open loop blade pitch 1 timeseries
-    std::vector<double> OL_BldPitch1;
+    ParamArray OL_BldPitch1;
     // Open loop blade pitch 2 timeseries
-    std::vector<double> OL_BldPitch2;
+    ParamArray OL_BldPitch2;
     // Open loop blade pitch 3 timeseries
-    std::vector<double> OL_BldPitch3;
-    std::vector<double> OL_CableControl;
+    ParamArray OL_BldPitch3;
+    ParamArray OL_CableControl;
     int OL_CableControl_rows = 0;
     int OL_CableControl_cols = 0;
-    std::vector<double> OL_StructControl;
+    ParamArray OL_StructControl;
     int OL_StructControl_rows = 0;
     int OL_StructControl_cols = 0;
     // Open loop generator torque timeseries
-    std::vector<double> OL_GenTq;
+    ParamArray OL_GenTq;
     // Open loop yaw rate timeseries
-    std::vector<double> OL_YawRate;
+    ParamArray OL_YawRate;
     // Open loop azimuth timeseries
-    std::vector<double> OL_Azimuth;
+    ParamArray OL_Azimuth;
     // Open loop R_Speed timeseries
-    std::vector<double> OL_R_Speed;
+    ParamArray OL_R_Speed;
     // Open loop R_Torque timeseries
-    std::vector<double> OL_R_Torque;
+    ParamArray OL_R_Torque;
     // Open loop R_Pitch timeseries
-    std::vector<double> OL_R_Pitch;
+    ParamArray OL_R_Pitch;
     // Open loop channels in timeseries
-    std::vector<double> OL_Channels;
+    ParamArray OL_Channels;
     int OL_Channels_rows = 0;
     int OL_Channels_cols = 0;
 
@@ -421,23 +422,23 @@ struct ControlParameters {
     // AWC Coleman transform harmonic [-]
     std::vector<int> AWC_harmonic;
     // AWC frequency [Hz]
-    std::vector<double> AWC_freq;
+    ParamArray AWC_freq;
     // AWC amplitude [deg]
-    std::vector<double> AWC_amp;
+    ParamArray AWC_amp;
     // AWC clocking angle [deg]
-    std::vector<double> AWC_clockangle;
+    ParamArray AWC_clockangle;
     // AWC azimuth offset for Coleman transform [deg]
     double   AWC_phaseoffset = 0.0;
     // AWC KP and KI/KR gain of the controller [-]
-    std::vector<double> AWC_CntrGains;
+    ParamArray AWC_CntrGains;
 
     // --- Pitch actuator error ---
     // Pitch actuator fault mode {0 - not used, 1 - offsets on one or more blades}
     int      PF_Mode = 0;
     // Pitch actuator fault offsets for blade 1-3 [rad/s]
-    std::vector<double> PF_Offsets;
+    ParamArray PF_Offsets;
     // Time for pitch actuator fault to be stuck for blade 1-3 [s]
-    std::vector<double> PF_TimeStuck;
+    ParamArray PF_TimeStuck;
 
     // --- External Control ---
     // External control mode (0 - not used, 1 - call external control library)

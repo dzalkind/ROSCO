@@ -1,37 +1,35 @@
 #include "../include/vit_types.h"
+
 double NotchFilter(double InputSignal, double DT, double omega, double betaNum, double betaDen, filterparameters_t* FP, int iStatus, int reset, int* inst, int has_InitialValue, double InitialValue) {
-    int idx = *inst - 1;  // Fortran 1-based → C 0-based
+    int idx = *inst - 1;
+    NotchState& s = inst_ref(FP->nf, idx);
 
-    // OPTIONAL handling
-    double InitialValue_ = InputSignal;
-    if (has_InitialValue) InitialValue_ = InitialValue;
+    double InitialValue_ = has_InitialValue ? InitialValue : InputSignal;
 
-    // Initialization
     double K = 2.0 / DT;
     if (iStatus == 0 || reset) {
-        FP->nf_OutputSignalLast1[idx] = InitialValue_;
-        FP->nf_OutputSignalLast2[idx] = InitialValue_;
-        FP->nf_InputSignalLast1[idx] = InitialValue_;
-        FP->nf_InputSignalLast2[idx] = InitialValue_;
-        FP->nf_b2[idx] = (K * K + 2.0 * omega * betaNum * K + omega * omega) / (K * K + 2.0 * omega * betaDen * K + omega * omega);
-        FP->nf_b1[idx] = (2.0 * omega * omega - 2.0 * K * K) / (K * K + 2.0 * omega * betaDen * K + omega * omega);
-        FP->nf_b0[idx] = (K * K - 2.0 * omega * betaNum * K + omega * omega) / (K * K + 2.0 * omega * betaDen * K + omega * omega);
-        FP->nf_a1[idx] = (2.0 * omega * omega - 2.0 * K * K) / (K * K + 2.0 * omega * betaDen * K + omega * omega);
-        FP->nf_a0[idx] = (K * K - 2.0 * omega * betaDen * K + omega * omega) / (K * K + 2.0 * omega * betaDen * K + omega * omega);
+        s.output_last1 = InitialValue_;
+        s.output_last2 = InitialValue_;
+        s.input_last1  = InitialValue_;
+        s.input_last2  = InitialValue_;
+
+        s.b2 = (K * K + 2.0 * omega * betaNum * K + omega * omega) / (K * K + 2.0 * omega * betaDen * K + omega * omega);
+        s.b1 = (2.0 * omega * omega - 2.0 * K * K)                  / (K * K + 2.0 * omega * betaDen * K + omega * omega);
+        s.b0 = (K * K - 2.0 * omega * betaNum * K + omega * omega)   / (K * K + 2.0 * omega * betaDen * K + omega * omega);
+        s.a1 = (2.0 * omega * omega - 2.0 * K * K)                   / (K * K + 2.0 * omega * betaDen * K + omega * omega);
+        s.a0 = (K * K - 2.0 * omega * betaDen * K + omega * omega)   / (K * K + 2.0 * omega * betaDen * K + omega * omega);
     }
 
-    // Filter
-    double result = FP->nf_b2[idx] * InputSignal
-                  + FP->nf_b1[idx] * FP->nf_InputSignalLast1[idx]
-                  + FP->nf_b0[idx] * FP->nf_InputSignalLast2[idx]
-                  - FP->nf_a1[idx] * FP->nf_OutputSignalLast1[idx]
-                  - FP->nf_a0[idx] * FP->nf_OutputSignalLast2[idx];
+    double result = s.b2 * InputSignal
+                  + s.b1 * s.input_last1
+                  + s.b0 * s.input_last2
+                  - s.a1 * s.output_last1
+                  - s.a0 * s.output_last2;
 
-    // Save signals for next time step
-    FP->nf_InputSignalLast2[idx] = FP->nf_InputSignalLast1[idx];
-    FP->nf_InputSignalLast1[idx] = InputSignal;
-    FP->nf_OutputSignalLast2[idx] = FP->nf_OutputSignalLast1[idx];
-    FP->nf_OutputSignalLast1[idx] = result;
+    s.input_last2  = s.input_last1;
+    s.input_last1  = InputSignal;
+    s.output_last2 = s.output_last1;
+    s.output_last1 = result;
     *inst = *inst + 1;
 
     return result;

@@ -33,9 +33,9 @@ void SetParameters(controlparameters_view_t* CntrPar, localvariables_t* LocalVar
                     CntrPar->VS_Rgn2K * LocalVar->GenSpeed * LocalVar->GenSpeed);
             }
         } else {
-            LocalVar->GenTq = interp1d(CntrPar->VS_FBP_U, CntrPar->n_VS_FBP_U,
-                                         CntrPar->VS_FBP_Tau, CntrPar->n_VS_FBP_Tau,
-                                         LocalVar->HorWindV, ErrVar);
+            LocalVar->GenTq = interp1d({CntrPar->VS_FBP_U,   CntrPar->n_VS_FBP_U},
+                                       {CntrPar->VS_FBP_Tau,  CntrPar->n_VS_FBP_Tau},
+                                       LocalVar->HorWindV, ErrVar);
         }
         LocalVar->VS_LastGenTrq = LocalVar->GenTq;
         LocalVar->VS_MaxTq = CntrPar->VS_MaxTq;

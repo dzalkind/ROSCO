@@ -7,9 +7,9 @@ double FloatingFeedback(localvariables_t* LocalVar, controlparameters_view_t* Cn
     //   Fl_Mode = 2: proportional feedback of rotational nacelle velocity
 
     // Gain scheduling — interpolate Kp_Float from wind speed
-    LocalVar->Kp_Float = interp1d(CntrPar->Fl_U, CntrPar->n_Fl_U,
-                                     CntrPar->Fl_Kp, CntrPar->n_Fl_Kp,
-                                     LocalVar->WE_Vw_F, ErrVar);
+    LocalVar->Kp_Float = interp1d({CntrPar->Fl_U, CntrPar->n_Fl_U},
+                                    {CntrPar->Fl_Kp, CntrPar->n_Fl_Kp},
+                                    LocalVar->WE_Vw_F, ErrVar);
 
     // Integrate fore-aft acceleration to get velocity (KP=0, KI=1 → pure integrator)
     double FA_vel = PIController(

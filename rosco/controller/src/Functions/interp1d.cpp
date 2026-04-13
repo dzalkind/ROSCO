@@ -1,19 +1,23 @@
 #include "../include/vit_types.h"
+#include "../include/rosco_array.hpp"
 #include <cstring>
 #include <cstdio>
 
-double interp1d(double* xData, int n_xData, double* yData, int n_yData, double xq, errorvariables_t* ErrVar) {
-    // Error check: are xData and yData the same size?
-    if (n_xData != n_yData) {
+// Linear interpolation of (xData, yData) at query point xq.
+// Clamps to the endpoint values outside the data range.
+double interp1d(ArrayView xData, ArrayView yData, double xq, errorvariables_t* ErrVar) {
+
+    // xData and yData must be the same length
+    if (xData.size != yData.size) {
         ErrVar->aviFAIL = -1;
         int len = snprintf(ErrVar->ErrMsg, 1024,
             " SIZE(xData) =%2d and SIZE(yData) =%2d are not the same",
-            n_xData, n_yData);
+            xData.size, yData.size);
         if (len >= 0 && len < 1024) memset(ErrVar->ErrMsg + len, ' ', 1024 - len);
     }
 
-    // Error check: xData must be strictly increasing
-    for (int i = 0; i < n_xData - 1; i++) {
+    // xData must be strictly increasing
+    for (int i = 0; i < xData.size - 1; i++) {
         if (xData[i + 1] - xData[i] <= 0.0) {
             ErrVar->aviFAIL = -1;
             const char msg[] = " xData is not strictly increasing";
@@ -24,41 +28,34 @@ double interp1d(double* xData, int n_xData, double* yData, int n_yData, double x
         }
     }
 
-    // Interpolate
-    double result;
-    int n = n_xData;
-    if (xq <= xData[0]) {
-        result = yData[0];
-    } else if (xq >= xData[n - 1]) {
-        result = yData[n - 1];
-    } else {
-        result = yData[n - 1]; // fallback (should not reach)
-        for (int i = 1; i < n; i++) {
-            if (xq <= xData[i]) {
-                result = yData[i - 1] + (yData[i] - yData[i - 1]) / (xData[i] - xData[i - 1]) * (xq - xData[i - 1]);
-                break;
-            }
+    // Clamp to endpoints outside the data range; interpolate within
+    int n = xData.size;
+    if (xq <= xData[0])      return yData[0];
+    if (xq >= xData[n - 1])  return yData[n - 1];
+
+    for (int i = 1; i < n; i++) {
+        if (xq <= xData[i]) {
+            return yData[i-1] + (yData[i] - yData[i-1])
+                              / (xData[i] - xData[i-1])
+                              * (xq        - xData[i-1]);
         }
     }
 
-    // Add RoutineName to error message
+    // Prefix routine name onto any error message (matches Fortran convention)
     if (ErrVar->aviFAIL < 0) {
-        // Fortran: ErrVar%ErrMsg = 'interp1d'//':'//TRIM(ErrVar%ErrMsg)
         int trimmed_len = 1024;
-        while (trimmed_len > 0 && ErrVar->ErrMsg[trimmed_len - 1] == ' ') {
+        while (trimmed_len > 0 && ErrVar->ErrMsg[trimmed_len - 1] == ' ')
             trimmed_len--;
-        }
         char buf[1024];
         const char prefix[] = "interp1d:";
-        int prefix_len = 9;
+        int prefix_len = (int)sizeof(prefix) - 1;
         memcpy(buf, prefix, prefix_len);
-        int copy_len = trimmed_len;
-        if (prefix_len + copy_len > 1024) copy_len = 1024 - prefix_len;
+        int copy_len = (prefix_len + trimmed_len <= 1024) ? trimmed_len : 1024 - prefix_len;
         memcpy(buf + prefix_len, ErrVar->ErrMsg, copy_len);
         int total = prefix_len + copy_len;
         if (total < 1024) memset(buf + total, ' ', 1024 - total);
         memcpy(ErrVar->ErrMsg, buf, 1024);
     }
 
-    return result;
+    return yData[n - 1]; // unreachable; loop above always finds a bracket
 }

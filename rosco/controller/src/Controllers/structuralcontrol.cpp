@@ -29,10 +29,9 @@ void StructuralControl(float* avrSWAP, controlparameters_view_t* CntrPar, localv
                 for (int col = 0; col < n_cols; col++) {
                     row_slice[col] = CntrPar->OL_StructControl[col * n_rows + I_GROUP];
                 }
-                LocalVar->StC_Input[I_GROUP] = interp1d(
-                    CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints,
-                    row_slice, n_cols,
-                    LocalVar->Time, ErrVar);
+                LocalVar->StC_Input[I_GROUP] = interp1d({CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints},
+                                                        {row_slice, n_cols},
+                                                        LocalVar->Time, ErrVar);
             }
         }
     }

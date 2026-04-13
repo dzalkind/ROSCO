@@ -103,10 +103,9 @@ void VariableSpeedControl(float* avrSWAP, controlparameters_view_t* CntrPar, loc
     // Open loop torque control
     if ((CntrPar->OL_Mode > 0) && (CntrPar->Ind_GenTq > 0)) {
         if (LocalVar->Time >= CntrPar->OL_Breakpoints[0]) {
-            LocalVar->GenTq = interp1d(
-                CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints,
-                CntrPar->OL_GenTq, CntrPar->n_OL_GenTq,
-                LocalVar->OL_Index, ErrVar);
+            LocalVar->GenTq = interp1d({CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints},
+                                       {CntrPar->OL_GenTq,        CntrPar->n_OL_GenTq},
+                                       LocalVar->OL_Index, ErrVar);
         }
 
         // Azimuth tracking control (OL_Mode == 2)
@@ -129,10 +128,9 @@ void VariableSpeedControl(float* avrSWAP, controlparameters_view_t* CntrPar, loc
             LocalVar->AzUnwrapped = LocalVar->AzBuffer[1];
 
             // Desired azimuth from OL file
-            LocalVar->OL_Azimuth = interp1d(
-                CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints,
-                CntrPar->OL_Azimuth, CntrPar->n_OL_Azimuth,
-                LocalVar->Time, ErrVar);
+            LocalVar->OL_Azimuth = interp1d({CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints},
+                                            {CntrPar->OL_Azimuth,      CntrPar->n_OL_Azimuth},
+                                            LocalVar->Time, ErrVar);
 
             LocalVar->AzError = LocalVar->OL_Azimuth - LocalVar->AzUnwrapped;
 

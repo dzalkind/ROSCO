@@ -13,26 +13,21 @@ void PowerControlSetpoints(controlparameters_view_t* CntrPar, localvariables_t* 
 
         } else if (CntrPar->PRC_Comm == PRC_Comm_OpenLoop) { // Open loop
 
+            ArrayView ol_bp = {CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints};
             if (CntrPar->Ind_R_Speed > 0) {
-                LocalVar->PRC_R_Speed = interp1d(CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints,
-                                                   CntrPar->OL_R_Speed, CntrPar->n_OL_R_Speed,
-                                                   LocalVar->OL_Index, ErrVar);
+                LocalVar->PRC_R_Speed  = interp1d(ol_bp, {CntrPar->OL_R_Speed,  CntrPar->n_OL_R_Speed},  LocalVar->OL_Index, ErrVar);
             } else {
                 LocalVar->PRC_R_Speed = 1.0;
             }
 
             if (CntrPar->Ind_R_Torque > 0) {
-                LocalVar->PRC_R_Torque = interp1d(CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints,
-                                                    CntrPar->OL_R_Torque, CntrPar->n_OL_R_Torque,
-                                                    LocalVar->OL_Index, ErrVar);
+                LocalVar->PRC_R_Torque = interp1d(ol_bp, {CntrPar->OL_R_Torque, CntrPar->n_OL_R_Torque}, LocalVar->OL_Index, ErrVar);
             } else {
                 LocalVar->PRC_R_Torque = 1.0;
             }
 
             if (CntrPar->Ind_R_Pitch > 0) {
-                LocalVar->PRC_R_Pitch = interp1d(CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints,
-                                                   CntrPar->OL_R_Pitch, CntrPar->n_OL_R_Pitch,
-                                                   LocalVar->OL_Index, ErrVar);
+                LocalVar->PRC_R_Pitch  = interp1d(ol_bp, {CntrPar->OL_R_Pitch,  CntrPar->n_OL_R_Pitch},  LocalVar->OL_Index, ErrVar);
             } else {
                 LocalVar->PRC_R_Pitch = 1.0;
             }
@@ -44,9 +39,9 @@ void PowerControlSetpoints(controlparameters_view_t* CntrPar, localvariables_t* 
         }
 
         // Set min pitch for power control
-        LocalVar->PRC_Min_Pitch = interp1d(CntrPar->PRC_R_Table, CntrPar->n_PRC_R_Table,
-                                             CntrPar->PRC_Pitch_Table, CntrPar->n_PRC_Pitch_Table,
-                                             LocalVar->PRC_R_Pitch, ErrVar);
+        LocalVar->PRC_Min_Pitch = interp1d({CntrPar->PRC_R_Table,    CntrPar->n_PRC_R_Table},
+                                           {CntrPar->PRC_Pitch_Table, CntrPar->n_PRC_Pitch_Table},
+                                           LocalVar->PRC_R_Pitch, ErrVar);
 
     } else {
         LocalVar->PRC_R_Speed = 1.0;

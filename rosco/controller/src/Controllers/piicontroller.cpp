@@ -2,26 +2,25 @@
 #include "../include/vit_translated.h"
 
 double PIIController(double error, double error2, double kp, double ki, double ki2, double minValue, double maxValue, double DT, double I0, piparams_t* piP, int reset, int* inst) {
-    int idx = *inst - 1;  // Fortran 1-based -> C 0-based
+    int idx = *inst - 1;
+    PIState& s = inst_ref(piP->pi, idx);
+
     double result;
 
     if (reset) {
-        piP->ITerm[idx] = I0;
-        piP->ITermLast[idx] = I0;
-        piP->ITerm2[idx] = I0;
-        piP->ITermLast2[idx] = I0;
-
+        s.iterm       = I0;
+        s.iterm_last  = I0;
+        s.iterm2      = I0;
+        s.iterm2_last = I0;
         result = I0;
     } else {
         double PTerm = kp * error;
-        piP->ITerm[idx] = piP->ITerm[idx] + DT * ki * error;
-        piP->ITerm2[idx] = piP->ITerm2[idx] + DT * ki2 * error2;
-        piP->ITerm[idx] = saturate(piP->ITerm[idx], minValue, maxValue);
-        piP->ITerm2[idx] = saturate(piP->ITerm2[idx], minValue, maxValue);
-        result = PTerm + piP->ITerm[idx] + piP->ITerm2[idx];
-        result = saturate(result, minValue, maxValue);
-
-        piP->ITermLast[idx] = piP->ITerm[idx];
+        s.iterm  = s.iterm  + DT * ki  * error;
+        s.iterm2 = s.iterm2 + DT * ki2 * error2;
+        s.iterm  = saturate(s.iterm,  minValue, maxValue);
+        s.iterm2 = saturate(s.iterm2, minValue, maxValue);
+        result   = saturate(PTerm + s.iterm + s.iterm2, minValue, maxValue);
+        s.iterm_last = s.iterm;
     }
     *inst = *inst + 1;
 

@@ -1,31 +1,25 @@
 #include "../include/vit_types.h"
 
 double LPFilter(double InputSignal, double DT, double CornerFreq, filterparameters_t* FP, int iStatus, int reset, int* inst, int has_InitialValue, double InitialValue) {
-    int idx = *inst - 1;  // Fortran 1-based → C 0-based
+    int idx = *inst - 1;
+    LPF1State& s = inst_ref(FP->lpf1, idx);
 
-    // OPTIONAL handling
-    double InitialValue_ = InputSignal;
-    if (has_InitialValue) InitialValue_ = InitialValue;
+    double InitialValue_ = has_InitialValue ? InitialValue : InputSignal;
 
-    // Initialization
     if (iStatus == 0 || reset) {
-        FP->lpf1_OutputSignalLast[idx] = InitialValue_;
-        FP->lpf1_InputSignalLast[idx] = InitialValue_;
-        FP->lpf1_a1[idx] = 2.0 + CornerFreq * DT;
-        FP->lpf1_a0[idx] = CornerFreq * DT - 2.0;
-        FP->lpf1_b1[idx] = CornerFreq * DT;
-        FP->lpf1_b0[idx] = CornerFreq * DT;
+        s.output_last = InitialValue_;
+        s.input_last  = InitialValue_;
+        s.a1 = 2.0 + CornerFreq * DT;
+        s.a0 = CornerFreq * DT - 2.0;
+        s.b1 = CornerFreq * DT;
+        s.b0 = CornerFreq * DT;
     }
 
-    // Filter
-    double result = 1.0 / FP->lpf1_a1[idx] *
-        (-FP->lpf1_a0[idx] * FP->lpf1_OutputSignalLast[idx]
-         + FP->lpf1_b1[idx] * InputSignal
-         + FP->lpf1_b0[idx] * FP->lpf1_InputSignalLast[idx]);
+    double result = 1.0 / s.a1 *
+        (-s.a0 * s.output_last + s.b1 * InputSignal + s.b0 * s.input_last);
 
-    // Save signals for next time step
-    FP->lpf1_InputSignalLast[idx] = InputSignal;
-    FP->lpf1_OutputSignalLast[idx] = result;
+    s.input_last  = InputSignal;
+    s.output_last = result;
     *inst = *inst + 1;
 
     return result;

@@ -518,7 +518,7 @@ def _cpp_type(param):
 
     if alloc:
         if ptype in ('real', 'float', 'complex'):
-            return 'std::vector<double>', is_2d
+            return 'ParamArray', is_2d
         elif ptype in ('integer', 'c_integer', 'logical'):
             return 'std::vector<int>', is_2d
         elif ptype == 'c_float':
@@ -585,6 +585,7 @@ def _write_cpp_header(yfile):
         f.write('#pragma once\n')
         f.write('#include <vector>\n')
         f.write('#include <string>\n')
+        f.write('#include "rosco_array.hpp"\n')
         f.write('#include "vit_types.h"\n')
         f.write('\n')
         f.write('struct ControlParameters {\n')
@@ -605,7 +606,7 @@ def _write_cpp_header(yfile):
                 desc = desc[:120] + '...' if len(desc) > 120 else desc
                 f.write(f'    // {desc}\n')
 
-            if 'vector' in cpp_type or cpp_type == 'std::string':
+            if 'vector' in cpp_type or cpp_type in ('std::string', 'ParamArray'):
                 f.write(f'    {cpp_type} {name};\n')
                 if is_2d:
                     f.write(f'    int {name}_rows = 0;\n')
@@ -669,7 +670,7 @@ def _write_cpp_io(yfile):
             alloc = param.get('allocatable', False)
 
             if alloc:
-                if 'double' in cpp_type:
+                if cpp_type == 'ParamArray':
                     f.write(f'    if (auto* arr = tbl["{name}"].as_array()) {{\n')
                     f.write(f'        {name}.clear();\n')
                     if is_2d:
@@ -727,7 +728,7 @@ def _write_cpp_io(yfile):
                     f.write(f'    v->{name} = {name}.empty() ? nullptr : const_cast<double*>({name}.data());\n')
                     f.write(f'    v->n_{name}_rows = (int32_t){name}_rows;\n')
                     f.write(f'    v->n_{name}_cols = (int32_t){name}_cols;\n')
-                elif 'double' in cpp_type:
+                elif cpp_type == 'ParamArray':
                     f.write(f'    v->{name} = {name}.empty() ? nullptr : const_cast<double*>({name}.data());\n')
                     f.write(f'    v->n_{name} = (int32_t){name}.size();\n')
                 elif 'int' in cpp_type:

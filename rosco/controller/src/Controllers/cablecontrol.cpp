@@ -28,10 +28,9 @@ void CableControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvariab
                 for (int col = 0; col < n_cols; col++) {
                     row_slice[col] = CntrPar->OL_CableControl[col * n_rows + I_GROUP];
                 }
-                LocalVar->CC_DesiredL[I_GROUP] = interp1d(
-                    CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints,
-                    row_slice, n_cols,
-                    LocalVar->Time, ErrVar);
+                LocalVar->CC_DesiredL[I_GROUP] = interp1d({CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints},
+                                                          {row_slice, n_cols},
+                                                          LocalVar->Time, ErrVar);
             }
         }
     }

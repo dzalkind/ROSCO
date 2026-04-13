@@ -1,50 +1,41 @@
 #include "../include/vit_types.h"
+
 double NotchFilterSlopes(double InputSignal, double DT, double CornerFreq, double Damp, filterparameters_t* FP, int iStatus, int reset, int* inst, int has_Moving, int Moving, int has_InitialValue, double InitialValue) {
-    int idx = *inst - 1;  // Fortran 1-based → C 0-based
+    int idx = *inst - 1;
+    NotchSlopesState& s = inst_ref(FP->nfs, idx);
 
-    // OPTIONAL handling
-    double InitialValue_ = InputSignal;
-    if (has_InitialValue) InitialValue_ = InitialValue;
+    double InitialValue_ = has_InitialValue ? InitialValue : InputSignal;
+    int Moving_ = has_Moving ? Moving : 0;
 
-    int Moving_ = 0;
-    if (has_Moving) Moving_ = Moving;
-
-    // Saturate corner frequency at 0
     double CornerFreq_ = (CornerFreq < 0.0) ? 0.0 : CornerFreq;
 
-    // Initialize state
     if (iStatus == 0 || reset) {
-        FP->nfs_OutputSignalLast1[idx] = InitialValue_;
-        FP->nfs_OutputSignalLast2[idx] = InitialValue_;
-        FP->nfs_InputSignalLast1[idx] = InitialValue_;
-        FP->nfs_InputSignalLast2[idx] = InitialValue_;
+        s.output_last1 = InitialValue_;
+        s.output_last2 = InitialValue_;
+        s.input_last1  = InitialValue_;
+        s.input_last2  = InitialValue_;
     }
 
-    // Compute/update coefficients (also on Moving)
-    // NOTE: Parenthesization matches Fortran operator precedence where ** binds
-    // tighter than *, so DT**2.0*CornerFreq_**2.0 groups as (DT**2)*(CF**2).
     if (iStatus == 0 || reset || Moving_) {
         double DT2 = DT * DT;
         double CF2 = CornerFreq_ * CornerFreq_;
-        FP->nfs_b2[idx] = 2.0 * DT * CornerFreq_;
-        FP->nfs_b0[idx] = -FP->nfs_b2[idx];
-        FP->nfs_a2[idx] = Damp * DT2 * CF2 + 2.0 * DT * CornerFreq_ + 4.0 * Damp;
-        FP->nfs_a1[idx] = 2.0 * Damp * DT2 * CF2 - 8.0 * Damp;
-        FP->nfs_a0[idx] = Damp * DT2 * CF2 - 2.0 * DT * CornerFreq_ + 4.0 * Damp;
+        s.b2 = 2.0 * DT * CornerFreq_;
+        s.b0 = -s.b2;
+        s.a2 = Damp * DT2 * CF2 + 2.0 * DT * CornerFreq_ + 4.0 * Damp;
+        s.a1 = 2.0 * Damp * DT2 * CF2 - 8.0 * Damp;
+        s.a0 = Damp * DT2 * CF2 - 2.0 * DT * CornerFreq_ + 4.0 * Damp;
     }
 
-    // Filter
-    double result = 1.0 / FP->nfs_a2[idx] *
-        (FP->nfs_b2[idx] * InputSignal
-         + FP->nfs_b0[idx] * FP->nfs_InputSignalLast1[idx]
-         - FP->nfs_a1[idx] * FP->nfs_OutputSignalLast1[idx]
-         - FP->nfs_a0[idx] * FP->nfs_OutputSignalLast2[idx]);
+    double result = 1.0 / s.a2 *
+        (s.b2 * InputSignal
+         + s.b0 * s.input_last1
+         - s.a1 * s.output_last1
+         - s.a0 * s.output_last2);
 
-    // Save signals for next time step
-    FP->nfs_InputSignalLast2[idx] = FP->nfs_InputSignalLast1[idx];
-    FP->nfs_InputSignalLast1[idx] = InputSignal;
-    FP->nfs_OutputSignalLast2[idx] = FP->nfs_OutputSignalLast1[idx];
-    FP->nfs_OutputSignalLast1[idx] = result;
+    s.input_last2  = s.input_last1;
+    s.input_last1  = InputSignal;
+    s.output_last2 = s.output_last1;
+    s.output_last1 = result;
     *inst = *inst + 1;
 
     return result;

@@ -30,6 +30,25 @@ void read_field(std::ifstream& f, T& val) {
     f.read(reinterpret_cast<char*>(&val), sizeof(val));
 }
 
+// Vector overloads: write/read count + elements as raw bytes.
+// Format: uint32_t n, then n * sizeof(T) bytes of element data.
+template<typename T>
+void write_field(std::ofstream& f, const std::vector<T>& v) {
+    uint32_t n = static_cast<uint32_t>(v.size());
+    f.write(reinterpret_cast<const char*>(&n), sizeof(n));
+    if (n > 0)
+        f.write(reinterpret_cast<const char*>(v.data()), n * sizeof(T));
+}
+
+template<typename T>
+void read_field(std::ifstream& f, std::vector<T>& v) {
+    uint32_t n = 0;
+    f.read(reinterpret_cast<char*>(&n), sizeof(n));
+    v.resize(n);
+    if (n > 0)
+        f.read(reinterpret_cast<char*>(v.data()), n * sizeof(T));
+}
+
 // Shared field order for Write and Read — follows ROSCO_IO.f90 lines 39-349 exactly.
 template<typename Stream, typename FieldOp>
 void checkpoint_fields(Stream& f, localvariables_t* LocalVar,
@@ -222,67 +241,18 @@ void checkpoint_fields(Stream& f, localvariables_t* LocalVar,
     field_op(f, LocalVar->WE.xh);
     field_op(f, LocalVar->WE.K);
 
-    // --- FP (FilterParameters) — 46 x DIMENSION(1024) ---
-    field_op(f, LocalVar->FP.lpf1_a1);
-    field_op(f, LocalVar->FP.lpf1_a0);
-    field_op(f, LocalVar->FP.lpf1_b1);
-    field_op(f, LocalVar->FP.lpf1_b0);
-    field_op(f, LocalVar->FP.lpf1_InputSignalLast);
-    field_op(f, LocalVar->FP.lpf1_OutputSignalLast);
-    field_op(f, LocalVar->FP.lpf2_a2);
-    field_op(f, LocalVar->FP.lpf2_a1);
-    field_op(f, LocalVar->FP.lpf2_a0);
-    field_op(f, LocalVar->FP.lpf2_b2);
-    field_op(f, LocalVar->FP.lpf2_b1);
-    field_op(f, LocalVar->FP.lpf2_b0);
-    field_op(f, LocalVar->FP.lpf2_InputSignalLast2);
-    field_op(f, LocalVar->FP.lpf2_OutputSignalLast2);
-    field_op(f, LocalVar->FP.lpf2_InputSignalLast1);
-    field_op(f, LocalVar->FP.lpf2_OutputSignalLast1);
-    field_op(f, LocalVar->FP.lpfV_a2);
-    field_op(f, LocalVar->FP.lpfV_a1);
-    field_op(f, LocalVar->FP.lpfV_a0);
-    field_op(f, LocalVar->FP.lpfV_b2);
-    field_op(f, LocalVar->FP.lpfV_b1);
-    field_op(f, LocalVar->FP.lpfV_b0);
-    field_op(f, LocalVar->FP.lpfV_InputSignalLast2);
-    field_op(f, LocalVar->FP.lpfV_OutputSignalLast2);
-    field_op(f, LocalVar->FP.lpfV_InputSignalLast1);
-    field_op(f, LocalVar->FP.lpfV_OutputSignalLast1);
-    field_op(f, LocalVar->FP.hpf_InputSignalLast);
-    field_op(f, LocalVar->FP.hpf_OutputSignalLast);
-    field_op(f, LocalVar->FP.nfs_OutputSignalLast1);
-    field_op(f, LocalVar->FP.nfs_OutputSignalLast2);
-    field_op(f, LocalVar->FP.nfs_InputSignalLast1);
-    field_op(f, LocalVar->FP.nfs_InputSignalLast2);
-    field_op(f, LocalVar->FP.nfs_b2);
-    field_op(f, LocalVar->FP.nfs_b0);
-    field_op(f, LocalVar->FP.nfs_a2);
-    field_op(f, LocalVar->FP.nfs_a1);
-    field_op(f, LocalVar->FP.nfs_a0);
-    field_op(f, LocalVar->FP.nf_OutputSignalLast1);
-    field_op(f, LocalVar->FP.nf_OutputSignalLast2);
-    field_op(f, LocalVar->FP.nf_InputSignalLast1);
-    field_op(f, LocalVar->FP.nf_InputSignalLast2);
-    field_op(f, LocalVar->FP.nf_b2);
-    field_op(f, LocalVar->FP.nf_b1);
-    field_op(f, LocalVar->FP.nf_b0);
-    field_op(f, LocalVar->FP.nf_a1);
-    field_op(f, LocalVar->FP.nf_a0);
+    // --- FP (FilterParameters) — vectors of per-instance state structs ---
+    field_op(f, LocalVar->FP.lpf1);
+    field_op(f, LocalVar->FP.lpf2);
+    field_op(f, LocalVar->FP.lpfV);
+    field_op(f, LocalVar->FP.hpf);
+    field_op(f, LocalVar->FP.nfs);
+    field_op(f, LocalVar->FP.nf);
 
     // --- piP, resP, rlP ---
-    field_op(f, LocalVar->piP.ITerm);
-    field_op(f, LocalVar->piP.ITermLast);
-    field_op(f, LocalVar->piP.ITerm2);
-    field_op(f, LocalVar->piP.ITermLast2);
-    field_op(f, LocalVar->piP.ELast);
-
-    field_op(f, LocalVar->resP.res_OutputSignalLast1);
-    field_op(f, LocalVar->resP.res_OutputSignalLast2);
-    field_op(f, LocalVar->resP.res_InputSignalLast1);
-    field_op(f, LocalVar->resP.res_InputSignalLast2);
-
-    field_op(f, LocalVar->rlP.LastSignal);
+    field_op(f, LocalVar->piP.pi);
+    field_op(f, LocalVar->resP.res);
+    field_op(f, LocalVar->rlP.rl);
 
     // --- objInst ---
     field_op(f, objInst->instLPF);

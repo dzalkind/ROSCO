@@ -25,18 +25,11 @@ void PitchControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvariab
     }
 
     // Gain scheduling via interpolation
-    LocalVar->PC_KP = interp1d(CntrPar->PC_GS_angles, CntrPar->n_PC_GS_angles,
-                                  CntrPar->PC_GS_KP, CntrPar->n_PC_GS_KP,
-                                  LocalVar->BlPitchCMeasF, ErrVar);
-    LocalVar->PC_KI = interp1d(CntrPar->PC_GS_angles, CntrPar->n_PC_GS_angles,
-                                  CntrPar->PC_GS_KI, CntrPar->n_PC_GS_KI,
-                                  LocalVar->BlPitchCMeasF, ErrVar);
-    LocalVar->PC_KD = interp1d(CntrPar->PC_GS_angles, CntrPar->n_PC_GS_angles,
-                                  CntrPar->PC_GS_KD, CntrPar->n_PC_GS_KD,
-                                  LocalVar->BlPitchCMeasF, ErrVar);
-    LocalVar->PC_TF = interp1d(CntrPar->PC_GS_angles, CntrPar->n_PC_GS_angles,
-                                  CntrPar->PC_GS_TF, CntrPar->n_PC_GS_TF,
-                                  LocalVar->BlPitchCMeasF, ErrVar);
+    ArrayView gs_angles = {CntrPar->PC_GS_angles, CntrPar->n_PC_GS_angles};
+    LocalVar->PC_KP = interp1d(gs_angles, {CntrPar->PC_GS_KP, CntrPar->n_PC_GS_KP}, LocalVar->BlPitchCMeasF, ErrVar);
+    LocalVar->PC_KI = interp1d(gs_angles, {CntrPar->PC_GS_KI, CntrPar->n_PC_GS_KI}, LocalVar->BlPitchCMeasF, ErrVar);
+    LocalVar->PC_KD = interp1d(gs_angles, {CntrPar->PC_GS_KD, CntrPar->n_PC_GS_KD}, LocalVar->BlPitchCMeasF, ErrVar);
+    LocalVar->PC_TF = interp1d(gs_angles, {CntrPar->PC_GS_TF, CntrPar->n_PC_GS_TF}, LocalVar->BlPitchCMeasF, ErrVar);
 
     // Collective pitch PI controller
     LocalVar->PC_PitComT = PIController(
@@ -112,20 +105,15 @@ void PitchControl(float* avrSWAP, controlparameters_view_t* CntrPar, localvariab
     // Open loop pitch control
     if (CntrPar->OL_Mode > 0) {
         if (LocalVar->Time >= CntrPar->OL_Breakpoints[0]) {
+            ArrayView ol_bp = {CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints};
             if (CntrPar->Ind_BldPitch[0] > 0) {
-                LocalVar->PitCom[0] = interp1d(CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints,
-                                                   CntrPar->OL_BldPitch1, CntrPar->n_OL_BldPitch1,
-                                                   LocalVar->OL_Index, ErrVar);
+                LocalVar->PitCom[0] = interp1d(ol_bp, {CntrPar->OL_BldPitch1, CntrPar->n_OL_BldPitch1}, LocalVar->OL_Index, ErrVar);
             }
             if (CntrPar->Ind_BldPitch[1] > 0) {
-                LocalVar->PitCom[1] = interp1d(CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints,
-                                                   CntrPar->OL_BldPitch2, CntrPar->n_OL_BldPitch2,
-                                                   LocalVar->OL_Index, ErrVar);
+                LocalVar->PitCom[1] = interp1d(ol_bp, {CntrPar->OL_BldPitch2, CntrPar->n_OL_BldPitch2}, LocalVar->OL_Index, ErrVar);
             }
             if (CntrPar->Ind_BldPitch[2] > 0) {
-                LocalVar->PitCom[2] = interp1d(CntrPar->OL_Breakpoints, CntrPar->n_OL_Breakpoints,
-                                                   CntrPar->OL_BldPitch3, CntrPar->n_OL_BldPitch3,
-                                                   LocalVar->OL_Index, ErrVar);
+                LocalVar->PitCom[2] = interp1d(ol_bp, {CntrPar->OL_BldPitch3, CntrPar->n_OL_BldPitch3}, LocalVar->OL_Index, ErrVar);
             }
         }
     }

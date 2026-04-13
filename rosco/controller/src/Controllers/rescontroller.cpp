@@ -3,12 +3,11 @@
 #include "../include/rosco_constants.h"
 
 double ResController(double error, double kp, double ki, double freq, double minValue, double maxValue, double DT, resparams_t* resP, int reset, int* inst) {
-    int idx = *inst - 1;  // Fortran 1-based -> C 0-based
+    int idx = *inst - 1;
+    ResState& s = inst_ref(resP->res, idx);
 
     double omega = 2 * PI * freq;
 
-    // Tustin RC coefficients — match Fortran operator precedence:
-    // omega**2*DT**2 = (omega*omega) * (DT*DT)
     double omega2_DT2 = (omega * omega) * (DT * DT);
     double b0 = 4 + omega2_DT2;
     double b1 = -8 + 2 * omega2_DT2;
@@ -20,20 +19,19 @@ double ResController(double error, double kp, double ki, double freq, double min
     double result = 0.0;
 
     if (reset) {
-        resP->res_OutputSignalLast1[idx] = 0;
-        resP->res_OutputSignalLast2[idx] = 0;
-        resP->res_InputSignalLast1[idx] = 0;
-        resP->res_InputSignalLast2[idx] = 0;
+        s.output_last1 = 0;
+        s.output_last2 = 0;
+        s.input_last1  = 0;
+        s.input_last2  = 0;
     } else {
-        result = 1 / b0 * (-b1 * resP->res_OutputSignalLast1[idx] - b2 * resP->res_OutputSignalLast2[idx]
-                            + a0 * error + a1 * resP->res_InputSignalLast1[idx] + a2 * resP->res_InputSignalLast2[idx]);
+        result = 1 / b0 * (-b1 * s.output_last1 - b2 * s.output_last2
+                            + a0 * error + a1 * s.input_last1 + a2 * s.input_last2);
         result = saturate(result, minValue, maxValue);
 
-        // Save signals for next time step
-        resP->res_InputSignalLast2[idx] = resP->res_InputSignalLast1[idx];
-        resP->res_InputSignalLast1[idx] = error;
-        resP->res_OutputSignalLast2[idx] = resP->res_OutputSignalLast1[idx];
-        resP->res_OutputSignalLast1[idx] = result;
+        s.input_last2  = s.input_last1;
+        s.input_last1  = error;
+        s.output_last2 = s.output_last1;
+        s.output_last1 = result;
     }
     *inst = *inst + 1;
 

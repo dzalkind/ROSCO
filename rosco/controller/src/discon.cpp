@@ -460,8 +460,13 @@ static void read_config_files(float* avrSWAP, char* accINFILE, int accINFILE_siz
 // ============================================================
 // DISCON — Bladed DLL entry point
 // ============================================================
-extern "C" __attribute__((visibility("default")))
-void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* avcOUTNAME, char* avcMSG) {
+#if defined(_WIN32)
+  #define DISCON_EXPORT extern "C" __declspec(dllexport)
+#else
+  #define DISCON_EXPORT extern "C" __attribute__((visibility("default")))
+#endif
+
+DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* avcOUTNAME, char* avcMSG) {
 
     // Extract message buffer size before try — needed in catch handlers
     int size_avcMSG     = (int)avrSWAP[48];   // avrSWAP(49) in Fortran (1-based)

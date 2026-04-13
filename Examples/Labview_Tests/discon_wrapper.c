@@ -1,3 +1,20 @@
+/*
+ * Build instructions for this wrapper:
+ *
+ * Unix (Linux):
+ *   gcc -O2 -fPIC -shared discon_wrapper.c -o discon_wrapper.so -ldl
+ *
+ * Unix (macOS):
+ *   clang -O2 -fPIC -dynamiclib discon_wrapper.c -o discon_wrapper.dylib
+ *
+ * Windows 32-bit (for 32-bit LabVIEW):
+ *   gcc -O2 -m32 -shared discon_wrapper.c -o discon_wrapper.dll
+ *
+ * Notes:
+ *   - LabVIEW bitness must match the DLL bitness (use 32-bit build with 32-bit LabVIEW).
+ *   - Place libdiscon.dll next to this wrapper DLL, or update LIB_NAME accordingly.
+ */
+
 #include <stdio.h>
 #include <string.h>
 
@@ -14,7 +31,7 @@
   #define OPEN_LIB(name)   dlopen(name, RTLD_NOW)
   #define GET_SYM(h, sym)  dlsym(h, sym)
   typedef void* lib_handle_t;
-  #define LIB_NAME "/Users/dzalkind/Tools/ROSCO-USFLOWT/rosco/lib/libdiscon.dylib"
+  #define LIB_NAME "/Users/dzalkind/Tools/ROSCO-C/rosco/lib/libdiscon.dylib"
 #endif
 
 #define DISCON_IN  "USFLOWT_10_DISCON.IN"
@@ -88,6 +105,11 @@ EXPORT void run_discon(
     avrSWAP[20] = rot_speed;
     avrSWAP[26] = wind_speed;
     avrSWAP[60] = (float)NUM_BL;
+
+    avrSWAP[32] = bld_pitch; // Set all blade pitches to the same value for this test
+    avrSWAP[33] = bld_pitch;
+    avrSWAP[22] = gen_torque ? *gen_torque : 0.0f; // Initial guess for gen torque, if provided
+
 
     /* String buffer sizes */
     avrSWAP[48] = (float)MSG_SIZE;

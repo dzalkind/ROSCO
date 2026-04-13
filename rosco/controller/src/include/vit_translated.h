@@ -58,18 +58,17 @@ void Shutdown(localvariables_t* LocalVar, const ControlParameters& CntrPar, obje
 void Startup(localvariables_t* LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, errorvariables_t* ErrVar);
 void WindSpeedEstimator(localvariables_t* LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, performancedata_view_t* PerfData, debugvariables_t* DebugVar, errorvariables_t* ErrVar);
 
-// ReadSetParameters (legacy — still write into controlparameters_view_t)
-void ReadAvrSWAP(float* avrSWAP, localvariables_t* LocalVar, controlparameters_view_t* CntrPar, errorvariables_t* ErrVar);
-void ReadControlParameterFileSub_pass1(controlparameters_view_t* CntrPar, localvariables_t* LocalVar, const char* filename, const char* priPath, errorvariables_t* ErrVar, int32_t* n_OL_rows, int32_t* OL_Count);
-void ReadControlParameterFileSub_pass2(controlparameters_view_t* CntrPar, localvariables_t* LocalVar, const char* filename, const char* priPath, errorvariables_t* ErrVar);
-void ReadCpFile(controlparameters_view_t* CntrPar, performancedata_view_t* PerfData, errorvariables_t* ErrVar);
-void SetParameters(controlparameters_view_t* CntrPar, localvariables_t* LocalVar, float* avrSWAP, objectinstances_t* objInst, errorvariables_t* ErrVar, int size_avcMSG);
-void CheckInputs(localvariables_t* LocalVar, controlparameters_view_t* CntrPar, float* avrSWAP, errorvariables_t* ErrVar, int32_t size_avcMSG);
+// ReadSetParameters
+void ReadAvrSWAP(float* avrSWAP, localvariables_t* LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar);
+void ReadControlParameterFileSub(ControlParameters& CntrPar, localvariables_t* LocalVar, const char* filename, const char* priPath, errorvariables_t* ErrVar);
+void ReadCpFile(const ControlParameters& CntrPar, performancedata_view_t* PerfData, errorvariables_t* ErrVar);
+void SetParameters(const ControlParameters& CntrPar, localvariables_t* LocalVar, float* avrSWAP, objectinstances_t* objInst, errorvariables_t* ErrVar, int size_avcMSG);
+void CheckInputs(localvariables_t* LocalVar, const ControlParameters& CntrPar, float* avrSWAP, errorvariables_t* ErrVar, int32_t size_avcMSG);
 
 // IO
 void ExtController(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, extcontroltype_view_t* ExtDLL, errorvariables_t* ErrVar);
-void WriteRestartFile(localvariables_t* LocalVar, controlparameters_view_t* CntrPar, errorvariables_t* ErrVar, objectinstances_t* objInst, char* RootName, int size_avcOUTNAME);
-void ReadRestartFile(float* avrSWAP, localvariables_t* LocalVar, controlparameters_view_t* CntrPar, objectinstances_t* objInst, performancedata_view_t* PerfData, char* RootName, int size_avcOUTNAME, errorvariables_t* ErrVar);
+void WriteRestartFile(localvariables_t* LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar, objectinstances_t* objInst, char* RootName, int size_avcOUTNAME);
+void ReadRestartFile(float* avrSWAP, localvariables_t* LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, performancedata_view_t* PerfData, char* RootName, int size_avcOUTNAME, errorvariables_t* ErrVar);
 void Debug(localvariables_t* LocalVar, const ControlParameters& CntrPar, debugvariables_t* DebugVar, errorvariables_t* ErrVar, float* avrSWAP, char* RootName, int size_avcOUTNAME);
 void UpdateZeroMQ(localvariables_t* LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar);
 

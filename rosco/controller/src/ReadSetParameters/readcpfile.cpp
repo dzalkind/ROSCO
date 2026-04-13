@@ -1,4 +1,5 @@
 #include "../include/vit_types.h"
+#include "../include/rosco_types.hpp"
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -67,11 +68,11 @@ static bool readMatrix(std::ifstream& f, double* mat, int n_rows, int n_cols,
     return true;
 }
 
-void ReadCpFile(controlparameters_view_t* CntrPar, performancedata_view_t* PerfData,
+void ReadCpFile(const ControlParameters& CntrPar, performancedata_view_t* PerfData,
                 errorvariables_t* ErrVar) {
 
-    // Extract filename (trim trailing spaces from Fortran CHARACTER)
-    std::string filename = trimFortranString(CntrPar->PerfFileName, 1024);
+    // PerfFileName is already a std::string
+    std::string filename = CntrPar.PerfFileName;
 
     // Open file
     std::ifstream f(filename);
@@ -81,8 +82,8 @@ void ReadCpFile(controlparameters_view_t* CntrPar, performancedata_view_t* PerfD
         return;
     }
 
-    int n_pitch = CntrPar->PerfTableSize[0];  // PerfTableSize(1) = number of pitch angles (columns)
-    int n_tsr   = CntrPar->PerfTableSize[1];  // PerfTableSize(2) = number of TSR values (rows)
+    int n_pitch = CntrPar.PerfTableSize[0];  // PerfTableSize(1) = number of pitch angles (columns)
+    int n_tsr   = CntrPar.PerfTableSize[1];  // PerfTableSize(2) = number of TSR values (rows)
 
     // ---- Axis Definitions ----
     // Skip 4 header/comment lines

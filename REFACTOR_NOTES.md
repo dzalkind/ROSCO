@@ -58,6 +58,42 @@ The C++ DLL is also a better fit for LabVIEW than the Fortran version because it
 
 ---
 
+## Building
+
+### Prerequisites
+
+- CMake ≥ 3.14
+- C++17 compiler (clang++ or g++)
+- Python 3 with `rosco` toolbox installed (for verification)
+
+### First-time setup
+
+```bash
+mkdir -p build
+cd build
+cmake ../rosco/controller
+```
+
+CMake will fetch `toml++` automatically via FetchContent on first configure. No other external dependencies are required (ZeroMQ is optional and detected automatically).
+
+### Build the shared library
+
+```bash
+cmake --build build
+```
+
+Output: `build/libdiscon.dylib` (macOS) or `build/libdiscon.so` (Linux).
+
+To install into `rosco/lib/` (where the Python toolbox and `verify_cpp.py` expect it):
+
+```bash
+cmake --install build
+```
+
+Or use the `--rebuild` flag in `verify_cpp.py` which handles the copy automatically.
+
+---
+
 ## Verification
 
 The `baseline_arrays/` directory contains 27 frozen `.npz` output files captured from the verified pure-C++ build. These are byte-identical to the original Fortran outputs and serve as the regression baseline for all refactoring work.
@@ -111,7 +147,43 @@ discon.cpp
 
 ---
 
+## Phase 2: Filter and Integrator State Refactor
+
+The flat `[1024]` parallel arrays in `filterparameters_t`, `piparams_t`, `resparams_t`, and `rlparams_t` have been replaced with `std::vector<PerInstanceState>`.
+
+**Before:**
+```c
+// 47 separate double[1024] arrays — ~385 KB of zeroed static state
+typedef struct {
+    double lpf1_a1[1024];
+    double lpf1_a0[1024];
+    double lpf1_InputSignalLast[1024];
+    double lpf1_OutputSignalLast[1024];
+    // ... 43 more
+} filterparameters_t;
+```
+
+**After:**
+```cpp
+// One struct per instance, one vector per filter type
+struct filterparameters_t {
+    std::vector<LPF1State> lpf1;   // grows to actual usage (~31 instances)
+    std::vector<LPF2State> lpf2;
+    std::vector<HPFState>  hpf;
+    // ...
+};
+```
+
+Each instance now has all its fields grouped in one struct (`s.a1`, `s.output_last`) instead of spread across a dozen parallel arrays. Vectors grow on first use and stay sized to actual instance count.
+
+All function signatures are unchanged — callers still pass `&LocalVar->FP`, `&LocalVar->piP` etc. Only the 10 filter/controller function bodies were updated.
+
+**Restart file format**: the checkpoint binary format changed (previously wrote fixed 1024-element arrays, now writes count + N elements). Old `.chkp` files from prior builds are not compatible.
+
+State structs are defined in `src/include/rosco_objects.hpp`.
+
+---
+
 ## Future Work
 
-- **Phase 2**: Lift filters and integrators into stateful C++ classes (`LowPassFilter`, `NotchFilter`, `PIController`) that own their state, replacing the flat `FilterParameters`/`piParams` fields in `LocalVariables`. Can be done one subsystem at a time.
 - **`discon_convert.py`**: Migration script to convert existing `DISCON.IN` files to TOML format for users who want to migrate without retuning.

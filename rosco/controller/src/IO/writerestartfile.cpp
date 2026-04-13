@@ -1,6 +1,7 @@
 #include "../include/restart_fields.h"
+#include "../include/rosco_types.hpp"
 
-void WriteRestartFile(localvariables_t* LocalVar, controlparameters_view_t* /*CntrPar*/,
+void WriteRestartFile(localvariables_t* LocalVar, const ControlParameters& /*CntrPar*/,
                       errorvariables_t* ErrVar, objectinstances_t* objInst,
                       char* RootName, int size_avcOUTNAME) {
     std::string root = trim_fortran_string(RootName, size_avcOUTNAME);

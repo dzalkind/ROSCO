@@ -1,7 +1,8 @@
 #include "../include/restart_fields.h"
+#include "../include/rosco_types.hpp"
 
 void ReadRestartFile(float* avrSWAP, localvariables_t* LocalVar,
-                     controlparameters_view_t* /*CntrPar*/, objectinstances_t* objInst,
+                     const ControlParameters& /*CntrPar*/, objectinstances_t* objInst,
                      performancedata_view_t* /*PerfData*/, char* RootName,
                      int size_avcOUTNAME, errorvariables_t* ErrVar) {
     std::string root = trim_fortran_string(RootName, size_avcOUTNAME);

@@ -1,9 +1,10 @@
 #include "../include/vit_types.h"
+#include "../include/rosco_types.hpp"
 #include "../include/rosco_constants.h"
 #include <cmath>
 #include <cstring>
 
-void ReadAvrSWAP(float* avrSWAP, localvariables_t* LocalVar, controlparameters_view_t* CntrPar, errorvariables_t* ErrVar) {
+void ReadAvrSWAP(float* avrSWAP, localvariables_t* LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar) {
     int32_t K;
 
     // Load variables from calling program (See Appendix A of Bladed User's Guide)
@@ -27,7 +28,7 @@ void ReadAvrSWAP(float* avrSWAP, localvariables_t* LocalVar, controlparameters_v
     LocalVar->Azimuth        = avrSWAP[59];
     LocalVar->NumBl          = static_cast<int32_t>(std::round(avrSWAP[60]));
 
-    if (CntrPar->Ext_Interface > 0) {
+    if (CntrPar.Ext_Interface > 0) {
         // Platform signals
         LocalVar->PtfmTDX = avrSWAP[1000];
         LocalVar->PtfmTDY = avrSWAP[1001];
@@ -68,9 +69,9 @@ void ReadAvrSWAP(float* avrSWAP, localvariables_t* LocalVar, controlparameters_v
         LocalVar->BlPitch[1] = avrSWAP[32];
         LocalVar->BlPitch[2] = avrSWAP[33];
     } else {
-        if (CntrPar->PF_Mode == 1) {
+        if (CntrPar.PF_Mode == 1) {
             for (K = 1; K <= LocalVar->NumBl; K++) {
-                LocalVar->BlPitch[K - 1] = LocalVar->PitComAct[K - 1] - CntrPar->PF_Offsets[K - 1];
+                LocalVar->BlPitch[K - 1] = LocalVar->PitComAct[K - 1] - CntrPar.PF_Offsets[K - 1];
             }
         } else {
             LocalVar->BlPitch[0] = LocalVar->PitComAct[0];

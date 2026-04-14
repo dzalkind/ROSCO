@@ -32,14 +32,16 @@ void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, localvaria
 
         // Update filtered wind direction
         double WindDirPlusOffset = wrap_180(LocalVar->WindDir + NacVaneOffset);
-        double WindDirPlusOffsetCosF = LPFilter(
-            cos(WindDirPlusOffset * D2R), LocalVar->DT, CntrPar.F_YawErr,
-            &LocalVar->FP, LocalVar->iStatus, 0, &objInst->instLPF,
-            0, 0.0);
-        double WindDirPlusOffsetSinF = LPFilter(
-            sin(WindDirPlusOffset * D2R), LocalVar->DT, CntrPar.F_YawErr,
-            &LocalVar->FP, LocalVar->iStatus, 0, &objInst->instLPF,
-            0, 0.0);
+        double WDpO_cos = cos(WindDirPlusOffset * D2R);
+        double WDpO_sin = sin(WindDirPlusOffset * D2R);
+
+        static LPFilter windDirCosFilter;
+        if (LocalVar->iStatus == 0) windDirCosFilter.init(CntrPar.F_YawErr, LocalVar->DT, WDpO_cos);
+        double WindDirPlusOffsetCosF = windDirCosFilter.step(WDpO_cos);
+
+        static LPFilter windDirSinFilter;
+        if (LocalVar->iStatus == 0) windDirSinFilter.init(CntrPar.F_YawErr, LocalVar->DT, WDpO_sin);
+        double WindDirPlusOffsetSinF = windDirSinFilter.step(WDpO_sin);
         double NacHeadingTarget = wrap_180(atan2(WindDirPlusOffsetSinF, WindDirPlusOffsetCosF) * R2D);
 
         // Yaw error

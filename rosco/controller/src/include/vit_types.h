@@ -369,7 +369,6 @@ typedef struct {
 #define FILTERPARAMETERS_T_H
 
 struct filterparameters_t {
-    std::vector<LPF1State>        lpf1;   // LPFilter instances
     std::vector<LPF2State>        lpf2;   // SecLPFilter instances
     std::vector<LPFVState>        lpfV;   // SecLPFilter_Vel instances
     std::vector<HPFState>         hpf;    // HPFilter instances
@@ -386,7 +385,6 @@ struct filterparameters_t {
 #define OBJECTINSTANCES_T_H
 
 typedef struct {
-    int instLPF;
     int instSecLPF;
     int instSecLPFV;
     int instHPF;

@@ -242,7 +242,6 @@ void checkpoint_fields(Stream& f, localvariables_t* LocalVar,
     field_op(f, LocalVar->WE.K);
 
     // --- FP (FilterParameters) — vectors of per-instance state structs ---
-    field_op(f, LocalVar->FP.lpf1);
     field_op(f, LocalVar->FP.lpf2);
     field_op(f, LocalVar->FP.lpfV);
     field_op(f, LocalVar->FP.hpf);
@@ -255,7 +254,6 @@ void checkpoint_fields(Stream& f, localvariables_t* LocalVar,
     field_op(f, LocalVar->rlP.rl);
 
     // --- objInst ---
-    field_op(f, objInst->instLPF);
     field_op(f, objInst->instSecLPF);
     field_op(f, objInst->instSecLPFV);
     field_op(f, objInst->instHPF);

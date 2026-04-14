@@ -1,26 +1,21 @@
-#include "../include/vit_types.h"
+#include "lpfilter.hpp"
 
-double LPFilter(double InputSignal, double DT, double CornerFreq, filterparameters_t* FP, int iStatus, int reset, int* inst, int has_InitialValue, double InitialValue) {
-    int idx = *inst - 1;
-    LPF1State& s = inst_ref(FP->lpf1, idx);
+LPFilter::LPFilter(double CornerFreq, double DT, double InitialValue) {
+    init(CornerFreq, DT, InitialValue);
+}
 
-    double InitialValue_ = has_InitialValue ? InitialValue : InputSignal;
+void LPFilter::init(double CornerFreq, double DT, double InitialValue) {
+    a1 = 2.0 + CornerFreq * DT;
+    a0 = CornerFreq * DT - 2.0;
+    b1 = CornerFreq * DT;
+    b0 = CornerFreq * DT;
+    input_last  = InitialValue;
+    output_last = InitialValue;
+}
 
-    if (iStatus == 0 || reset) {
-        s.output_last = InitialValue_;
-        s.input_last  = InitialValue_;
-        s.a1 = 2.0 + CornerFreq * DT;
-        s.a0 = CornerFreq * DT - 2.0;
-        s.b1 = CornerFreq * DT;
-        s.b0 = CornerFreq * DT;
-    }
-
-    double result = 1.0 / s.a1 *
-        (-s.a0 * s.output_last + s.b1 * InputSignal + s.b0 * s.input_last);
-
-    s.input_last  = InputSignal;
-    s.output_last = result;
-    *inst = *inst + 1;
-
-    return result;
+double LPFilter::step(double input) {
+    double output = (1.0 / a1) * (-a0 * output_last + b1 * input + b0 * input_last);
+    input_last  = input;
+    output_last = output;
+    return output;
 }

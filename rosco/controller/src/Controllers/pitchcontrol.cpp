@@ -140,14 +140,12 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, localvariabl
     }
 
     // Pitch actuator model
+    static LPFilter pitchActFilter[3];
     for (int K = 0; K < LocalVar->NumBl; K++) {
         if (CntrPar.PA_Mode > 0) {
             if (CntrPar.PA_Mode == 1) {
-                LocalVar->PitComAct[K] = LPFilter(
-                    LocalVar->PitCom[K], LocalVar->DT, CntrPar.PA_CornerFreq,
-                    &LocalVar->FP, LocalVar->iStatus,
-                    (LocalVar->restart != 0), &objInst->instLPF,
-                    0, 0.0);
+                if (LocalVar->iStatus == 0 || LocalVar->restart) pitchActFilter[K].init(CntrPar.PA_CornerFreq, LocalVar->DT, LocalVar->PitCom[K]);
+                LocalVar->PitComAct[K] = pitchActFilter[K].step(LocalVar->PitCom[K]);
             } else if (CntrPar.PA_Mode == 2) {
                 LocalVar->PitComAct[K] = SecLPFilter(
                     LocalVar->PitCom[K], LocalVar->DT,

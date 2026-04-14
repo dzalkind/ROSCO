@@ -13,25 +13,26 @@ void Shutdown(localvariables_t* LocalVar, const ControlParameters& CntrPar, obje
     }
 
     // Filter pitch signal
-    LocalVar->SD_BlPitchF = LPFilter(LocalVar->BlPitchCMeas, LocalVar->DT, CntrPar.SD_PitchCornerFreq,
-                                        &LocalVar->FP, LocalVar->iStatus,
-                                        (LocalVar->restart != 0) ? 1 : 0,
-                                        &objInst->instLPF, 0, 0.0);
+    static LPFilter pitchFilter;
+    if (LocalVar->iStatus == 0 || LocalVar->restart) pitchFilter.init(CntrPar.SD_PitchCornerFreq, LocalVar->DT, LocalVar->BlPitchCMeas);
+    LocalVar->SD_BlPitchF = pitchFilter.step(LocalVar->BlPitchCMeas);
+
     // Filter generator speed
-    LocalVar->SD_GenSpeedF = LPFilter(LocalVar->GenSpeed, LocalVar->DT, CntrPar.SD_GenSpdCornerFreq,
-                                         &LocalVar->FP, LocalVar->iStatus,
-                                         (LocalVar->restart != 0) ? 1 : 0,
-                                         &objInst->instLPF, 0, 0.0);
+    static LPFilter genSpeedFilter;
+    if (LocalVar->iStatus == 0 || LocalVar->restart) genSpeedFilter.init(CntrPar.SD_GenSpdCornerFreq, LocalVar->DT, LocalVar->GenSpeed);
+    LocalVar->SD_GenSpeedF = genSpeedFilter.step(LocalVar->GenSpeed);
 
     // Filter yaw error signal (NacVane)
-    double SD_NacVaneCosF = LPFilter(std::cos(LocalVar->NacVane * D2R), LocalVar->DT, CntrPar.SD_YawErrorCornerFreq,
-                                        &LocalVar->FP, LocalVar->iStatus,
-                                        (LocalVar->restart != 0) ? 1 : 0,
-                                        &objInst->instLPF, 0, 0.0);
-    double SD_NacVaneSinF = LPFilter(std::sin(LocalVar->NacVane * D2R), LocalVar->DT, CntrPar.SD_YawErrorCornerFreq,
-                                        &LocalVar->FP, LocalVar->iStatus,
-                                        (LocalVar->restart != 0) ? 1 : 0,
-                                        &objInst->instLPF, 0, 0.0);
+    double SD_NacVane_cos = std::cos(LocalVar->NacVane * D2R);
+    double SD_NacVane_sin = std::sin(LocalVar->NacVane * D2R);
+
+    static LPFilter nacVaneCosFilter;
+    if (LocalVar->iStatus == 0 || LocalVar->restart) nacVaneCosFilter.init(CntrPar.SD_YawErrorCornerFreq, LocalVar->DT, SD_NacVane_cos);
+    double SD_NacVaneCosF = nacVaneCosFilter.step(SD_NacVane_cos);
+
+    static LPFilter nacVaneSinFilter;
+    if (LocalVar->iStatus == 0 || LocalVar->restart) nacVaneSinFilter.init(CntrPar.SD_YawErrorCornerFreq, LocalVar->DT, SD_NacVane_sin);
+    double SD_NacVaneSinF = nacVaneSinFilter.step(SD_NacVane_sin);
     LocalVar->SD_NacVaneF = wrap_180(std::atan2(SD_NacVaneSinF, SD_NacVaneCosF) * R2D);
 
     // Check for shutdown conditions

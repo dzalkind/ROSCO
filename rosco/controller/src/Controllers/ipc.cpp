@@ -21,10 +21,9 @@ void IPC(const ControlParameters& CntrPar, localvariables_t* LocalVar, objectins
     double Y_MErrF_IPC = 0.0;
     if (CntrPar.Y_ControlMode == 2) {
         double Y_MErr = wrap_360(LocalVar->NacHeading + LocalVar->NacVane);
-        Y_MErrF = LPFilter(Y_MErr, LocalVar->DT, CntrPar.F_YawErr,
-                              &LocalVar->FP, LocalVar->iStatus,
-                              (LocalVar->restart != 0), &objInst->instSecLPF,
-                              0, 0.0);
+        static LPFilter yawErrFilter;
+        if (LocalVar->iStatus == 0 || LocalVar->restart) yawErrFilter.init(CntrPar.F_YawErr, LocalVar->DT, Y_MErr);
+        Y_MErrF = yawErrFilter.step(Y_MErr);
         Y_MErrF_IPC = PIController(Y_MErrF, CntrPar.Y_IPC_KP, CntrPar.Y_IPC_KI,
                                       -CntrPar.Y_IPC_IntSat, CntrPar.Y_IPC_IntSat,
                                       LocalVar->DT, 0.0, &LocalVar->piP,
@@ -94,14 +93,13 @@ void IPC(const ControlParameters& CntrPar, localvariables_t* LocalVar, objectins
                                LocalVar->Azimuth, 2, CntrPar.IPC_aziOffset[1], PitComIPC_2P);
 
     // Sum 1P and 2P contributions, optionally filter
+    static LPFilter ipcActFilter[3];
     for (int K = 0; K < LocalVar->NumBl; K++) {
         PitComIPC[K] = PitComIPC_1P[K] + PitComIPC_2P[K];
 
         if (CntrPar.IPC_CornerFreqAct > 0.0) {
-            PitComIPCF[K] = LPFilter(PitComIPC[K], LocalVar->DT,
-                                        CntrPar.IPC_CornerFreqAct, &LocalVar->FP,
-                                        LocalVar->iStatus, (LocalVar->restart != 0),
-                                        &objInst->instLPF, 0, 0.0);
+            if (LocalVar->iStatus == 0 || LocalVar->restart) ipcActFilter[K].init(CntrPar.IPC_CornerFreqAct, LocalVar->DT, PitComIPC[K]);
+            PitComIPCF[K] = ipcActFilter[K].step(PitComIPC[K]);
         } else {
             PitComIPCF[K] = PitComIPC[K];
         }

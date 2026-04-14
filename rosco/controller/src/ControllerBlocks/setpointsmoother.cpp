@@ -11,10 +11,9 @@ void SetpointSmoother(localvariables_t* LocalVar, const ControlParameters& CntrP
                         - ((CntrPar.VS_RtPwr * R_Total - LocalVar->VS_LastGenPwr)) / CntrPar.VS_RtPwr * CntrPar.SS_PCGain;
         DelOmega = DelOmega * CntrPar.PC_RefSpd;
         // Filter
-        LocalVar->SS_DelOmegaF = LPFilter(DelOmega, LocalVar->DT, CntrPar.F_SSCornerFreq,
-                                             &LocalVar->FP, LocalVar->iStatus,
-                                             (LocalVar->restart != 0) ? 1 : 0,
-                                             &objInst->instLPF, 0, 0.0);
+        static LPFilter ssFilter;
+        if (LocalVar->iStatus == 0 || LocalVar->restart) ssFilter.init(CntrPar.F_SSCornerFreq, LocalVar->DT, DelOmega);
+        LocalVar->SS_DelOmegaF = ssFilter.step(DelOmega);
     } else {
         LocalVar->SS_DelOmegaF = 0; // No setpoint smoothing
     }

@@ -73,12 +73,10 @@ void WindSpeedEstimator(localvariables_t* LocalVar, const ControlParameters& Cnt
         }
     }
 
-    // Filter hub height wind speed (with OPTIONAL InitialValue = WE_Vw)
-    LocalVar->HorWindV_F = std::cos(LocalVar->NacVaneF * D2R) *
-        LPFilter(LocalVar->HorWindV, LocalVar->DT, CntrPar.F_WECornerFreq / 10.0,
-                   &LocalVar->FP, LocalVar->RestartWSE,
-                   (LocalVar->restart != 0) ? 1 : 0,
-                   &objInst->instLPF, 1, LocalVar->WE_Vw);
+    // Filter hub height wind speed; initialize to WE_Vw on first WSE call or restart
+    static LPFilter horWindFilter;
+    if (LocalVar->RestartWSE == 0 || LocalVar->restart) horWindFilter.init(CntrPar.F_WECornerFreq / 10.0, LocalVar->DT, LocalVar->WE_Vw);
+    LocalVar->HorWindV_F = std::cos(LocalVar->NacVaneF * D2R) * horWindFilter.step(LocalVar->HorWindV);
 
     // Debug inputs
     DebugVar->WE_b = WE_Inp_Pitch;

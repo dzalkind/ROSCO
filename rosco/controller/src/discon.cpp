@@ -141,7 +141,6 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         ErrVar.aviFAIL    = 0;
         ErrVar.size_avcMSG = size_avcMSG;
 
-        objInst.instLPF         = 1;
         objInst.instSecLPF      = 1;
         objInst.instSecLPFV     = 1;
         objInst.instHPF         = 1;

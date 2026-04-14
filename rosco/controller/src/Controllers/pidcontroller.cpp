@@ -7,7 +7,8 @@ double PIDController(double error, double kp, double ki, double kd, double tf, d
 
     double result;
 
-    double EFilt = LPFilter(error, DT, tf, &LocalVar->FP, LocalVar->iStatus, reset, &objInst->instLPF, 0, 0.0);
+    if (LocalVar->iStatus == 0 || reset) s.deriv.init(tf, DT, error);
+    double EFilt = s.deriv.step(error);
 
     if (reset) {
         s.iterm      = I0;

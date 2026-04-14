@@ -6,10 +6,9 @@ void Startup(localvariables_t* LocalVar, const ControlParameters& CntrPar, objec
     double SU_PrevLoad;
 
     // Filtered rotor speed
-    LocalVar->SU_RotSpeedF = LPFilter(LocalVar->RotSpeed, LocalVar->DT, CntrPar.SU_RotorSpeedCornerFreq,
-                                         &LocalVar->FP, LocalVar->iStatus,
-                                         (LocalVar->restart != 0) ? 1 : 0,
-                                         &objInst->instLPF, 0, 0.0);
+    static LPFilter rotSpeedFilter;
+    if (LocalVar->iStatus == 0 || LocalVar->restart) rotSpeedFilter.init(CntrPar.SU_RotorSpeedCornerFreq, LocalVar->DT, LocalVar->RotSpeed);
+    LocalVar->SU_RotSpeedF = rotSpeedFilter.step(LocalVar->RotSpeed);
 
     // Initialize startup stage
     if (LocalVar->iStatus == 0) {

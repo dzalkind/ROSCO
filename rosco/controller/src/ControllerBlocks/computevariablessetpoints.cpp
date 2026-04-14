@@ -10,10 +10,9 @@ void ComputeVariablesSetpoints(const ControlParameters& CntrPar, localvariables_
 
     // Lookup table for speed setpoint (PRC_Mode 1)
     if (CntrPar.PRC_Mode == 1) {
-        LocalVar->PRC_WSE_F = LPFilter(LocalVar->WE_Vw, LocalVar->DT, CntrPar.PRC_LPF_Freq,
-                                          &LocalVar->FP, LocalVar->iStatus,
-                                          (LocalVar->restart != 0) ? 1 : 0,
-                                          &objInst->instLPF, 0, 0.0);
+        static LPFilter prcWindFilter;
+        if (LocalVar->iStatus == 0 || LocalVar->restart) prcWindFilter.init(CntrPar.PRC_LPF_Freq, LocalVar->DT, LocalVar->WE_Vw);
+        LocalVar->PRC_WSE_F = prcWindFilter.step(LocalVar->WE_Vw);
         LocalVar->PC_RefSpd_PRC = interp1d(CntrPar.PRC_WindSpeeds,
                                            CntrPar.PRC_GenSpeeds,
                                            LocalVar->PRC_WSE_F, ErrVar);
@@ -64,10 +63,9 @@ void ComputeVariablesSetpoints(const ControlParameters& CntrPar, localvariables_
     LocalVar->VS_RefSpd = LocalVar->VS_RefSpd_TSR * LocalVar->PRC_R_Speed;
 
     // Filter reference signal
-    LocalVar->VS_RefSpd = LPFilter(LocalVar->VS_RefSpd_TSR, LocalVar->DT, CntrPar.F_VSRefSpdCornerFreq,
-                                      &LocalVar->FP, LocalVar->iStatus,
-                                      (LocalVar->restart != 0) ? 1 : 0,
-                                      &objInst->instLPF, 0, 0.0);
+    static LPFilter refSpdFilter;
+    if (LocalVar->iStatus == 0 || LocalVar->restart) refSpdFilter.init(CntrPar.F_VSRefSpdCornerFreq, LocalVar->DT, LocalVar->VS_RefSpd_TSR);
+    LocalVar->VS_RefSpd = refSpdFilter.step(LocalVar->VS_RefSpd_TSR);
 
     // Exclude reference speeds specified by user
     if (CntrPar.TRA_Mode > 0) {

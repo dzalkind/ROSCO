@@ -11,16 +11,7 @@
 
 #pragma once
 #include <vector>
-
-// ---------------------------------------------------------------------------
-// First-order low-pass filter (LPFilter)
-// ---------------------------------------------------------------------------
-struct LPF1State {
-    double a1 = 0, a0 = 0;          // denominator coefficients
-    double b1 = 0, b0 = 0;          // numerator coefficients
-    double input_last  = 0;
-    double output_last = 0;
-};
+#include "../Filters/lpfilter.hpp"
 
 // ---------------------------------------------------------------------------
 // Second-order low-pass filter (SecLPFilter)
@@ -78,7 +69,8 @@ struct PIState {
     double iterm_last  = 0;   // ITermLast
     double iterm2      = 0;   // ITerm2  (PII second integrator)
     double iterm2_last = 0;   // ITermLast2
-    double e_last      = 0;   // ELast   (unused in current impl, kept for compat)
+    double e_last      = 0;   // ELast
+    LPFilter deriv;           // derivative low-pass filter (PID only)
 };
 
 // ---------------------------------------------------------------------------

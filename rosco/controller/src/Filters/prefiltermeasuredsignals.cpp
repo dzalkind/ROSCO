@@ -16,12 +16,13 @@ void PreFilterMeasuredSignals(const ControlParameters& CntrPar, localvariables_t
     // Filter the HSS (generator) and LSS (rotor) speed measurement:
     // Apply Low-Pass Filter (choice between first- and second-order low-pass filter)
     if (CntrPar.F_LPFType == 1) {
-        LocalVar->GenSpeedF = LPFilter(LocalVar->GenSpeed, LocalVar->DT,
-            CntrPar.F_LPFCornerFreq, &LocalVar->FP, LocalVar->iStatus, reset,
-            &objInst->instLPF, 0, 0.0);
-        LocalVar->RotSpeedF = LPFilter(LocalVar->RotSpeed, LocalVar->DT,
-            CntrPar.F_LPFCornerFreq, &LocalVar->FP, LocalVar->iStatus, reset,
-            &objInst->instLPF, 0, 0.0);
+        static LPFilter genSpeedFilter;
+        if (LocalVar->iStatus == 0 || reset) genSpeedFilter.init(CntrPar.F_LPFCornerFreq, LocalVar->DT, LocalVar->GenSpeed);
+        LocalVar->GenSpeedF = genSpeedFilter.step(LocalVar->GenSpeed);
+
+        static LPFilter rotSpeedFilter;
+        if (LocalVar->iStatus == 0 || reset) rotSpeedFilter.init(CntrPar.F_LPFCornerFreq, LocalVar->DT, LocalVar->RotSpeed);
+        LocalVar->RotSpeedF = rotSpeedFilter.step(LocalVar->RotSpeed);
     } else if (CntrPar.F_LPFType == 2) {
         LocalVar->GenSpeedF = SecLPFilter(LocalVar->GenSpeed, LocalVar->DT,
             CntrPar.F_LPFCornerFreq, CntrPar.F_LPFDamping, &LocalVar->FP,
@@ -84,9 +85,9 @@ void PreFilterMeasuredSignals(const ControlParameters& CntrPar, localvariables_t
     }
 
     // Filter Wind Speed Estimator Signal
-    LocalVar->WE_Vw_F = LPFilter(LocalVar->WE_Vw, LocalVar->DT,
-        CntrPar.F_WECornerFreq, &LocalVar->FP, LocalVar->iStatus, reset,
-        &objInst->instLPF, 0, 0.0);
+    static LPFilter weVwFilter;
+    if (LocalVar->iStatus == 0 || reset) weVwFilter.init(CntrPar.F_WECornerFreq, LocalVar->DT, LocalVar->WE_Vw);
+    LocalVar->WE_Vw_F = weVwFilter.step(LocalVar->WE_Vw);
 
     // Blade root bending moment for IPC
     for (int K = 0; K < LocalVar->NumBl; K++) {
@@ -128,12 +129,16 @@ void PreFilterMeasuredSignals(const ControlParameters& CntrPar, localvariables_t
         &objInst->instSecLPF, 0, 0.0);
 
     // Wind vane signal
-    double NacVaneCosF = LPFilter(cos(LocalVar->NacVane * D2R), LocalVar->DT,
-        CntrPar.F_YawErr, &LocalVar->FP, LocalVar->iStatus, 0,
-        &objInst->instLPF, 0, 0.0);
-    double NacVaneSinF = LPFilter(sin(LocalVar->NacVane * D2R), LocalVar->DT,
-        CntrPar.F_YawErr, &LocalVar->FP, LocalVar->iStatus, 0,
-        &objInst->instLPF, 0, 0.0);
+    double NacVane_cos = cos(LocalVar->NacVane * D2R);
+    double NacVane_sin = sin(LocalVar->NacVane * D2R);
+
+    static LPFilter nacVaneCosFilter;
+    if (LocalVar->iStatus == 0) nacVaneCosFilter.init(CntrPar.F_YawErr, LocalVar->DT, NacVane_cos);
+    double NacVaneCosF = nacVaneCosFilter.step(NacVane_cos);
+
+    static LPFilter nacVaneSinFilter;
+    if (LocalVar->iStatus == 0) nacVaneSinFilter.init(CntrPar.F_YawErr, LocalVar->DT, NacVane_sin);
+    double NacVaneSinF = nacVaneSinFilter.step(NacVane_sin);
     LocalVar->NacVaneF = wrap_180(atan2(NacVaneSinF, NacVaneCosF) * R2D);
 
     // Debug Variables

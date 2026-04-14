@@ -1,4 +1,5 @@
 #include "../include/vit_types.h"
+#include "../include/rosco_objects.hpp"
 #include "../include/vit_translated.h"
 #include <cmath>
 #include <cstring>
@@ -13,7 +14,7 @@
 #define WE_K(i)    LocalVar->WE.K[(i)-1][0]
 
 void WindSpeedEstimator(localvariables_t* LocalVar, const ControlParameters& CntrPar,
-                        objectinstances_t* objInst, performancedata_view_t* PerfData,
+                        objectinstances_t* objInst, const PerformanceData& PerfData,
                         debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
 
     double WE_Inp_Pitch, WE_Inp_Torque, WE_Inp_Speed, Max_Op_Pitch;
@@ -30,7 +31,7 @@ void WindSpeedEstimator(localvariables_t* LocalVar, const ControlParameters& Cnt
     // Blade pitch
     if (CntrPar.WE_Mode > 0) {
         // PerfData%Beta_vec(SIZE(PerfData%Beta_vec)) — last element, 0-based
-        Max_Op_Pitch = PerfData->Beta_vec[PerfData->n_Beta_vec - 1] * D2R;
+        Max_Op_Pitch = PerfData.Beta_vec.back() * D2R;
     } else {
         Max_Op_Pitch = 0.0;
     }
@@ -147,10 +148,10 @@ void WindSpeedEstimator(localvariables_t* LocalVar, const ControlParameters& Cnt
                                    LocalVar->WE.v_h, ErrVar);
 
             lambda = (WE_Inp_Speed > eps ? WE_Inp_Speed : eps) * CntrPar.WE_BladeRadius / LocalVar->WE.v_h;
-            Cp_op = interp2d(PerfData->Beta_vec, PerfData->n_Beta_vec,
-                               PerfData->TSR_vec, PerfData->n_TSR_vec,
-                               PerfData->Cp_mat, PerfData->n_Cp_mat_rows, PerfData->n_Cp_mat_cols,
-                               WE_Inp_Pitch * R2D, lambda, ErrVar);
+            Cp_op = interp2d(PerfData.Beta_vec.data(), (int)PerfData.Beta_vec.size(),
+                             PerfData.TSR_vec.data(),  (int)PerfData.TSR_vec.size(),
+                             PerfData.Cp_mat.data(),   (int)PerfData.TSR_vec.size(), (int)PerfData.Beta_vec.size(),
+                             WE_Inp_Pitch * R2D, lambda, ErrVar);
             Cp_op = Cp_op > 0.0 ? Cp_op : 0.0;
 
             // Update Jacobian F

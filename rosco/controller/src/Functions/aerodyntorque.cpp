@@ -1,4 +1,5 @@
 #include "../include/vit_types.h"
+#include "../include/rosco_objects.hpp"
 #include "../include/vit_translated.h"
 #include <cmath>
 #include <cstring>
@@ -7,7 +8,7 @@
 #include "../include/rosco_constants.h"
 
 double AeroDynTorque(double RotSpeed, double BldPitch, localvariables_t* LocalVar,
-                     const ControlParameters& CntrPar, performancedata_view_t* PerfData,
+                     const ControlParameters& CntrPar, const PerformanceData& PerfData,
                      errorvariables_t* ErrVar) {
 
     // Find Torque
@@ -17,10 +18,10 @@ double AeroDynTorque(double RotSpeed, double BldPitch, localvariables_t* LocalVa
     double Lambda = RotSpeed * CntrPar.WE_BladeRadius / WindSpeed;
 
     // Compute Cp via 2D interpolation on performance surface
-    double Cp = interp2d(PerfData->Beta_vec, PerfData->n_Beta_vec,
-                           PerfData->TSR_vec, PerfData->n_TSR_vec,
-                           PerfData->Cp_mat, PerfData->n_Cp_mat_rows, PerfData->n_Cp_mat_cols,
-                           BldPitch * R2D, Lambda, ErrVar);
+    double Cp = interp2d(PerfData.Beta_vec.data(), (int)PerfData.Beta_vec.size(),
+                         PerfData.TSR_vec.data(),  (int)PerfData.TSR_vec.size(),
+                         PerfData.Cp_mat.data(),   (int)PerfData.TSR_vec.size(), (int)PerfData.Beta_vec.size(),
+                         BldPitch * R2D, Lambda, ErrVar);
 
     double result = 0.5 * (CntrPar.WE_RhoAir * RotorArea) * (LocalVar->WE_Vw * LocalVar->WE_Vw * LocalVar->WE_Vw / RotSpeed) * Cp;
     result = result > 0.0 ? result : 0.0;

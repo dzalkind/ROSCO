@@ -6,6 +6,7 @@
 #include "vit_types.h"
 #include "rosco_array.hpp"
 #include "rosco_types.hpp"
+#include "rosco_objects.hpp"
 #include <stdint.h>
 
 // Functions
@@ -18,8 +19,8 @@ void ColemanTransformInverse(double axTIn, double axYIn, double aziAngle, int nH
 void identity(int n, double* identity_result);
 double sigma(double x, double x0, double x1, double y0, double y1, errorvariables_t* ErrVar);
 double interp1d(ArrayView xData, ArrayView yData, double xq, errorvariables_t* ErrVar);
-double interp2d(double* xData, int n_xData, double* yData, int n_yData, double* zData, int n_zData_rows, int n_zData_cols, double xq, double yq, errorvariables_t* ErrVar);
-double AeroDynTorque(double RotSpeed, double BldPitch, localvariables_t* LocalVar, const ControlParameters& CntrPar, performancedata_view_t* PerfData, errorvariables_t* ErrVar);
+double interp2d(const double* xData, int n_xData, const double* yData, int n_yData, const double* zData, int n_zData_rows, int n_zData_cols, double xq, double yq, errorvariables_t* ErrVar);
+double AeroDynTorque(double RotSpeed, double BldPitch, localvariables_t* LocalVar, const ControlParameters& CntrPar, const PerformanceData& PerfData, errorvariables_t* ErrVar);
 void unwrap(double* x, int n_x, errorvariables_t* ErrVar, double* unwrap_result);
 
 // Filters
@@ -56,19 +57,19 @@ void RefSpeedExclusion(localvariables_t* LocalVar, const ControlParameters& Cntr
 void ComputeVariablesSetpoints(const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar);
 void Shutdown(localvariables_t* LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, errorvariables_t* ErrVar);
 void Startup(localvariables_t* LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, errorvariables_t* ErrVar);
-void WindSpeedEstimator(localvariables_t* LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, performancedata_view_t* PerfData, debugvariables_t* DebugVar, errorvariables_t* ErrVar);
+void WindSpeedEstimator(localvariables_t* LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, const PerformanceData& PerfData, debugvariables_t* DebugVar, errorvariables_t* ErrVar);
 
 // ReadSetParameters
 void ReadAvrSWAP(float* avrSWAP, localvariables_t* LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar);
 void ReadControlParameterFileSub(ControlParameters& CntrPar, localvariables_t* LocalVar, const char* filename, const char* priPath, errorvariables_t* ErrVar);
-void ReadCpFile(const ControlParameters& CntrPar, performancedata_view_t* PerfData, errorvariables_t* ErrVar);
+void ReadCpFile(const ControlParameters& CntrPar, PerformanceData& PerfData, errorvariables_t* ErrVar);
 void SetParameters(const ControlParameters& CntrPar, localvariables_t* LocalVar, float* avrSWAP, objectinstances_t* objInst, errorvariables_t* ErrVar, int size_avcMSG);
 void CheckInputs(localvariables_t* LocalVar, const ControlParameters& CntrPar, float* avrSWAP, errorvariables_t* ErrVar, int32_t size_avcMSG);
 
 // IO
-void ExtController(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, extcontroltype_view_t* ExtDLL, errorvariables_t* ErrVar);
+void ExtController(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, ExtControlType& ExtDLL, errorvariables_t* ErrVar);
 void WriteRestartFile(localvariables_t* LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar, objectinstances_t* objInst, char* RootName, int size_avcOUTNAME);
-void ReadRestartFile(float* avrSWAP, localvariables_t* LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, performancedata_view_t* PerfData, char* RootName, int size_avcOUTNAME, errorvariables_t* ErrVar);
+void ReadRestartFile(float* avrSWAP, localvariables_t* LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, const PerformanceData& PerfData, char* RootName, int size_avcOUTNAME, errorvariables_t* ErrVar);
 void Debug(localvariables_t* LocalVar, const ControlParameters& CntrPar, debugvariables_t* DebugVar, errorvariables_t* ErrVar, float* avrSWAP, char* RootName, int size_avcOUTNAME);
 void UpdateZeroMQ(localvariables_t* LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar);
 

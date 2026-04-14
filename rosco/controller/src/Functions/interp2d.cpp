@@ -8,8 +8,8 @@
 // C 0-based: zData[col * n_rows + row]
 #define Z(row, col) zData[(col) * n_zData_rows + (row)]
 
-double interp2d(double* xData, int n_xData, double* yData, int n_yData,
-                double* zData, int n_zData_rows, int n_zData_cols,
+double interp2d(const double* xData, int n_xData, const double* yData, int n_yData,
+                const double* zData, int n_zData_rows, int n_zData_cols,
                 double xq, double yq, errorvariables_t* ErrVar) {
 
     double result = 0.0;
@@ -64,21 +64,21 @@ double interp2d(double* xData, int n_xData, double* yData, int n_yData,
         if (xData[k] > xMax) xMax = xData[k];
     }
 
-    ArrayView yv = {yData, n_yData};
-    ArrayView xv = {xData, n_xData};
+    ArrayView yv = {const_cast<double*>(yData), n_yData};
+    ArrayView xv = {const_cast<double*>(xData), n_xData};
     if (xq <= xMin || std::isnan(xq)) {
         // On lower x-bound: interp1d on column 0
-        return interp1d(yv, {&zData[0], n_zData_rows}, yq, ErrVar);
+        return interp1d(yv, {const_cast<double*>(&zData[0]), n_zData_rows}, yq, ErrVar);
     } else if (xq >= xMax) {
         // On upper x-bound: interp1d on last column
         int last_col = n_xData - 1;
-        return interp1d(yv, {&zData[last_col * n_zData_rows], n_zData_rows}, yq, ErrVar);
+        return interp1d(yv, {const_cast<double*>(&zData[last_col * n_zData_rows]), n_zData_rows}, yq, ErrVar);
     } else {
         jj = -1;
         for (j = 0; j < n_xData; j++) {
             if (xq == xData[j]) {
                 // On axis: interp1d on this column
-                return interp1d(yv, {&zData[j * n_zData_rows], n_zData_rows}, yq, ErrVar);
+                return interp1d(yv, {const_cast<double*>(&zData[j * n_zData_rows]), n_zData_rows}, yq, ErrVar);
             } else if (xq < xData[j]) {
                 jj = j;
                 break;

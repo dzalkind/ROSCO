@@ -106,3 +106,23 @@ inline T& inst_ref(std::vector<T>& v, int idx) {
         v.resize(static_cast<std::size_t>(idx) + 1);
     return v[idx];
 }
+
+// ---------------------------------------------------------------------------
+// Performance data (rotor Cp/Ct/Cq tables)
+// Replaces performancedata_view_t (raw pointer + size pairs)
+// ---------------------------------------------------------------------------
+struct PerformanceData {
+    std::vector<double> TSR_vec;
+    std::vector<double> Beta_vec;
+    std::vector<double> Cp_mat;  // column-major [n_TSR * n_Beta]
+    std::vector<double> Ct_mat;
+    std::vector<double> Cq_mat;
+};
+
+// ---------------------------------------------------------------------------
+// External controller DLL swap array
+// Replaces extcontroltype_view_t (raw float* + n_avrSWAP)
+// ---------------------------------------------------------------------------
+struct ExtControlType {
+    std::vector<float> avrSWAP;
+};

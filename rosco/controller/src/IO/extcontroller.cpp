@@ -1,5 +1,6 @@
 #include "../include/vit_types.h"
 #include "../include/rosco_types.hpp"
+#include "../include/rosco_objects.hpp"
 #include <dlfcn.h>
 #include <cstdio>
 #include <cstring>
@@ -7,7 +8,7 @@
 // Bladed DLL legacy interface — function pointer typedef
 typedef void (*bladed_dll_proc_t)(float*, int*, char*, char*, char*);
 
-void ExtController(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, extcontroltype_view_t* ExtDLL, errorvariables_t* ErrVar) {
+void ExtController(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, ExtControlType& ExtDLL, errorvariables_t* ErrVar) {
     static void* dll_handle = nullptr;
     static bladed_dll_proc_t dll_proc = nullptr;
 
@@ -87,16 +88,16 @@ void ExtController(float* avrSWAP, const ControlParameters& CntrPar, localvariab
 
     // Copy avrSWAP to ExtDLL's swap array
     for (int i = 0; i < max_avr_entries; i++) {
-        ExtDLL->avrSWAP[i] = avrSWAP[i];
+        ExtDLL.avrSWAP[i] = avrSWAP[i];
     }
 
     // Set length parameters (0-based: records 49,50,51 → indices 48,49,50)
-    ExtDLL->avrSWAP[48] = (float)(sizeof(avcMSG));           // Record 49: max MSG length
-    ExtDLL->avrSWAP[49] = (float)(infile_len + 1);           // Record 50: INFILE length
-    ExtDLL->avrSWAP[50] = (float)(outname_len + 1);          // Record 51: OUTNAME length
+    ExtDLL.avrSWAP[48] = (float)(sizeof(avcMSG));           // Record 49: max MSG length
+    ExtDLL.avrSWAP[49] = (float)(infile_len + 1);           // Record 50: INFILE length
+    ExtDLL.avrSWAP[50] = (float)(outname_len + 1);          // Record 51: OUTNAME length
 
     // Call the external DLL
-    dll_proc(ExtDLL->avrSWAP, &aviFAIL, accINFILE, avcOUTNAME, avcMSG);
+    dll_proc(ExtDLL.avrSWAP.data(), &aviFAIL, accINFILE, avcOUTNAME, avcMSG);
 
     // Check for errors from the DLL
     if (aviFAIL < 0) {

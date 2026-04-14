@@ -1,5 +1,6 @@
 #include "../include/vit_types.h"
 #include "../include/rosco_types.hpp"
+#include "../include/rosco_objects.hpp"
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -68,7 +69,7 @@ static bool readMatrix(std::ifstream& f, double* mat, int n_rows, int n_cols,
     return true;
 }
 
-void ReadCpFile(const ControlParameters& CntrPar, performancedata_view_t* PerfData,
+void ReadCpFile(const ControlParameters& CntrPar, PerformanceData& PerfData,
                 errorvariables_t* ErrVar) {
 
     // PerfFileName is already a std::string
@@ -90,7 +91,8 @@ void ReadCpFile(const ControlParameters& CntrPar, performancedata_view_t* PerfDa
     skipLines(f, 4);
 
     // Read pitch angle vector (Beta_vec): n_pitch values
-    if (!readRow(f, PerfData->Beta_vec, n_pitch)) {
+    PerfData.Beta_vec.resize(n_pitch, 0.0);
+    if (!readRow(f, PerfData.Beta_vec.data(), n_pitch)) {
         setError(ErrVar, "Error reading pitch angle vector from performance file.");
         f.close();
         return;
@@ -100,7 +102,8 @@ void ReadCpFile(const ControlParameters& CntrPar, performancedata_view_t* PerfDa
     skipLines(f, 1);
 
     // Read TSR vector: n_tsr values
-    if (!readRow(f, PerfData->TSR_vec, n_tsr)) {
+    PerfData.TSR_vec.resize(n_tsr, 0.0);
+    if (!readRow(f, PerfData.TSR_vec.data(), n_tsr)) {
         setError(ErrVar, "Error reading TSR vector from performance file.");
         f.close();
         return;
@@ -110,8 +113,9 @@ void ReadCpFile(const ControlParameters& CntrPar, performancedata_view_t* PerfDa
     // Skip 5 lines (wind speed line, blank, "# Power coefficient", blank, blank)
     skipLines(f, 5);
 
-    // Read Cp matrix: n_tsr rows x n_pitch cols (column-major in view)
-    if (!readMatrix(f, PerfData->Cp_mat, n_tsr, n_pitch, filename, "Cp", ErrVar)) {
+    // Read Cp matrix: n_tsr rows x n_pitch cols (column-major)
+    PerfData.Cp_mat.resize(n_tsr * n_pitch, 0.0);
+    if (!readMatrix(f, PerfData.Cp_mat.data(), n_tsr, n_pitch, filename, "Cp", ErrVar)) {
         f.close();
         return;
     }
@@ -120,7 +124,8 @@ void ReadCpFile(const ControlParameters& CntrPar, performancedata_view_t* PerfDa
     skipLines(f, 4);
 
     // Read Ct matrix
-    if (!readMatrix(f, PerfData->Ct_mat, n_tsr, n_pitch, filename, "Ct", ErrVar)) {
+    PerfData.Ct_mat.resize(n_tsr * n_pitch, 0.0);
+    if (!readMatrix(f, PerfData.Ct_mat.data(), n_tsr, n_pitch, filename, "Ct", ErrVar)) {
         f.close();
         return;
     }
@@ -129,7 +134,8 @@ void ReadCpFile(const ControlParameters& CntrPar, performancedata_view_t* PerfDa
     skipLines(f, 4);
 
     // Read Cq matrix
-    if (!readMatrix(f, PerfData->Cq_mat, n_tsr, n_pitch, filename, "Cq", ErrVar)) {
+    PerfData.Cq_mat.resize(n_tsr * n_pitch, 0.0);
+    if (!readMatrix(f, PerfData.Cq_mat.data(), n_tsr, n_pitch, filename, "Cq", ErrVar)) {
         f.close();
         return;
     }

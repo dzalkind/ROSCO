@@ -1,9 +1,10 @@
 #include "../include/restart_fields.h"
 #include "../include/rosco_types.hpp"
+#include "../include/rosco_objects.hpp"
 
 void ReadRestartFile(float* avrSWAP, localvariables_t* LocalVar,
                      const ControlParameters& /*CntrPar*/, objectinstances_t* objInst,
-                     performancedata_view_t* /*PerfData*/, char* RootName,
+                     const PerformanceData& /*PerfData*/, char* RootName,
                      int size_avcOUTNAME, errorvariables_t* ErrVar) {
     std::string root = trim_fortran_string(RootName, size_avcOUTNAME);
     // Fortran: NINT(avrSWAP(2)/avrSWAP(3))  — 1-indexed

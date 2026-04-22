@@ -263,7 +263,7 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         if (ErrVar.aviFAIL < 0) {
             // Print the error to console (trim trailing spaces first)
             char msg[sizeof(ErrVar.ErrMsg) + 8];
-            snprintf(msg, sizeof(msg), "ROSCO: %s", ErrVar.ErrMsg);
+            snprintf(msg, sizeof(msg), "ROSCO: %.1024s", ErrVar.ErrMsg);
             int trimLen = (int)strlen(msg) - 1;
             while (trimLen > 0 && msg[trimLen] == ' ') trimLen--;
             msg[trimLen + 1] = '\0';

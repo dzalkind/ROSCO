@@ -61,16 +61,12 @@ set(SOURCES
     src/Filters/seclpfilter_vel.cpp
     src/Functions/aerodyntorque.cpp
     src/Functions/colemantransform.cpp
-    src/Functions/colemantransforminverse.cpp
-    src/Functions/identity.cpp
-    src/Functions/interp1d.cpp
-    src/Functions/interp2d.cpp
+    src/Functions/interpolation.cpp
+    src/Functions/linalg.cpp
     src/Functions/ratelimit.cpp
     src/Functions/saturate.cpp
     src/Functions/sigma.cpp
-    src/Functions/unwrap.cpp
-    src/Functions/wrap_180.cpp
-    src/Functions/wrap_360.cpp
+    src/Functions/wrapping.cpp
     src/IO/debug.cpp
     src/IO/extcontroller.cpp
     src/IO/readrestartfile.cpp

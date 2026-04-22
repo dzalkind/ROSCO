@@ -7,21 +7,8 @@
 #include "rosco_array.hpp"
 #include "rosco_types.hpp"
 #include "rosco_objects.hpp"
+#include "rosco_functions.h"
 #include <stdint.h>
-
-// Functions
-double saturate(double inputValue, double minValue, double maxValue);
-double wrap_180(double x);
-double wrap_360(double x);
-double ratelimit(double inputSignal, double minRate, double maxRate, double DT, int reset, rlparams_t* rlP, int* inst, int has_ResetValue, double ResetValue);
-void ColemanTransform(double* rootMOOP, double aziAngle, int nHarmonic, double* axTOut, double* axYOut);
-void ColemanTransformInverse(double axTIn, double axYIn, double aziAngle, int nHarmonic, double aziOffset, double* PitComIPC);
-void identity(int n, double* identity_result);
-double sigma(double x, double x0, double x1, double y0, double y1, errorvariables_t* ErrVar);
-double interp1d(ArrayView xData, ArrayView yData, double xq, errorvariables_t* ErrVar);
-double interp2d(const double* xData, int n_xData, const double* yData, int n_yData, const double* zData, int n_zData_rows, int n_zData_cols, double xq, double yq, errorvariables_t* ErrVar);
-double AeroDynTorque(double RotSpeed, double BldPitch, localvariables_t* LocalVar, const ControlParameters& CntrPar, const PerformanceData& PerfData, errorvariables_t* ErrVar);
-void unwrap(double* x, int n_x, errorvariables_t* ErrVar, double* unwrap_result);
 
 // Filters
 void PreFilterMeasuredSignals(const ControlParameters& CntrPar, localvariables_t* LocalVar, debugvariables_t* DebugVar, objectinstances_t* objInst, errorvariables_t* ErrVar);

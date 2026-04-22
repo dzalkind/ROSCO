@@ -7,15 +7,16 @@
 
 #include "../include/rosco_constants.h"
 
-double AeroDynTorque(double RotSpeed, double BldPitch, localvariables_t* LocalVar,
-                     const ControlParameters& CntrPar, const PerformanceData& PerfData,
+double AeroDynTorque(double RotSpeed, double BldPitch, double WE_Vw,
+                     double WE_BladeRadius, double WE_RhoAir,
+                     const PerformanceData& PerfData,
                      errorvariables_t* ErrVar) {
 
     // Find Torque
-    double RotorArea = PI * (CntrPar.WE_BladeRadius * CntrPar.WE_BladeRadius);
-    double WindSpeed = LocalVar->WE_Vw > std::numeric_limits<double>::epsilon()
-                     ? LocalVar->WE_Vw : std::numeric_limits<double>::epsilon();
-    double Lambda = RotSpeed * CntrPar.WE_BladeRadius / WindSpeed;
+    double RotorArea = PI * (WE_BladeRadius * WE_BladeRadius);
+    double WindSpeed = WE_Vw > std::numeric_limits<double>::epsilon()
+                     ? WE_Vw : std::numeric_limits<double>::epsilon();
+    double Lambda = RotSpeed * WE_BladeRadius / WindSpeed;
 
     // Compute Cp via 2D interpolation on performance surface
     double Cp = interp2d(PerfData.Beta_vec.data(), (int)PerfData.Beta_vec.size(),
@@ -23,7 +24,7 @@ double AeroDynTorque(double RotSpeed, double BldPitch, localvariables_t* LocalVa
                          PerfData.Cp_mat.data(),   (int)PerfData.TSR_vec.size(), (int)PerfData.Beta_vec.size(),
                          BldPitch * R2D, Lambda, ErrVar);
 
-    double result = 0.5 * (CntrPar.WE_RhoAir * RotorArea) * (LocalVar->WE_Vw * LocalVar->WE_Vw * LocalVar->WE_Vw / RotSpeed) * Cp;
+    double result = 0.5 * (WE_RhoAir * RotorArea) * (WE_Vw * WE_Vw * WE_Vw / RotSpeed) * Cp;
     result = result > 0.0 ? result : 0.0;
 
     // Add RoutineName to error message

@@ -89,7 +89,8 @@ void WindSpeedEstimator(localvariables_t* LocalVar, const ControlParameters& Cnt
     // Inversion and Invariance Filter
     if (CntrPar.WE_Mode == 1 && LocalVar->WE_Op > 0) {
         Tau_r = AeroDynTorque(LocalVar->RotSpeedF, LocalVar->BlPitchCMeas,
-                                LocalVar, CntrPar, PerfData, ErrVar);
+                                LocalVar->WE_Vw, CntrPar.WE_BladeRadius, CntrPar.WE_RhoAir,
+                                PerfData, ErrVar);
 
         LocalVar->WE_VwIdot = CntrPar.WE_Gamma / CntrPar.WE_Jtot *
             (LocalVar->VS_LastGenTrq * CntrPar.WE_GearboxRatio - Tau_r);
@@ -169,7 +170,9 @@ void WindSpeedEstimator(localvariables_t* LocalVar, const ControlParameters& Cnt
             QM(3,3) = (2.0 * 2.0) / 600.0;
 
             // Prediction update
-            Tau_r = AeroDynTorque(WE_Inp_Speed, WE_Inp_Pitch, LocalVar, CntrPar, PerfData, ErrVar);
+            Tau_r = AeroDynTorque(WE_Inp_Speed, WE_Inp_Pitch,
+                                  LocalVar->WE_Vw, CntrPar.WE_BladeRadius, CntrPar.WE_RhoAir,
+                                  PerfData, ErrVar);
             double a = PI * LocalVar->WE.v_m / (2.0 * L);
             double dxh[3];
             dxh[0] = 1.0 / CntrPar.WE_Jtot * (Tau_r - CntrPar.WE_GearboxRatio * WE_Inp_Torque);

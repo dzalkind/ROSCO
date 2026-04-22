@@ -44,11 +44,7 @@ set(SOURCES
     src/Controllers/floatingfeedback.cpp
     src/Controllers/foreaftdamping.cpp
     src/Controllers/ipc.cpp
-    src/Controllers/picontroller.cpp
-    src/Controllers/pidcontroller.cpp
-    src/Controllers/piicontroller.cpp
     src/Controllers/pitchcontrol.cpp
-    src/Controllers/rescontroller.cpp
     src/Controllers/structuralcontrol.cpp
     src/Controllers/variablespeedcontrol.cpp
     src/Controllers/yawratecontrol.cpp
@@ -66,6 +62,7 @@ set(SOURCES
     src/Functions/sigma.cpp
     src/Functions/wrapping.cpp
     src/ControlElements/ratelimiter.cpp
+    src/ControlElements/rescontroller.cpp
     src/ControlElements/saturate.cpp
     src/IO/debug.cpp
     src/IO/extcontroller.cpp

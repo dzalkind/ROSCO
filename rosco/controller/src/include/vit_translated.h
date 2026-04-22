@@ -14,10 +14,6 @@
 void PreFilterMeasuredSignals(const ControlParameters& CntrPar, localvariables_t* LocalVar, debugvariables_t* DebugVar, objectinstances_t* objInst, errorvariables_t* ErrVar);
 
 // Controllers
-double PIController(double error, double kp, double ki, double minValue, double maxValue, double DT, double I0, piparams_t* piP, int reset, int* inst);
-double PIIController(double error, double error2, double kp, double ki, double ki2, double minValue, double maxValue, double DT, double I0, piparams_t* piP, int reset, int* inst);
-double PIDController(double error, double kp, double ki, double kd, double tf, double minValue, double maxValue, double DT, double I0, piparams_t* piP, int reset, objectinstances_t* objInst, localvariables_t* LocalVar);
-double ResController(double error, double kp, double ki, double freq, double minValue, double maxValue, double DT, resparams_t* resP, int reset, int* inst);
 void ForeAftDamping(const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst);
 double FloatingFeedback(localvariables_t* LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, errorvariables_t* ErrVar);
 void StructuralControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, errorvariables_t* ErrVar);

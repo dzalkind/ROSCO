@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstring>
 #include <cstdio>
+#include "../ControlElements/picontroller.hpp"
 
 void IPC(const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
     // IPC: Individual Pitch Control for 1P and 2P load reduction
@@ -24,10 +25,14 @@ void IPC(const ControlParameters& CntrPar, localvariables_t* LocalVar, objectins
         static LPFilter yawErrFilter;
         if (LocalVar->iStatus == 0 || LocalVar->restart) yawErrFilter.init(CntrPar.F_YawErr, LocalVar->DT, Y_MErr);
         Y_MErrF = yawErrFilter.step(Y_MErr);
-        Y_MErrF_IPC = PIController(Y_MErrF, CntrPar.Y_IPC_KP, CntrPar.Y_IPC_KI,
-                                      -CntrPar.Y_IPC_IntSat, CntrPar.Y_IPC_IntSat,
-                                      LocalVar->DT, 0.0, &LocalVar->piP,
-                                      (LocalVar->restart != 0), &objInst->instPI);
+        static PIController yawIpcPI;
+        if (LocalVar->iStatus == 0 || LocalVar->restart) {
+            yawIpcPI.init(0.0);
+            Y_MErrF_IPC = 0.0;
+        } else {
+            Y_MErrF_IPC = yawIpcPI.step(Y_MErrF, CntrPar.Y_IPC_KP, CntrPar.Y_IPC_KI,
+                -CntrPar.Y_IPC_IntSat, CntrPar.Y_IPC_IntSat, LocalVar->DT);
+        }
     } else {
         LocalVar->axisYawF_1P = LocalVar->axisYaw_1P;
     }
@@ -53,28 +58,40 @@ void IPC(const ControlParameters& CntrPar, localvariables_t* LocalVar, objectins
 
     // PI controllers for 1P and 2P
     if (CntrPar.IPC_ControlMode >= 1 && CntrPar.Y_ControlMode != 2) {
-        LocalVar->IPC_AxisTilt_1P = PIController(
-            LocalVar->axisTilt_1P, LocalVar->IPC_KP[0], LocalVar->IPC_KI[0],
-            -LocalVar->IPC_IntSat, LocalVar->IPC_IntSat,
-            LocalVar->DT, 0.0, &LocalVar->piP,
-            (LocalVar->restart != 0), &objInst->instPI);
-        LocalVar->IPC_AxisYaw_1P = PIController(
-            LocalVar->axisYawF_1P, LocalVar->IPC_KP[0], LocalVar->IPC_KI[0],
-            -LocalVar->IPC_IntSat, LocalVar->IPC_IntSat,
-            LocalVar->DT, 0.0, &LocalVar->piP,
-            (LocalVar->restart != 0), &objInst->instPI);
+        static PIController ipcTilt1pPI;
+        if (LocalVar->iStatus == 0 || LocalVar->restart) {
+            ipcTilt1pPI.init(0.0);
+            LocalVar->IPC_AxisTilt_1P = 0.0;
+        } else {
+            LocalVar->IPC_AxisTilt_1P = ipcTilt1pPI.step(LocalVar->axisTilt_1P, LocalVar->IPC_KP[0], LocalVar->IPC_KI[0],
+                -LocalVar->IPC_IntSat, LocalVar->IPC_IntSat, LocalVar->DT);
+        }
+        static PIController ipcYaw1pPI;
+        if (LocalVar->iStatus == 0 || LocalVar->restart) {
+            ipcYaw1pPI.init(0.0);
+            LocalVar->IPC_AxisYaw_1P = 0.0;
+        } else {
+            LocalVar->IPC_AxisYaw_1P = ipcYaw1pPI.step(LocalVar->axisYawF_1P, LocalVar->IPC_KP[0], LocalVar->IPC_KI[0],
+                -LocalVar->IPC_IntSat, LocalVar->IPC_IntSat, LocalVar->DT);
+        }
 
         if (CntrPar.IPC_ControlMode >= 2) {
-            LocalVar->IPC_AxisTilt_2P = PIController(
-                LocalVar->axisTilt_2P, LocalVar->IPC_KP[1], LocalVar->IPC_KI[1],
-                -LocalVar->IPC_IntSat, LocalVar->IPC_IntSat,
-                LocalVar->DT, 0.0, &LocalVar->piP,
-                (LocalVar->restart != 0), &objInst->instPI);
-            LocalVar->IPC_AxisYaw_2P = PIController(
-                LocalVar->axisYawF_2P, LocalVar->IPC_KP[1], LocalVar->IPC_KI[1],
-                -LocalVar->IPC_IntSat, LocalVar->IPC_IntSat,
-                LocalVar->DT, 0.0, &LocalVar->piP,
-                (LocalVar->restart != 0), &objInst->instPI);
+            static PIController ipcTilt2pPI;
+            if (LocalVar->iStatus == 0 || LocalVar->restart) {
+                ipcTilt2pPI.init(0.0);
+                LocalVar->IPC_AxisTilt_2P = 0.0;
+            } else {
+                LocalVar->IPC_AxisTilt_2P = ipcTilt2pPI.step(LocalVar->axisTilt_2P, LocalVar->IPC_KP[1], LocalVar->IPC_KI[1],
+                    -LocalVar->IPC_IntSat, LocalVar->IPC_IntSat, LocalVar->DT);
+            }
+            static PIController ipcYaw2pPI;
+            if (LocalVar->iStatus == 0 || LocalVar->restart) {
+                ipcYaw2pPI.init(0.0);
+                LocalVar->IPC_AxisYaw_2P = 0.0;
+            } else {
+                LocalVar->IPC_AxisYaw_2P = ipcYaw2pPI.step(LocalVar->axisYawF_2P, LocalVar->IPC_KP[1], LocalVar->IPC_KI[1],
+                    -LocalVar->IPC_IntSat, LocalVar->IPC_IntSat, LocalVar->DT);
+            }
         }
     } else {
         LocalVar->IPC_AxisTilt_1P = 0.0;

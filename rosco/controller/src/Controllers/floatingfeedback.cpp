@@ -1,5 +1,6 @@
 #include "../include/vit_types.h"
 #include "../include/vit_translated.h"
+#include "../ControlElements/picontroller.hpp"
 
 double FloatingFeedback(localvariables_t* LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
     // FloatingFeedback: pitch contribution from nacelle velocity feedback
@@ -12,31 +13,23 @@ double FloatingFeedback(localvariables_t* LocalVar, const ControlParameters& Cnt
                                     LocalVar->WE_Vw_F, ErrVar);
 
     // Integrate fore-aft acceleration to get velocity (KP=0, KI=1 → pure integrator)
-    double FA_vel = PIController(
-        LocalVar->FA_AccF,          // error: fore-aft acceleration
-        0.0,                         // kp
-        1.0,                         // ki
-        -100.0,                      // minValue
-        100.0,                       // maxValue
-        LocalVar->DT,                // time step
-        0.0,                         // I0
-        &LocalVar->piP,              // PI parameters struct
-        (LocalVar->restart != 0),    // reset flag
-        &objInst->instPI             // instance counter
-    );
+    static PIController faVelPI;
+    double FA_vel;
+    if (LocalVar->iStatus == 0 || LocalVar->restart) {
+        faVelPI.init(0.0);
+        FA_vel = 0.0;
+    } else {
+        FA_vel = faVelPI.step(LocalVar->FA_AccF, 0.0, 1.0, -100.0, 100.0, LocalVar->DT);
+    }
 
-    double NacIMU_FA_vel = PIController(
-        LocalVar->NACIMU_FA_AccF,   // error: nacelle IMU fore-aft acceleration
-        0.0,                         // kp
-        1.0,                         // ki
-        -100.0,                      // minValue
-        100.0,                       // maxValue
-        LocalVar->DT,                // time step
-        0.0,                         // I0
-        &LocalVar->piP,              // PI parameters struct
-        (LocalVar->restart != 0),    // reset flag
-        &objInst->instPI             // instance counter
-    );
+    static PIController nacImuFaVelPI;
+    double NacIMU_FA_vel;
+    if (LocalVar->iStatus == 0 || LocalVar->restart) {
+        nacImuFaVelPI.init(0.0);
+        NacIMU_FA_vel = 0.0;
+    } else {
+        NacIMU_FA_vel = nacImuFaVelPI.step(LocalVar->NACIMU_FA_AccF, 0.0, 1.0, -100.0, 100.0, LocalVar->DT);
+    }
 
     // Select velocity signal based on mode and apply gain
     double result = 0.0;

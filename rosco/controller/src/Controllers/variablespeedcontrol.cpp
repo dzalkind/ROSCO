@@ -5,6 +5,8 @@
 #include <cstdio>
 #include "../include/rosco_constants.h"
 #include "../ControlElements/ratelimiter.hpp"
+#include "../ControlElements/picontroller.hpp"
+#include "../ControlElements/pidcontroller.hpp"
 
 void VariableSpeedControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
     // VariableSpeedControl: generator torque controller
@@ -30,12 +32,14 @@ void VariableSpeedControl(float* avrSWAP, const ControlParameters& CntrPar, loca
         (CntrPar.VS_ControlMode == VS_Mode_Power_TSR) ||
         (CntrPar.VS_ControlMode == VS_Mode_Torque_TSR)) {
 
-        LocalVar->GenTq = PIController(
-            LocalVar->VS_SpdErr,
-            CntrPar.VS_KP[0], CntrPar.VS_KI[0],
-            CntrPar.VS_MinTq, LocalVar->VS_MaxTq,
-            LocalVar->DT, LocalVar->VS_LastGenTrq,
-            &LocalVar->piP, (LocalVar->restart != 0), &objInst->instPI);
+        static PIController genTqPI;
+        if (LocalVar->iStatus == 0 || LocalVar->restart) {
+            genTqPI.init(LocalVar->VS_LastGenTrq);
+            LocalVar->GenTq = LocalVar->VS_LastGenTrq;
+        } else {
+            LocalVar->GenTq = genTqPI.step(LocalVar->VS_SpdErr, CntrPar.VS_KP[0], CntrPar.VS_KI[0],
+                CntrPar.VS_MinTq, LocalVar->VS_MaxTq, LocalVar->DT);
+        }
 
         if (CntrPar.VS_FBP == VS_FBP_Power_Overspeed) {
             LocalVar->GenTq = std::min(LocalVar->VS_ConstPwr_GenTq, LocalVar->GenTq);
@@ -43,18 +47,22 @@ void VariableSpeedControl(float* avrSWAP, const ControlParameters& CntrPar, loca
 
     } else if (CntrPar.VS_ControlMode == VS_Mode_KOmega) {
         // K*Omega^2 with PI transitions
-        LocalVar->GenArTq = PIController(
-            LocalVar->VS_SpdErrAr,
-            CntrPar.VS_KP[0], CntrPar.VS_KI[0],
-            CntrPar.VS_MaxOMTq, CntrPar.VS_ArSatTq,
-            LocalVar->DT, CntrPar.VS_MaxOMTq,
-            &LocalVar->piP, (LocalVar->restart != 0), &objInst->instPI);
-        LocalVar->GenBrTq = PIController(
-            LocalVar->VS_SpdErrBr,
-            CntrPar.VS_KP[0], CntrPar.VS_KI[0],
-            CntrPar.VS_MinTq, CntrPar.VS_MinOMTq,
-            LocalVar->DT, CntrPar.VS_MinOMTq,
-            &LocalVar->piP, (LocalVar->restart != 0), &objInst->instPI);
+        static PIController genArTqPI;
+        if (LocalVar->iStatus == 0 || LocalVar->restart) {
+            genArTqPI.init(CntrPar.VS_MaxOMTq);
+            LocalVar->GenArTq = CntrPar.VS_MaxOMTq;
+        } else {
+            LocalVar->GenArTq = genArTqPI.step(LocalVar->VS_SpdErrAr, CntrPar.VS_KP[0], CntrPar.VS_KI[0],
+                CntrPar.VS_MaxOMTq, CntrPar.VS_ArSatTq, LocalVar->DT);
+        }
+        static PIController genBrTqPI;
+        if (LocalVar->iStatus == 0 || LocalVar->restart) {
+            genBrTqPI.init(CntrPar.VS_MinOMTq);
+            LocalVar->GenBrTq = CntrPar.VS_MinOMTq;
+        } else {
+            LocalVar->GenBrTq = genBrTqPI.step(LocalVar->VS_SpdErrBr, CntrPar.VS_KP[0], CntrPar.VS_KI[0],
+                CntrPar.VS_MinTq, CntrPar.VS_MinOMTq, LocalVar->DT);
+        }
 
         // State machine
         if (LocalVar->VS_State == VS_State_Region_1_5) {
@@ -135,14 +143,14 @@ void VariableSpeedControl(float* avrSWAP, const ControlParameters& CntrPar, loca
             LocalVar->AzError = LocalVar->OL_Azimuth - LocalVar->AzUnwrapped;
 
             // PID controller for azimuth tracking torque
-            LocalVar->GenTqAz = PIDController(
-                LocalVar->AzError,
-                CntrPar.RP_Gains[0], CntrPar.RP_Gains[1],
-                CntrPar.RP_Gains[2], CntrPar.RP_Gains[3],
-                -LocalVar->VS_MaxTq * 2.0, LocalVar->VS_MaxTq * 2.0,
-                LocalVar->DT, 0.0,
-                &LocalVar->piP, (LocalVar->restart != 0) ? 1 : 0,
-                objInst, LocalVar);
+            static PIDController genTqAzPID;
+            if (LocalVar->iStatus == 0 || LocalVar->restart) {
+                genTqAzPID.init(0.0, CntrPar.RP_Gains[3], LocalVar->DT, LocalVar->AzError);
+                LocalVar->GenTqAz = 0.0;
+            } else {
+                LocalVar->GenTqAz = genTqAzPID.step(LocalVar->AzError, CntrPar.RP_Gains[0], CntrPar.RP_Gains[1],
+                    CntrPar.RP_Gains[2], -LocalVar->VS_MaxTq * 2.0, LocalVar->VS_MaxTq * 2.0, LocalVar->DT);
+            }
 
             LocalVar->GenTq = LocalVar->GenTq + LocalVar->GenTqAz;
         }

@@ -2,6 +2,8 @@
 #include "../include/vit_translated.h"
 #include <cmath>
 #include "../include/rosco_constants.h"
+#include "../ControlElements/picontroller.hpp"
+#include "../ControlElements/rescontroller.hpp"
 
 void ActiveWakeControl(const ControlParameters& CntrPar, localvariables_t* LocalVar, debugvariables_t* DebugVar, objectinstances_t* objInst) {
     // ActiveWakeControl: active wake mixing via individual pitch
@@ -98,18 +100,23 @@ void ActiveWakeControl(const ControlParameters& CntrPar, localvariables_t* Local
                     (FixedFrameM[Imode] - LocalVar->TiltMean / (LocalVar->n_DT + 1));
 
                 if (CntrPar.AWC_Mode == 4) {
-                    AWC_TiltYaw[Imode] = ResController(
-                        Error[Imode], CntrPar.AWC_CntrGains[0], CntrPar.AWC_CntrGains[1],
-                        CntrPar.AWC_freq[Imode],
-                        CntrPar.PC_MinPit, CntrPar.PC_MaxPit,
-                        LocalVar->DT, &LocalVar->resP,
-                        (LocalVar->restart != 0), &objInst->instRes);
+                    static ResController awcResCtrl[2];
+                    if (LocalVar->iStatus == 0 || LocalVar->restart) {
+                        awcResCtrl[Imode].init();
+                        AWC_TiltYaw[Imode] = 0.0;
+                    } else {
+                        AWC_TiltYaw[Imode] = awcResCtrl[Imode].step(Error[Imode], CntrPar.AWC_CntrGains[0], CntrPar.AWC_CntrGains[1],
+                            CntrPar.AWC_freq[Imode], CntrPar.PC_MinPit, CntrPar.PC_MaxPit, LocalVar->DT);
+                    }
                 } else {
-                    AWC_TiltYaw[Imode] = PIController(
-                        Error[Imode], CntrPar.AWC_CntrGains[0], CntrPar.AWC_CntrGains[1],
-                        CntrPar.PC_MinPit, CntrPar.PC_MaxPit,
-                        LocalVar->DT, 0.0, &LocalVar->piP,
-                        (LocalVar->restart != 0), &objInst->instPI);
+                    static PIController awcPI[2];
+                    if (LocalVar->iStatus == 0 || LocalVar->restart) {
+                        awcPI[Imode].init(0.0);
+                        AWC_TiltYaw[Imode] = 0.0;
+                    } else {
+                        AWC_TiltYaw[Imode] = awcPI[Imode].step(Error[Imode], CntrPar.AWC_CntrGains[0], CntrPar.AWC_CntrGains[1],
+                            CntrPar.PC_MinPit, CntrPar.PC_MaxPit, LocalVar->DT);
+                    }
                 }
             }
         }
@@ -138,6 +145,8 @@ void ActiveWakeControl(const ControlParameters& CntrPar, localvariables_t* Local
         // Strouhal transformation closed-loop
 
         double StrAzimuth = wrap_360(360.0 * LocalVar->Time * CntrPar.AWC_freq[0]) * D2R;
+        double clockangle_yaw = (CntrPar.AWC_NumModes > 1)
+            ? CntrPar.AWC_clockangle[1] : CntrPar.AWC_clockangle[0];
 
         ColemanTransform(LocalVar->rootMOOPF, LocalVar->Azimuth,
                            CntrPar.AWC_harmonic[0], &FixedFrameM[0], &FixedFrameM[1]);
@@ -150,21 +159,24 @@ void ActiveWakeControl(const ControlParameters& CntrPar, localvariables_t* Local
         Error[0] = CntrPar.AWC_amp[0] +
             sin(StrAzimuth + CntrPar.AWC_clockangle[0] * D2R) *
                 (FixedFrameM[0] - LocalVar->TiltMean / (LocalVar->n_DT + 1)) +
-            sin(StrAzimuth + CntrPar.AWC_clockangle[1] * D2R) *
+            sin(StrAzimuth + clockangle_yaw * D2R) *
                 (FixedFrameM[1] - LocalVar->YawMean / (LocalVar->n_DT + 1));
 
         // PI control (after one period)
         if (LocalVar->Time > 1.0 / CntrPar.AWC_freq[0]) {
-            AWC_TiltYaw[0] = PIController(
-                Error[0], CntrPar.AWC_CntrGains[0], CntrPar.AWC_CntrGains[1],
-                CntrPar.PC_MinPit, CntrPar.PC_MaxPit,
-                LocalVar->DT, 0.0, &LocalVar->piP,
-                (LocalVar->restart != 0), &objInst->instPI);
+            static PIController awcStrPI;
+            if (LocalVar->iStatus == 0 || LocalVar->restart) {
+                awcStrPI.init(0.0);
+                AWC_TiltYaw[0] = 0.0;
+            } else {
+                AWC_TiltYaw[0] = awcStrPI.step(Error[0], CntrPar.AWC_CntrGains[0], CntrPar.AWC_CntrGains[1],
+                    CntrPar.PC_MinPit, CntrPar.PC_MaxPit, LocalVar->DT);
+            }
         }
 
         // Inverse Strouhal + Coleman transform
         double tiltSig = sin(StrAzimuth + CntrPar.AWC_clockangle[0] * D2R) * AWC_TiltYaw[0];
-        double yawSig = sin(StrAzimuth + CntrPar.AWC_clockangle[1] * D2R) * AWC_TiltYaw[0];
+        double yawSig = sin(StrAzimuth + clockangle_yaw * D2R) * AWC_TiltYaw[0];
         ColemanTransformInverse(tiltSig, yawSig,
                                    LocalVar->Azimuth, CntrPar.AWC_harmonic[0],
                                    CntrPar.AWC_phaseoffset * D2R, AWC_angle);

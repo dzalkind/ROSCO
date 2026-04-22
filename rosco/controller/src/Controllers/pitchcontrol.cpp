@@ -7,6 +7,7 @@
 #include "../include/rosco_constants.h"
 #include "../Filters/seclpfilter.hpp"
 #include "../ControlElements/ratelimiter.hpp"
+#include "../ControlElements/picontroller.hpp"
 
 void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
     // PitchControl: master blade pitch controller
@@ -34,11 +35,14 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, localvariabl
     LocalVar->PC_TF = interp1d(gs_angles, CntrPar.PC_GS_TF, LocalVar->BlPitchCMeasF, ErrVar);
 
     // Collective pitch PI controller
-    LocalVar->PC_PitComT = PIController(
-        LocalVar->PC_SpdErr, LocalVar->PC_KP, LocalVar->PC_KI,
-        LocalVar->PC_MinPit, LocalVar->PC_MaxPit,
-        LocalVar->DT, LocalVar->BlPitch[0],
-        &LocalVar->piP, (LocalVar->restart != 0), &objInst->instPI);
+    static PIController pcPitComTPI;
+    if (LocalVar->iStatus == 0 || LocalVar->restart) {
+        pcPitComTPI.init(LocalVar->BlPitch[0]);
+        LocalVar->PC_PitComT = LocalVar->BlPitch[0];
+    } else {
+        LocalVar->PC_PitComT = pcPitComTPI.step(LocalVar->PC_SpdErr, LocalVar->PC_KP, LocalVar->PC_KI,
+            LocalVar->PC_MinPit, LocalVar->PC_MaxPit, LocalVar->DT);
+    }
     DebugVar->PC_PICommand = LocalVar->PC_PitComT;
 
     // Individual pitch control

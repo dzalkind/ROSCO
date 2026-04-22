@@ -4,6 +4,7 @@
 #include <cstdio>
 #include "../include/rosco_constants.h"
 #include "../Filters/seclpfilter_vel.hpp"
+#include "../ControlElements/picontroller.hpp"
 
 void CableControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
     // CableControl: cable length control
@@ -44,18 +45,14 @@ void CableControl(float* avrSWAP, const ControlParameters& CntrPar, localvariabl
         LocalVar->CC_ActuatedDL[I_GROUP] = ccActFilter[I_GROUP].step(LocalVar->CC_DesiredL[I_GROUP]);
 
         // Integrate delta-L to get actuated length
-        LocalVar->CC_ActuatedL[I_GROUP] = PIController(
-            LocalVar->CC_ActuatedDL[I_GROUP],
-            0.0,                                  // kp
-            1.0,                                  // ki (pure integrator)
-            -1000.0,                              // minValue
-            1000.0,                               // maxValue
-            LocalVar->DT,
-            LocalVar->CC_ActuatedDL[0],           // I0: initial from first group
-            &LocalVar->piP,
-            (LocalVar->restart != 0),
-            &objInst->instPI
-        );
+        static PIController ccActPI[10];
+        if (LocalVar->iStatus == 0 || LocalVar->restart) {
+            ccActPI[I_GROUP].init(LocalVar->CC_ActuatedDL[0]);
+            LocalVar->CC_ActuatedL[I_GROUP] = LocalVar->CC_ActuatedDL[0];
+        } else {
+            LocalVar->CC_ActuatedL[I_GROUP] = ccActPI[I_GROUP].step(LocalVar->CC_ActuatedDL[I_GROUP],
+                0.0, 1.0, -1000.0, 1000.0, LocalVar->DT);
+        }
     }
 
     // Assign to avrSWAP

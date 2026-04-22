@@ -2,6 +2,8 @@
 #include "../include/vit_translated.h"
 
 #include "../include/rosco_constants.h"
+#include "../ControlElements/picontroller.hpp"
+#include "../ControlElements/piicontroller.hpp"
 
 void FlapControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst) {
     // FlapControl: blade flap angle control
@@ -10,6 +12,7 @@ void FlapControl(float* avrSWAP, const ControlParameters& CntrPar, localvariable
     //   Flp_Mode = 3: cyclic (1P) flap control via Coleman transform
 
     if (CntrPar.Flp_Mode > 0) {
+        static PIIController flpPII[3];
         if (LocalVar->iStatus == 0) {
             // Initialization
             LocalVar->RootMyb_Last[0] = 0.0 - LocalVar->rootMOOP[0];
@@ -27,14 +30,8 @@ void FlapControl(float* avrSWAP, const ControlParameters& CntrPar, localvariable
                 // The init call uses K which was set to loop counter from prior init
                 // In the golden fixture K=0 (C index), matching Fortran K=1 (first iter)
                 int K = 0;
-                double RootMyb_VelErr = 0.0;  // uninitialized in Fortran
-                LocalVar->Flp_Angle[K] = PIIController(
-                    RootMyb_VelErr,
-                    0.0 - LocalVar->Flp_Angle[K],
-                    CntrPar.Flp_Kp, CntrPar.Flp_Ki, 0.05,
-                    -CntrPar.Flp_MaxPit, CntrPar.Flp_MaxPit,
-                    LocalVar->DT, 0.0, &LocalVar->piP,
-                    (LocalVar->restart != 0), &objInst->instPI);
+                flpPII[K].init(0.0);
+                LocalVar->Flp_Angle[K] = 0.0;
             }
 
         } else if (CntrPar.Flp_Mode == 1) {
@@ -44,13 +41,16 @@ void FlapControl(float* avrSWAP, const ControlParameters& CntrPar, localvariable
         } else if (CntrPar.Flp_Mode == 2) {
             // PII flap control
             for (int K = 0; K < LocalVar->NumBl; K++) {
-                LocalVar->Flp_Angle[K] = PIIController(
-                    -LocalVar->rootMOOPF[K],
-                    0.0 - LocalVar->Flp_Angle[K],
-                    CntrPar.Flp_Kp, CntrPar.Flp_Ki, 0.05,
-                    -CntrPar.Flp_MaxPit, CntrPar.Flp_MaxPit,
-                    LocalVar->DT, 0.0, &LocalVar->piP,
-                    (LocalVar->restart != 0), &objInst->instPI);
+                if (LocalVar->restart) {
+                    flpPII[K].init(0.0);
+                    LocalVar->Flp_Angle[K] = 0.0;
+                } else {
+                    LocalVar->Flp_Angle[K] = flpPII[K].step(
+                        -LocalVar->rootMOOPF[K],
+                        0.0 - LocalVar->Flp_Angle[K],
+                        CntrPar.Flp_Kp, CntrPar.Flp_Ki, 0.05,
+                        -CntrPar.Flp_MaxPit, CntrPar.Flp_MaxPit, LocalVar->DT);
+                }
                 // Saturation limits, convert to degrees
                 LocalVar->Flp_Angle[K] = saturate(
                     LocalVar->Flp_Angle[K],
@@ -64,16 +64,20 @@ void FlapControl(float* avrSWAP, const ControlParameters& CntrPar, localvariable
                                &axisTilt_1P, &axisYaw_1P);
 
             // PI control on tilt and yaw axes
-            double Flp_axisTilt_1P = PIController(
-                axisTilt_1P, CntrPar.Flp_Kp, CntrPar.Flp_Ki,
-                -CntrPar.Flp_MaxPit, CntrPar.Flp_MaxPit,
-                LocalVar->DT, 0.0, &LocalVar->piP,
-                (LocalVar->restart != 0), &objInst->instPI);
-            double Flp_axisYaw_1P = PIController(
-                axisYaw_1P, CntrPar.Flp_Kp, CntrPar.Flp_Ki,
-                -CntrPar.Flp_MaxPit, CntrPar.Flp_MaxPit,
-                LocalVar->DT, 0.0, &LocalVar->piP,
-                (LocalVar->restart != 0), &objInst->instPI);
+            static PIController flpTiltPI;
+            static PIController flpYawPI;
+            double Flp_axisTilt_1P, Flp_axisYaw_1P;
+            if (LocalVar->iStatus == 0 || LocalVar->restart) {
+                flpTiltPI.init(0.0);
+                flpYawPI.init(0.0);
+                Flp_axisTilt_1P = 0.0;
+                Flp_axisYaw_1P = 0.0;
+            } else {
+                Flp_axisTilt_1P = flpTiltPI.step(axisTilt_1P, CntrPar.Flp_Kp, CntrPar.Flp_Ki,
+                    -CntrPar.Flp_MaxPit, CntrPar.Flp_MaxPit, LocalVar->DT);
+                Flp_axisYaw_1P = flpYawPI.step(axisYaw_1P, CntrPar.Flp_Kp, CntrPar.Flp_Ki,
+                    -CntrPar.Flp_MaxPit, CntrPar.Flp_MaxPit, LocalVar->DT);
+            }
 
             // Inverse Coleman transform back to blade coordinates
             ColemanTransformInverse(Flp_axisTilt_1P, Flp_axisYaw_1P,

@@ -1,25 +1,20 @@
-#include "../include/vit_types.h"
+#include "hpfilter.hpp"
 
-double HPFilter(double InputSignal, double DT, double CornerFreq, filterparameters_t* FP, int iStatus, int reset, int* inst, int has_InitialValue, double InitialValue) {
-    int idx = *inst - 1;
-    HPFState& s = inst_ref(FP->hpf, idx);
+HPFilter::HPFilter(double CornerFreq, double DT, double InitialValue) {
+    init(CornerFreq, DT, InitialValue);
+}
 
-    double InitialValue_ = has_InitialValue ? InitialValue : InputSignal;
-
-    if (iStatus == 0 || reset) {
-        s.output_last = InitialValue_;
-        s.input_last  = InitialValue_;
-    }
-
+void HPFilter::init(double CornerFreq, double DT, double InitialValue) {
     double K = 2.0 / DT;
+    c1 =  K / (CornerFreq + K);
+    c2 = (CornerFreq - K) / (CornerFreq + K);
+    input_last  = InitialValue;
+    output_last = InitialValue;
+}
 
-    double result = K / (CornerFreq + K) * InputSignal
-                  - K / (CornerFreq + K) * s.input_last
-                  - (CornerFreq - K) / (CornerFreq + K) * s.output_last;
-
-    s.input_last  = InputSignal;
-    s.output_last = result;
-    *inst = *inst + 1;
-
-    return result;
+double HPFilter::step(double input) {
+    double output = c1 * input - c1 * input_last - c2 * output_last;
+    input_last  = input;
+    output_last = output;
+    return output;
 }

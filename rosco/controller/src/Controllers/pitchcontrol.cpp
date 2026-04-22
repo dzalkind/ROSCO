@@ -5,6 +5,7 @@
 #include <cstdio>
 
 #include "../include/rosco_constants.h"
+#include "../Filters/seclpfilter.hpp"
 
 void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
     // PitchControl: master blade pitch controller
@@ -147,12 +148,9 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, localvariabl
                 if (LocalVar->iStatus == 0 || LocalVar->restart) pitchActFilter[K].init(CntrPar.PA_CornerFreq, LocalVar->DT, LocalVar->PitCom[K]);
                 LocalVar->PitComAct[K] = pitchActFilter[K].step(LocalVar->PitCom[K]);
             } else if (CntrPar.PA_Mode == 2) {
-                LocalVar->PitComAct[K] = SecLPFilter(
-                    LocalVar->PitCom[K], LocalVar->DT,
-                    CntrPar.PA_CornerFreq, CntrPar.PA_Damping,
-                    &LocalVar->FP, LocalVar->iStatus,
-                    (LocalVar->restart != 0), &objInst->instSecLPF,
-                    0, 0.0);
+                static SecLPFilter pitchActFilter2[3];
+                if (LocalVar->iStatus == 0 || LocalVar->restart) pitchActFilter2[K].init(CntrPar.PA_CornerFreq, CntrPar.PA_Damping, LocalVar->DT, LocalVar->PitCom[K]);
+                LocalVar->PitComAct[K] = pitchActFilter2[K].step(LocalVar->PitCom[K]);
             }
         } else {
             LocalVar->PitComAct[K] = LocalVar->PitCom[K];

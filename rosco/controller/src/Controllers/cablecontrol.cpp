@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cstdio>
 #include "../include/rosco_constants.h"
+#include "../Filters/seclpfilter_vel.hpp"
 
 void CableControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
     // CableControl: cable length control
@@ -38,17 +39,9 @@ void CableControl(float* avrSWAP, const ControlParameters& CntrPar, localvariabl
     // Convert desired to actuated line length and delta length for all groups
     for (int I_GROUP = 0; I_GROUP < CntrPar.CC_Group_N; I_GROUP++) {
         // Get actuated deltaL via second-order low-pass filter
-        LocalVar->CC_ActuatedDL[I_GROUP] = SecLPFilter_Vel(
-            LocalVar->CC_DesiredL[I_GROUP],
-            LocalVar->DT,
-            2.0 * PI / CntrPar.CC_ActTau,   // CornerFreq
-            1.0,                                  // Damp
-            &LocalVar->FP,
-            LocalVar->iStatus,
-            (LocalVar->restart != 0),
-            &objInst->instSecLPFV,
-            0, 0.0  // no InitialValue
-        );
+        static SecLPFilterVel ccActFilter[10];
+        if (LocalVar->iStatus == 0 || LocalVar->restart != 0) ccActFilter[I_GROUP].init(2.0 * PI / CntrPar.CC_ActTau, 1.0, LocalVar->DT, LocalVar->CC_DesiredL[I_GROUP]);
+        LocalVar->CC_ActuatedDL[I_GROUP] = ccActFilter[I_GROUP].step(LocalVar->CC_DesiredL[I_GROUP]);
 
         // Integrate delta-L to get actuated length
         LocalVar->CC_ActuatedL[I_GROUP] = PIController(

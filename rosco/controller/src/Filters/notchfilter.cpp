@@ -1,36 +1,32 @@
-#include "../include/vit_types.h"
+#include "notchfilter.hpp"
 
-double NotchFilter(double InputSignal, double DT, double omega, double betaNum, double betaDen, filterparameters_t* FP, int iStatus, int reset, int* inst, int has_InitialValue, double InitialValue) {
-    int idx = *inst - 1;
-    NotchState& s = inst_ref(FP->nf, idx);
+NotchFilter::NotchFilter(double omega, double betaNum, double betaDen, double DT, double InitialValue) {
+    init(omega, betaNum, betaDen, DT, InitialValue);
+}
 
-    double InitialValue_ = has_InitialValue ? InitialValue : InputSignal;
-
+void NotchFilter::init(double omega, double betaNum, double betaDen, double DT, double InitialValue) {
     double K = 2.0 / DT;
-    if (iStatus == 0 || reset) {
-        s.output_last1 = InitialValue_;
-        s.output_last2 = InitialValue_;
-        s.input_last1  = InitialValue_;
-        s.input_last2  = InitialValue_;
+    double denom = K * K + 2.0 * omega * betaDen * K + omega * omega;
+    b2 = (K * K + 2.0 * omega * betaNum * K + omega * omega) / denom;
+    b1 = (2.0 * omega * omega - 2.0 * K * K)                  / denom;
+    b0 = (K * K - 2.0 * omega * betaNum * K + omega * omega)   / denom;
+    a1 = (2.0 * omega * omega - 2.0 * K * K)                   / denom;
+    a0 = (K * K - 2.0 * omega * betaDen * K + omega * omega)   / denom;
+    input_last1  = InitialValue;
+    input_last2  = InitialValue;
+    output_last1 = InitialValue;
+    output_last2 = InitialValue;
+}
 
-        s.b2 = (K * K + 2.0 * omega * betaNum * K + omega * omega) / (K * K + 2.0 * omega * betaDen * K + omega * omega);
-        s.b1 = (2.0 * omega * omega - 2.0 * K * K)                  / (K * K + 2.0 * omega * betaDen * K + omega * omega);
-        s.b0 = (K * K - 2.0 * omega * betaNum * K + omega * omega)   / (K * K + 2.0 * omega * betaDen * K + omega * omega);
-        s.a1 = (2.0 * omega * omega - 2.0 * K * K)                   / (K * K + 2.0 * omega * betaDen * K + omega * omega);
-        s.a0 = (K * K - 2.0 * omega * betaDen * K + omega * omega)   / (K * K + 2.0 * omega * betaDen * K + omega * omega);
-    }
-
-    double result = s.b2 * InputSignal
-                  + s.b1 * s.input_last1
-                  + s.b0 * s.input_last2
-                  - s.a1 * s.output_last1
-                  - s.a0 * s.output_last2;
-
-    s.input_last2  = s.input_last1;
-    s.input_last1  = InputSignal;
-    s.output_last2 = s.output_last1;
-    s.output_last1 = result;
-    *inst = *inst + 1;
-
-    return result;
+double NotchFilter::step(double input) {
+    double output = b2 * input
+                  + b1 * input_last1
+                  + b0 * input_last2
+                  - a1 * output_last1
+                  - a0 * output_last2;
+    input_last2  = input_last1;
+    input_last1  = input;
+    output_last2 = output_last1;
+    output_last1 = output;
+    return output;
 }

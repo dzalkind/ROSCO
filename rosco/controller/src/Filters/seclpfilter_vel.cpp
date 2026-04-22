@@ -1,37 +1,32 @@
-#include "../include/vit_types.h"
+#include "seclpfilter_vel.hpp"
 
-double SecLPFilter_Vel(double InputSignal, double DT, double CornerFreq, double Damp, filterparameters_t* FP, int iStatus, int reset, int* inst, int has_InitialValue, double InitialValue) {
-    int idx = *inst - 1;
-    LPFVState& s = inst_ref(FP->lpfV, idx);
+SecLPFilterVel::SecLPFilterVel(double CornerFreq, double Damp, double DT, double InitialValue) {
+    init(CornerFreq, Damp, DT, InitialValue);
+}
 
-    double InitialValue_ = has_InitialValue ? InitialValue : InputSignal;
+void SecLPFilterVel::init(double CornerFreq, double Damp, double DT, double InitialValue) {
+    a2 = DT * DT * CornerFreq * CornerFreq + 4.0 + 4.0 * Damp * CornerFreq * DT;
+    a1 = 2.0 * DT * DT * CornerFreq * CornerFreq - 8.0;
+    a0 = DT * DT * CornerFreq * CornerFreq + 4.0 - 4.0 * Damp * CornerFreq * DT;
+    b2 =  2.0 * DT * CornerFreq * CornerFreq;
+    b1 =  0.0;
+    b0 = -2.0 * DT * CornerFreq * CornerFreq;
+    input_last1  = InitialValue;
+    input_last2  = InitialValue;
+    output_last1 = InitialValue;
+    output_last2 = InitialValue;
+}
 
-    if (iStatus == 0 || reset) {
-        s.output_last1 = InitialValue_;
-        s.output_last2 = InitialValue_;
-        s.input_last1  = InitialValue_;
-        s.input_last2  = InitialValue_;
-
-        s.a2 = DT * DT * CornerFreq * CornerFreq + 4.0 + 4.0 * Damp * CornerFreq * DT;
-        s.a1 = 2.0 * DT * DT * CornerFreq * CornerFreq - 8.0;
-        s.a0 = DT * DT * CornerFreq * CornerFreq + 4.0 - 4.0 * Damp * CornerFreq * DT;
-        s.b2 =  2.0 * DT * CornerFreq * CornerFreq;
-        s.b1 =  0.0;
-        s.b0 = -2.0 * DT * CornerFreq * CornerFreq;
-    }
-
-    double result = 1.0 / s.a2 *
-        (s.b2 * InputSignal
-         + s.b1 * s.input_last1
-         + s.b0 * s.input_last2
-         - s.a1 * s.output_last1
-         - s.a0 * s.output_last2);
-
-    s.input_last2  = s.input_last1;
-    s.input_last1  = InputSignal;
-    s.output_last2 = s.output_last1;
-    s.output_last1 = result;
-    *inst = *inst + 1;
-
-    return result;
+double SecLPFilterVel::step(double input) {
+    double output = 1.0 / a2 *
+        (b2 * input
+         + b1 * input_last1
+         + b0 * input_last2
+         - a1 * output_last1
+         - a0 * output_last2);
+    input_last2  = input_last1;
+    input_last1  = input;
+    output_last2 = output_last1;
+    output_last1 = output;
+    return output;
 }

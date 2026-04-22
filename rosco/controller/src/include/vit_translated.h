@@ -24,11 +24,6 @@ double AeroDynTorque(double RotSpeed, double BldPitch, localvariables_t* LocalVa
 void unwrap(double* x, int n_x, errorvariables_t* ErrVar, double* unwrap_result);
 
 // Filters
-double HPFilter(double InputSignal, double DT, double CornerFreq, filterparameters_t* FP, int iStatus, int reset, int* inst, int has_InitialValue, double InitialValue);
-double SecLPFilter(double InputSignal, double DT, double CornerFreq, double Damp, filterparameters_t* FP, int iStatus, int reset, int* inst, int has_InitialValue, double InitialValue);
-double SecLPFilter_Vel(double InputSignal, double DT, double CornerFreq, double Damp, filterparameters_t* FP, int iStatus, int reset, int* inst, int has_InitialValue, double InitialValue);
-double NotchFilter(double InputSignal, double DT, double omega, double betaNum, double betaDen, filterparameters_t* FP, int iStatus, int reset, int* inst, int has_InitialValue, double InitialValue);
-double NotchFilterSlopes(double InputSignal, double DT, double CornerFreq, double Damp, filterparameters_t* FP, int iStatus, int reset, int* inst, int has_Moving, int Moving, int has_InitialValue, double InitialValue);
 void PreFilterMeasuredSignals(const ControlParameters& CntrPar, localvariables_t* LocalVar, debugvariables_t* DebugVar, objectinstances_t* objInst, errorvariables_t* ErrVar);
 
 // Controllers

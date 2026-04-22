@@ -73,7 +73,7 @@ class ControllerInterface:
         self.DT = 0.1
         self.num_blade = 3
         self.char_buffer = 500
-        self.avr_size = 500
+        self.avr_size = 3000
         self.sim_name = "simDEBUG"
         self.pitch = 0 # option to provid initial blade pitch value
 

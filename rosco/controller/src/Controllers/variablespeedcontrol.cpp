@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cstdio>
 #include "../include/rosco_constants.h"
+#include "../ControlElements/ratelimiter.hpp"
 
 void VariableSpeedControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
     // VariableSpeedControl: generator torque controller
@@ -95,10 +96,9 @@ void VariableSpeedControl(float* avrSWAP, const ControlParameters& CntrPar, loca
                                   std::min(CntrPar.VS_MaxTq, LocalVar->VS_MaxTq));
 
     // Rate limit
-    LocalVar->GenTq = ratelimit(LocalVar->GenTq, -CntrPar.VS_MaxRat, CntrPar.VS_MaxRat,
-                                   LocalVar->DT, (LocalVar->restart != 0),
-                                   &LocalVar->rlP, &objInst->instRL,
-                                   0, 0.0);  // no ResetValue
+    static RateLimiter genTqRL;
+    if (LocalVar->iStatus == 0 || LocalVar->restart) genTqRL.init(LocalVar->GenTq);
+    LocalVar->GenTq = genTqRL.step(LocalVar->GenTq, -CntrPar.VS_MaxRat, CntrPar.VS_MaxRat, LocalVar->DT);
 
     // Open loop torque control
     if ((CntrPar.OL_Mode > 0) && (CntrPar.Ind_GenTq > 0)) {

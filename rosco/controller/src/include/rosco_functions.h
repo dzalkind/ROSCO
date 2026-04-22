@@ -12,6 +12,7 @@
 #include "rosco_objects.hpp"
 
 // --- Clamping / wrapping ---
+double saturate(double inputValue, double minValue, double maxValue);
 double wrap_180(double x);
 double wrap_360(double x);
 void unwrap(double* x, int n_x, errorvariables_t* ErrVar, double* unwrap_result);
@@ -24,12 +25,6 @@ double interp2d(const double* xData, int n_xData, const double* yData, int n_yDa
     
 // --- Smooth step / sigmoid ---
 double sigma(double x, double x0, double x1, double y0, double y1, errorvariables_t* ErrVar);
-    
-    // --- Rate limiter ---
-double saturate(double inputValue, double minValue, double maxValue);
-double ratelimit(double inputSignal, double minRate, double maxRate, double DT,
-                 int reset, rlparams_t* rlP, int* inst,
-                 int has_ResetValue, double ResetValue);
 
 // --- Coleman (multi-blade coordinate) transforms ---
 void ColemanTransform(double* rootMOOP, double aziAngle, int nHarmonic,

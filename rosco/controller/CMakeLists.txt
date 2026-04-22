@@ -63,10 +63,10 @@ set(SOURCES
     src/Functions/colemantransform.cpp
     src/Functions/interpolation.cpp
     src/Functions/linalg.cpp
-    src/Functions/ratelimit.cpp
-    src/Functions/saturate.cpp
     src/Functions/sigma.cpp
     src/Functions/wrapping.cpp
+    src/ControlElements/ratelimiter.cpp
+    src/ControlElements/saturate.cpp
     src/IO/debug.cpp
     src/IO/extcontroller.cpp
     src/IO/readrestartfile.cpp

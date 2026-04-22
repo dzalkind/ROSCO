@@ -6,6 +6,7 @@
 
 #include "../include/rosco_constants.h"
 #include "../Filters/seclpfilter.hpp"
+#include "../ControlElements/ratelimiter.hpp"
 
 void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
     // PitchControl: master blade pitch controller
@@ -76,10 +77,13 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, localvariabl
 
     // Saturate collective pitch
     LocalVar->PC_PitComT = saturate(LocalVar->PC_PitComT, LocalVar->PC_MinPit, CntrPar.PC_MaxPit);
-    LocalVar->PC_PitComT = ratelimit(LocalVar->PC_PitComT, CntrPar.PC_MinRat, CntrPar.PC_MaxRat,
-                                        LocalVar->DT, (LocalVar->restart != 0),
-                                        &LocalVar->rlP, &objInst->instRL,
-                                        1, LocalVar->BlPitchCMeas);
+    static RateLimiter pitComTRL;
+    if (LocalVar->iStatus == 0 || LocalVar->restart) {
+        pitComTRL.init(LocalVar->BlPitchCMeas);
+        LocalVar->PC_PitComT = LocalVar->BlPitchCMeas;
+    } else {
+        LocalVar->PC_PitComT = pitComTRL.step(LocalVar->PC_PitComT, CntrPar.PC_MinRat, CntrPar.PC_MaxRat, LocalVar->DT);
+    }
     LocalVar->PC_PitComT_Last = LocalVar->PC_PitComT;
 
     // Combine and saturate individual pitch commands
@@ -97,10 +101,13 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, localvariabl
         LocalVar->PitCom[K] += LocalVar->ZMQ_PitOffset[K];
 
         // Rate limit per blade
-        LocalVar->PitCom[K] = ratelimit(LocalVar->PitCom[K], CntrPar.PC_MinRat, CntrPar.PC_MaxRat,
-                                           LocalVar->DT, (LocalVar->restart != 0),
-                                           &LocalVar->rlP, &objInst->instRL,
-                                           1, LocalVar->BlPitch[K]);
+        static RateLimiter pitComRL[3];
+        if (LocalVar->iStatus == 0 || LocalVar->restart) {
+            pitComRL[K].init(LocalVar->BlPitch[K]);
+            LocalVar->PitCom[K] = LocalVar->BlPitch[K];
+        } else {
+            LocalVar->PitCom[K] = pitComRL[K].step(LocalVar->PitCom[K], CntrPar.PC_MinRat, CntrPar.PC_MaxRat, LocalVar->DT);
+        }
     }
 
     // Open loop pitch control
@@ -160,10 +167,13 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, localvariabl
     // Hardware saturation
     for (int K = 0; K < LocalVar->NumBl; K++) {
         LocalVar->PitComAct[K] = saturate(LocalVar->PitComAct[K], CntrPar.PC_MinPit, CntrPar.PC_MaxPit);
-        LocalVar->PitComAct[K] = ratelimit(LocalVar->PitComAct[K], CntrPar.PC_MinRat, CntrPar.PC_MaxRat,
-                                              LocalVar->DT, (LocalVar->restart != 0),
-                                              &LocalVar->rlP, &objInst->instRL,
-                                              1, LocalVar->BlPitch[K]);
+        static RateLimiter pitComActRL[3];
+        if (LocalVar->iStatus == 0 || LocalVar->restart) {
+            pitComActRL[K].init(LocalVar->BlPitch[K]);
+            LocalVar->PitComAct[K] = LocalVar->BlPitch[K];
+        } else {
+            LocalVar->PitComAct[K] = pitComActRL[K].step(LocalVar->PitComAct[K], CntrPar.PC_MinRat, CntrPar.PC_MaxRat, LocalVar->DT);
+        }
     }
 
     // Pitch fault modes

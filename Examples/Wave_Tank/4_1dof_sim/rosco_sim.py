@@ -114,7 +114,7 @@ def main():
 
     if True:
         # Load controller library
-        lib_name = '/Users/dzalkind/Tools/ROSCO-C/rosco/lib/libdiscon.dylib'
+        lib_name = wt_config.ROSCO_LIB_PATH
         controller_int = ROSCO_ci.ControllerInterface(lib_name,param_filename=param_filename,sim_name='sim1')
 
         # Load the simulator

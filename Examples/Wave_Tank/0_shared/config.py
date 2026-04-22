@@ -30,9 +30,11 @@ DISCON_IN_FILE         = os.path.join(WAVE_TANK_DIR, '1_ElastoDyn', 'USFLOWT_10_
 # Shared channel lists
 CHANNELS_COMPARE = [
     'RtVAvgxh',
-    'BldPitch1', 'GenSpeed', 'GenTq', 'GenPwr',
+    'BldPitch1', 'GenSpeed', 'GenTq',
     'RtAeroFxi',
     'RtAeroMxi',
+    # 'PtfmSurge', 'PtfmSway', 'PtfmHeave',
+    # 'PtfmRoll', 'PtfmPitch', 'PtfmYaw',
 ]
 CHANNELS_6DOF = [
     'RtAeroFxi', 'RtAeroFyi', 'RtAeroFzi',
@@ -48,3 +50,17 @@ SIM_DT     = 0.025    # s
 SIM_TLEN   = 1000     # s
 SIM_WS0    = 7.0      # m/s initial wind speed
 SIM_OFFSET = 0.0      # m/s offset applied to CSV wind input
+
+# Multi-case
+CASE_MATRIX_YAML  = os.path.join(
+    PII_BASE, '05_SimModel', 'OpenFAST', OF_CAMPAIGN, 'rank_0',
+    'case_matrix_combined.yaml'
+)
+MULTI_CASE_OUT_DIR = os.path.join(WAVE_TANK_DIR, '5_multi_case', 'outputs')
+PLANE_AVG_WIND_DIR = os.path.join(MULTI_CASE_OUT_DIR, 'plane_avg_wind')
+
+# ROSCO dynamic library (override with env var ROSCO_LIB_PATH if needed)
+ROSCO_LIB_PATH = os.environ.get(
+    'ROSCO_LIB_PATH',
+    '/Users/dzalkind/Tools/ROSCO-C/rosco/lib/libdiscon.dylib'
+)

@@ -3,72 +3,18 @@ import pandas as pd
 import os
 import sys
 import matplotlib.pyplot as plt
-from scipy.interpolate import interp1d
-
 from openfast_io.turbsim_file import TurbSimFile
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '0_shared'))
 import config as wt_config
-
-
-def interpolate_1d(
-    df: pd.DataFrame,
-    x_col: str,
-    y_col: str,
-    x_query: float | list | np.ndarray,
-    extrapolate: bool = False,
-) -> np.ndarray:
-    """
-    Linearly interpolate y values from a DataFrame given one or more x query points.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Source data containing x and y columns.
-    x_col : str
-        Name of the column to use as the independent variable (x).
-    y_col : str
-        Name of the column to use as the dependent variable (y).
-    x_query : float or array-like
-        One or more x values to interpolate at.
-    extrapolate : bool, optional
-        If True, linearly extrapolate beyond the data range.
-        If False (default), raises ValueError for out-of-range queries.
-
-    Returns
-    -------
-    np.ndarray
-        Interpolated y values, same length as x_query.
-
-    Raises
-    ------
-    ValueError
-        If x_col has duplicate values, or if x_query is out of range
-        and extrapolate=False.
-    """
-    df_sorted = df[[x_col, y_col]].dropna().sort_values(x_col)
-    x = df_sorted[x_col].to_numpy(dtype=float)
-    y = df_sorted[y_col].to_numpy(dtype=float)
-
-    if len(np.unique(x)) != len(x):
-        raise ValueError(
-            f"Column '{x_col}' contains duplicate values — "
-            "interpolation requires unique x points."
-        )
-
-    x_query = np.atleast_1d(np.asarray(x_query, dtype=float))
-
-    fill = "extrapolate" if extrapolate else None
-    f = interp1d(x, y, kind="linear", bounds_error=not extrapolate, fill_value=fill)
-
-    return f(x_query)
+from utils import interpolate_1d
 
 
 def main():
     os.chdir(os.path.dirname(__file__))
     df_6dof = pd.read_csv(wt_config.STEADY_6DOF_LOOKUP_CSV)
 
-    if True: # read turbsim file and make plane-average input
+    if False: # read turbsim file and make plane-average input
 
         ts_file = TurbSimFile(wt_config.TURBSIM_BTS_FILE)
         ts_file.read()
@@ -84,7 +30,7 @@ def main():
         M = np.c_[u_tt,u_avg]
         np.savetxt(wt_config.PLANE_AVG_WIND_CSV, M, header='Time(s),U_avg(m/s)', delimiter=',')
     else:
-        df_u = pd.read_csv(wt_config.PLANE_AVG_WIND_CSV)
+        df_u = pd.read_csv(wt_config.FILTERED_WIND_CSV)
         u_avg = df_u['U_avg(m/s)'].to_numpy()
         u_tt = df_u['# Time(s)'].to_numpy()
 

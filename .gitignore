@@ -51,8 +51,7 @@ _build
 # OpenFAST generated files
 *.sum
 *.ech
-*.dbg
-*.dbg2
+*.dbg*
 *.out
 *.outb
 *.dbg

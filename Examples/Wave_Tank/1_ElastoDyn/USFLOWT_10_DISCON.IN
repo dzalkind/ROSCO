@@ -1,8 +1,8 @@
 ! Controller parameter input file for the USFLOWT_10 wind turbine
-!    - File written using ROSCO version 2.10.1 controller tuning logic on 10/23/25
+!    - File written using ROSCO version 2.10.1 controller tuning logic on 04/22/26
 
 !------- SIMULATION CONTROL ------------------------------------------------------------
-3                   ! LoggingLevel		- 0: write no debug files, 1: write standard output .dbg-file, 2: LoggingLevel 1 + ROSCO LocalVars (.dbg2) 3: LoggingLevel 2 + complete avrSWAP-array (.dbg3)
+2                   ! LoggingLevel		- 0: write no debug files, 1: write standard output .dbg-file, 2: LoggingLevel 1 + ROSCO LocalVars (.dbg2) 3: LoggingLevel 2 + complete avrSWAP-array (.dbg3)
 0                   ! DT_Out    		  - Time step to output .dbg* files, or 0 to match sampling period of OpenFAST
 1                   ! Ext_Interface		- (0 - use standard bladed interface, 1 - Use the extened DLL interface introduced in OpenFAST 3.5.0.)
 0                   ! Echo		        - (0 - no Echo, 1 - Echo input data to <RootName>.echo)
@@ -17,7 +17,7 @@
 0                   ! Y_ControlMode   - Yaw control mode (0: no yaw control, 1: yaw rate control, 2: yaw-by-IPC)
 1                   ! SS_Mode         - Setpoint Smoother mode (0: no setpoint smoothing, 1: introduce setpoint smoothing)
 0                   ! PRC_Mode        - Power reference tracking mode (0: power control disabled, 1: lookup table from wind speed to generator speed setpoints, 2: change speed, torque, pitch to control power)
-0                   ! WE_Mode         - Wind speed estimator mode (0: One-second low pass filtered hub height wind speed, 1: Immersion and Invariance Estimator, 2: Extended Kalman Filter)
+2                   ! WE_Mode         - Wind speed estimator mode (0: One-second low pass filtered hub height wind speed, 1: Immersion and Invariance Estimator, 2: Extended Kalman Filter)
 1                   ! PS_Mode         - Pitch saturation mode (0: no pitch saturation, 1: implement pitch saturation)
 0                   ! SU_Mode         - Startup mode (0: no startup procedure, 1: startup enabled)
 0                   ! SD_Mode         - Shutdown mode (0: no shutdown procedure, 1: shutdown enabled)
@@ -32,7 +32,7 @@
 0                   ! Ext_Mode        - External control mode (0 - not used, 1 - call external dynamic library)
 0                   ! ZMQ_Mode        - Fuse ZeroMQ interface (0: unused, 1: Yaw Control)
 0                   ! CC_Mode         - Cable control mode [0- unused, 1- User defined, 2- Open loop control]
-0                   ! StC_Mode        - Structural control mode [0- unused, 1- User defined, 2- Open loop control]
+3                   ! StC_Mode        - Structural control mode [0- unused, 1- User defined, 2- Open loop control]
 
 !------- FILTERS ----------------------------------------------------------
 1.00810             ! F_LPFCornerFreq	  - Corner frequency (-3dB point) in the low-pass filters, [rad/s]
@@ -50,7 +50,7 @@
 0.17952             ! F_YawErr          - Low pass filter corner frequency for yaw controller [rad/s].
 0.3240   1.0000     ! F_FlCornerFreq    - Natural frequency and damping in the second order low pass filter of the tower-top fore-aft motion for floating feedback control [rad/s, -].
 0.05000             ! F_FlHighPassFreq  - Natural frequency of first-order high-pass filter for nacelle fore-aft motion [rad/s].
-0.0000  1.0000      ! F_FlpCornerFreq   - Corner frequency and damping in the second order low pass filter of the blade root bending moment for flap control
+10.4616 1.0000      ! F_FlpCornerFreq   - Corner frequency and damping in the second order low pass filter of the blade root bending moment for flap control
 0.20944             ! F_VSRefSpdCornerFreq		- Corner frequency (-3dB point) in the first order low pass filter of the generator speed reference used for TSR tracking torque control [rad/s].
 
 !------- BLADE PITCH CONTROL ----------------------------------------------
@@ -124,7 +124,7 @@
 1.0                 ! WE_GearboxRatio	- Gearbox ratio [>=1],  [-]
 218727652.00000     ! WE_Jtot			- Total drivetrain inertia, including blades, hub and casted generator inertia to LSS, [kg m^2]
 1.225               ! WE_RhoAir			- Air density, [kg m^-3]
-"USFLOWT_10_Cp_Ct_Cq.txt"      ! PerfFileName      - File containing rotor performance tables (Cp,Ct,Cq) (absolute path or relative to this file)
+"/Users/dzalkind/Tools/ROSCO-USFLOWT/Examples/Wave_Tank/1_ElastoDyn/USFLOWT_10_Cp_Ct_Cq.txt"      ! PerfFileName      - File containing rotor performance tables (Cp,Ct,Cq) (absolute path or relative to this file)
 20      20          ! PerfTableSize     - Size of rotor performance tables, first number refers to number of blade pitch angles, second number referse to number of tip-speed ratios
 60                  ! WE_FOPoles_N      - Number of first-order system poles used in EKF
 3.000        3.241        3.483        3.724        3.966        4.207        4.448        4.690        4.931        5.172        5.414        5.655        5.897        6.138        6.379        6.621        6.862        7.103        7.345        7.586        7.828        8.069        8.310        8.552        8.793        9.034        9.276        9.517        9.759        10.000       10.500       11.000       11.500       12.000       12.500       13.000       13.500       14.000       14.500       15.000       15.500       16.000       16.500       17.000       17.500       18.000       18.500       19.000       19.500       20.000       20.500       21.000       21.500       22.000       22.500       23.000       23.500       24.000       24.500       25.000                     ! WE_FOPoles_v      - Wind speeds corresponding to first-order system poles [m/s]

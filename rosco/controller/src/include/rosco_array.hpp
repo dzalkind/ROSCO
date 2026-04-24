@@ -14,6 +14,7 @@
 //   ArrayView from the device pointer and pass it to the kernel directly.
 
 #pragma once
+#include <cstddef>
 #include <vector>
 
 // ---------------------------------------------------------------------------

@@ -9,6 +9,12 @@ We recommend using the instructions provided in the :ref:`full_rosco` to install
 This allows for full use of the provided functionalities including the controller and toolbox to facilitate controller tuning.
 However, if only the ROSCO binary is needed (to run an existing controller, for example), then users should follow the instructions provided in :ref:`rosco_controller`
 
+.. note::
+
+   The ROSCO controller is implemented in **C++** (C++17). A Fortran compiler is **not** required.
+   The build system fetches the ``toml++`` library automatically — no manual dependency installation is needed
+   beyond a C++17 compiler and CMake.
+
 .. _full_rosco:
 
 Complete ROSCO Installation
@@ -19,34 +25,36 @@ Steps for the installation of the complete rosco toolset are:
 
 .. code-block:: bash
 
-    conda config --add channels conda-forge # (Enable Conda-forge Channel For Conda Package Manager)
-    conda create -y --name rosco-env python=3.10 # (Create a new environment named "rosco-env" that contains Python 3.8)
-    conda activate rosco-env # (Activate your "rosco-env" environment)
+    conda config --add channels conda-forge
+    conda create -y --name rosco-env python=3.10
+    conda activate rosco-env
 
-    # Windows users sometimes get an error related to the SSL configuration; in this case, use
-    # Be sure to execute commands in an anaconda terminal rather than the windows command prompt
+    # Windows users: execute commands in an Anaconda terminal, not the standard command prompt
+    # If you encounter SSL errors on Windows:
     conda config --set ssl_verify no
 
-    # Install necessary compilers
-    conda install -y gfortran gcc libpython m2-pkg-config  # windows
-    conda install compilers                     # unix
+    # Install a C/C++17-capable compiler
+    conda install -y gcc gxx          # Linux/Mac (via conda-forge)
+    conda install -y m2w64-toolchain  # Windows (MinGW-w64 toolchain)
 
+    # Install CMake (if not already available system-wide)
+    conda install -y cmake make
 
-    # If you intend to use ZeroMQ
-    brew install zeromq  # mac
-    sudo apt install libzmq3-dev libzmq5 libczmq-dev libczmq4  # linux
+    # Optional: ZeroMQ support (enables external controller communication)
+    brew install zeromq               # Mac
+    sudo apt install libzmq3-dev      # Linux (Debian/Ubuntu)
 
-2. Clone and Install the ROSCO toolbox with ROSCO controller
-    
+2. Clone and install the ROSCO toolbox with ROSCO controller
+
 .. code-block:: bash
 
     git clone https://github.com/NREL/ROSCO.git
     cd ROSCO
     pip install -e . --no-deps
 
-This step creates the rosco controller binary (:code:`libdiscon.so` (Linux), :code:`libdiscon.dylib` (Mac), or :code:`libdisscon.dll` (Windows)`) in the directory :code:`ROSCO/rosco/lib` and installs the python toolbox in the conda environment in the develop mode.
+This step compiles the controller shared library (``libdiscon.so`` on Linux, ``libdiscon.dylib`` on Mac, or ``libdiscon.dll`` on Windows) into ``ROSCO/rosco/lib`` and installs the Python toolbox in develop mode. The ``toml++`` library is fetched automatically by CMake during the build.
 
-3.  If for some reason the pip-based installation does not work, the conda environment can be created using
+3. If the pip-based build does not work, you can create the environment from the provided file and retry:
 
 .. code-block:: bash
 
@@ -67,17 +75,15 @@ Installing only the ROSCO controller
    * - Method
      - Use Case
    * - :ref:`rosco_direct_download`
-     - Best for users who simply want to use a released version of the controller binary without working through the compilation procedures. 
+     - Best for users who simply want to use a released version of the controller binary without working through the compilation procedures.
    * - :ref:`rosco_anaconda_download`
      - Best for users who just want to use the controller binary but prefer to download using the Anaconda package manager.
    * - :ref:`cmake_compile`
-     - Best for users who need to re-compile the source code often, plan to use non-released versions of ROSCO (including modified source code), or who simply want to compile the controller themselves so they have the full code available locally.
+     - Best for users who need to re-compile the source code often, plan to use non-released versions of ROSCO (including modified source code), or who simply want to compile the controller themselves.
 
 Anaconda is a popular package manager used to distribute software packages of various types.
-Anaconda is used to download requisite packages and distribute pre-compiled versions of the ROSCO tools.
 CMake is a build configuration system that creates files as input to a build tool like GNU Make, Visual Studio, or Ninja.
 CMake does not compile code or run compilers directly, but rather creates the environment needed for another tool to run compilers and create binaries.
-CMake is used to ease the processes of compiling the ROSCO controller locally.
 For more information on CMake, please see `understanding CMake <https://openfast.readthedocs.io/en/main/source/install/index.html#understanding-cmake>`_ in the OpenFAST documentation.
 
 .. _rosco_direct_download:
@@ -90,8 +96,8 @@ The most recent tagged version releases of the controller are `available for dow
 
 Anaconda Download
 .................
-Using the popular package manager, Anaconda_, the tagged 64-bit versions of ROSCO are available through the conda-forge channel. 
-In order to download the most recently compiled version release, from an anaconda powershell (Windows) or terminal (Mac/Linux) window, create a new anaconda virtual environment: 
+Using the package manager, Anaconda_, the tagged 64-bit versions of ROSCO are available through the conda-forge channel.
+In order to download the most recently compiled version release, from an anaconda powershell (Windows) or terminal (Mac/Linux) window, create a new anaconda virtual environment:
 
 .. code-block:: bash
 
@@ -104,26 +110,25 @@ navigate to your desired folder to save the compiled binary using:
 .. code-block:: bash
 
     cd <desired_folder>
-    
+
 and download the controller:
 
 .. code-block:: bash
 
     conda install -y ROSCO
 
-This will download a compiled ROSCO binary file into the default filepath for any dynamic libraries downloaded via anaconda while in the ROSCO-env. 
+This will download a compiled ROSCO binary file into the default filepath for any dynamic libraries downloaded via anaconda while in the ROSCO-env.
 The ROSCO binary file can be copied to your desired folder using:
 
 .. code-block:: bash
 
     cp $CONDA_PREFIX/lib/libdiscon.* <desired_folder>
 
-on linux or:
+on Linux/Mac, or:
 
 .. code-block:: bash
 
     copy %CONDA_PREFIX%/lib/libdiscon.* <desired_folder>
-
 
 on Windows.
 
@@ -132,34 +137,105 @@ on Windows.
 
 Compile using CMake
 .....................
-CMake_ eases the compiling process significantly. We recommend that users use CMake if at all possible, as we cannot guarantee support for the use of other tools to aid with compiling ROSCO.
+CMake_ eases the compiling process significantly. We recommend that users use CMake if at all possible.
 
-On Mac/Linux, standard compilers are generally available without any additional downloads. On 32-bit windows, we recommend that you `install MinGW <http://capsis.cirad.fr/capsis/documentation/mingw-installation>`_ (Section 2). On 64-bit Windows, you can simply install the MSYS2 toolchain through Anaconda:
+Prerequisites
+^^^^^^^^^^^^^
+
+- CMake ≥ 3.14
+- C++17 compiler: ``clang++`` or ``g++`` on Mac/Linux; MSVC 2019+ or MinGW-w64 on Windows
+- Internet access on first configure (CMake fetches ``toml++`` automatically via FetchContent)
+- *Optional*: ZeroMQ development libraries for external controller communication
+
+The ``toml++`` library is the only required external dependency and is downloaded automatically during the CMake configure step — no manual installation is needed.
+
+Installing compilers
+^^^^^^^^^^^^^^^^^^^^^
+
+On **Mac**, the Xcode Command Line Tools include a suitable ``clang++``:
 
 .. code-block:: bash
 
-    conda uninstall gcc gfortran  # if you previously installed via pip above
-    conda install m2w64-toolchain libpython
-    conda install cmake make  # if Windows users would like to install these in anaconda environment
+    xcode-select --install
 
-Once the CMake and the required compilers are downloaded, the following code can be used to compile ROSCO.
+On **Linux** (Debian/Ubuntu):
+
+.. code-block:: bash
+
+    sudo apt install build-essential cmake
+
+On **Windows (64-bit)**, install the MinGW-w64 toolchain via Anaconda:
+
+.. code-block:: bash
+
+    conda install -y m2w64-toolchain cmake make
+
+Building the shared library
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Once CMake and a C++17 compiler are available, build ROSCO from the repository root:
 
 .. code-block:: bash
 
     # Clone ROSCO
     git clone https://github.com/NREL/ROSCO.git
+    cd ROSCO
 
-    # Compile ROSCO
-    cd ROSCO/rosco/controller
-    mkdir build
+    # Configure
+    mkdir -p build
     cd build
-    cmake ..                        # Mac/linux only
-    cmake .. -G "MinGW Makefiles"   # Windows only 
-    make install
+    cmake ../rosco/controller          # Mac/Linux
+    cmake ../rosco/controller -G "MinGW Makefiles"  # Windows (MinGW)
 
-This will generate a file called :code:`libdiscon.so` (Linux), :code:`libdiscon.dylib` (Mac), or :code:`libdisscon.dll` (Windows).
+    # Build and install (works on all platforms)
+    cmake --build .
+    cmake --install .
 
+This generates ``libdiscon.so`` (Linux), ``libdiscon.dylib`` (Mac), or ``libdiscon.dll`` (Windows) and
+copies it into the ``rosco/lib/`` directory.
 
+.. note::
+
+   The first ``cmake`` run will download ``toml++`` from GitHub. Subsequent builds use the cached copy.
+   If you are working in an offline environment, clone ``toml++`` v3.4.0 manually and point CMake to it
+   with ``-DFETCHCONTENT_SOURCE_DIR_TOMLPLUSPLUS=<path>``.
+
+Optional: ZeroMQ support
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ZeroMQ enables the controller to communicate with external processes at runtime. If ZeroMQ development
+libraries are detected by CMake, support is compiled in automatically.
+
+.. code-block:: bash
+
+    # Mac
+    brew install zeromq
+
+    # Linux (Debian/Ubuntu)
+    sudo apt install libzmq3-dev libzmq5 libczmq-dev libczmq4
+
+Re-run CMake after installing ZeroMQ to pick up the new dependency.
+
+Input file formats
+^^^^^^^^^^^^^^^^^^
+
+The C++ controller accepts both the classic ``DISCON.IN`` format and the newer TOML format (``DISCON.toml``).
+The format is detected automatically from the file extension. The TOML format offers native array syntax,
+comments, section headers, and type validation at parse time:
+
+.. code-block:: toml
+
+    [Filters]
+    F_LPFCornerFreq = 1.674
+    F_LPFType       = 1
+    F_NotchFreqs    = [1.5, 3.0]
+
+    [PitchControl]
+    PC_ControlMode = 1
+    PC_GS_angles   = [0.057, 0.084, 0.106]
+
+See ``Examples/DISCON_template.toml`` for a fully annotated template with all available parameters and defaults.
+Existing ``DISCON.IN`` files continue to work without modification.
 
 
 .. _Anaconda: https://www.anaconda.com/

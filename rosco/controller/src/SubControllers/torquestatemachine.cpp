@@ -2,7 +2,7 @@
 #include "../include/rosco_types.hpp"
 #include "../include/rosco_constants.h"
 
-void StateMachine(const ControlParameters& CntrPar, localvariables_t* LocalVar) {
+void TorqueStateMachine(const ControlParameters& CntrPar, localvariables_t* LocalVar) {
 
     // Initialize State machine if first call
     if (LocalVar->iStatus == 0) {

@@ -8,8 +8,8 @@
 #include "../ControlElements/picontroller.hpp"
 #include "../ControlElements/pidcontroller.hpp"
 
-void VariableSpeedControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
-    // VariableSpeedControl: generator torque controller
+void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
+    // TorqueControl: generator torque controller
     // State machine with K*Omega^2 law, PI transitions, constant torque/power modes
 
     // Pre-compute generator torque values
@@ -166,7 +166,7 @@ void VariableSpeedControl(float* avrSWAP, const ControlParameters& CntrPar, loca
     // Prepend routine name to error message if aviFAIL < 0
     if (ErrVar->aviFAIL < 0) {
         char tmp[1024];
-        snprintf(tmp, sizeof(tmp), "VariableSpeedControl:%s", ErrVar->ErrMsg);
+        snprintf(tmp, sizeof(tmp), "TorqueControl:%s", ErrVar->ErrMsg);
         strncpy(ErrVar->ErrMsg, tmp, sizeof(ErrVar->ErrMsg) - 1);
         ErrVar->ErrMsg[sizeof(ErrVar->ErrMsg) - 1] = '\0';
     }

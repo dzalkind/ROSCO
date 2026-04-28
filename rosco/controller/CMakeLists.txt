@@ -29,24 +29,24 @@ FetchContent_MakeAvailable(tomlplusplus)
 set(SOURCES
     src/rosco_types_io.cpp
     src/discon.cpp
-    src/ControllerBlocks/computevariablessetpoints.cpp
-    src/ControllerBlocks/pitchsaturation.cpp
-    src/ControllerBlocks/powercontrolsetpoints.cpp
-    src/ControllerBlocks/refspeedexclusion.cpp
-    src/ControllerBlocks/setpointsmoother.cpp
-    src/ControllerBlocks/shutdown.cpp
-    src/ControllerBlocks/startup.cpp
-    src/ControllerBlocks/statemachine.cpp
-    src/ControllerBlocks/windspeedestimator.cpp
-    src/Controllers/activewakecontrol.cpp
+    src/Setpoints/speedsetpoints.cpp
+    src/Setpoints/pitchsaturation.cpp
+    src/Setpoints/powercontrolsetpoints.cpp
+    src/Setpoints/refspeedexclusion.cpp
+    src/Setpoints/setpointsmoother.cpp
+    src/Supervisory/shutdown.cpp
+    src/Supervisory/startup.cpp
+    src/SubControllers/torquestatemachine.cpp
+    src/Estimators/windspeedestimator.cpp
+    src/SubControllers/activewakecontrol.cpp
     src/Controllers/cablecontrol.cpp
     src/Controllers/flapcontrol.cpp
-    src/Controllers/floatingfeedback.cpp
-    src/Controllers/foreaftdamping.cpp
-    src/Controllers/ipc.cpp
+    src/SubControllers/floatingfeedback.cpp
+    src/SubControllers/foreaftdamping.cpp
+    src/SubControllers/ipc.cpp
     src/Controllers/pitchcontrol.cpp
     src/Controllers/structuralcontrol.cpp
-    src/Controllers/variablespeedcontrol.cpp
+    src/Controllers/torquecontrol.cpp
     src/Controllers/yawratecontrol.cpp
     src/Filters/hpfilter.cpp
     src/Filters/lpfilter.cpp

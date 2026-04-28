@@ -3,7 +3,7 @@
 #include <cmath>
 #include "../include/rosco_constants.h"
 
-void ComputeVariablesSetpoints(const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
+void SpeedSetpoints(const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
 
     // Change pitch reference speed
     LocalVar->PC_RefSpd_PRC = CntrPar.PC_RefSpd * LocalVar->PRC_R_Speed;

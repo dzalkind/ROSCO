@@ -11,10 +11,10 @@
 //   PreFilterMeasuredSignals — low-pass / notch filtering of sensor signals
 //   WindSpeedEstimator   — estimate effective hub-height wind speed
 //   PowerControlSetpoints — compute power-reference setpoints
-//   ComputeVariablesSetpoints — compute rated-speed / torque setpoints
-//   StateMachine         — determine operating region
+//   SpeedSetpoints    — compute rated-speed / torque setpoints
+//   TorqueStateMachine — determine operating region
 //   SetpointSmoother     — blend setpoints between VS and PC regions
-//   VariableSpeedControl — generator torque demand
+//   TorqueControl        — generator torque demand
 //   PitchControl         — collective + individual pitch demand
 //   YawRateControl       — yaw rate demand (if enabled)
 //   FlapControl          — trailing-edge flap demand (if enabled)
@@ -234,10 +234,10 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
 
             if (CntrPar.SU_Mode > 0)   Startup(&LocalVar, CntrPar, &objInst, &ErrVar);
 
-            ComputeVariablesSetpoints(CntrPar, &LocalVar, &objInst, &DebugVar, &ErrVar);
-            StateMachine(CntrPar, &LocalVar);
+            SpeedSetpoints(CntrPar, &LocalVar, &objInst, &DebugVar, &ErrVar);
+            TorqueStateMachine(CntrPar, &LocalVar);
             SetpointSmoother(&LocalVar, CntrPar, &objInst);
-            VariableSpeedControl(avrSWAP, CntrPar, &LocalVar, &objInst, &ErrVar);
+            TorqueControl(avrSWAP, CntrPar, &LocalVar, &objInst, &ErrVar);
 
             if (CntrPar.PC_ControlMode > 0) PitchControl(avrSWAP, CntrPar, &LocalVar, &objInst, &DebugVar, &ErrVar);
             if (CntrPar.Y_ControlMode  > 0) YawRateControl(avrSWAP, CntrPar, &LocalVar, &objInst, &DebugVar, &ErrVar);

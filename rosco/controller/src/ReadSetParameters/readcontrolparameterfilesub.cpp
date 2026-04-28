@@ -229,7 +229,7 @@ public:
 
 void ReadControlParameterFileSub(
     ControlParameters& CntrPar,
-    localvariables_t* LocalVar,
+    LocalVariables& LocalVar,
     const char* filename,
     const char* priPath,
     errorvariables_t* ErrVar)
@@ -516,9 +516,9 @@ void ReadControlParameterFileSub(
     // Computed Constants
     // ---------------------------------------------------------------
 
-    if (CntrPar.DT_Out == 0.0) CntrPar.DT_Out = LocalVar->DT;
-    CntrPar.n_DT_Out = static_cast<int>(std::round(CntrPar.DT_Out / LocalVar->DT));
-    CntrPar.n_DT_ZMQ = static_cast<int>(std::round(CntrPar.ZMQ_UpdatePeriod / LocalVar->DT));
+    if (CntrPar.DT_Out == 0.0) CntrPar.DT_Out = LocalVar.DT;
+    CntrPar.n_DT_Out = static_cast<int>(std::round(CntrPar.DT_Out / LocalVar.DT));
+    CntrPar.n_DT_ZMQ = static_cast<int>(std::round(CntrPar.ZMQ_UpdatePeriod / LocalVar.DT));
 
     // Path resolution for PerfFileName
     if (!CntrPar.PerfFileName.empty() && pathIsRelative(CntrPar.PerfFileName)) {

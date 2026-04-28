@@ -68,7 +68,7 @@ static std::ofstream dbg2_file;
 static std::ofstream dbg3_file;
 static std::vector<int32_t> avr_indices;
 
-void Debug(localvariables_t* LocalVar, const ControlParameters& CntrPar,
+void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
            debugvariables_t* DebugVar, errorvariables_t* ErrVar,
            float* avrSWAP, char* RootName, int size_avcOUTNAME) {
 
@@ -106,64 +106,64 @@ void Debug(localvariables_t* LocalVar, const ControlParameters& CntrPar,
     // --- LocalVar output data (159 fields) ---
     const int nLocalVars = 159;
     double LocalVarOutData[nLocalVars] = {
-        (double)LocalVar->iStatus, (double)LocalVar->AlreadyInitialized,
-        (double)LocalVar->RestartWSE, LocalVar->Time, LocalVar->DT,
-        (double)LocalVar->n_DT, LocalVar->Time_Last, LocalVar->VS_GenPwr,
-        LocalVar->GenSpeed, LocalVar->RotSpeed, LocalVar->NacHeading,
-        LocalVar->NacVane, LocalVar->NacVaneF, LocalVar->WindDir,
-        LocalVar->HorWindV, LocalVar->HorWindV_F, LocalVar->rootMOOP[0],
-        LocalVar->rootMOOPF[0], LocalVar->BlPitch[0], LocalVar->BlPitchCMeas,
-        LocalVar->Azimuth, LocalVar->OL_Azimuth, LocalVar->AzUnwrapped,
-        LocalVar->AzError, LocalVar->GenTqAz, LocalVar->AzBuffer[0],
-        (double)LocalVar->NumBl, LocalVar->FA_Acc_TT, LocalVar->SS_Acc_TT,
-        LocalVar->FA_Acc_Nac, LocalVar->NacIMU_FA_RAcc, LocalVar->FA_AccHPF,
-        LocalVar->FA_AccHPFI, LocalVar->FA_PitCom[0], LocalVar->VS_RefSpd,
-        LocalVar->VS_RefSpd_TSR, LocalVar->VS_RefSpd_TRA, LocalVar->VS_RefSpd_RL,
-        LocalVar->PC_RefSpd, LocalVar->PC_RefSpd_SS, LocalVar->PC_RefSpd_PRC,
-        LocalVar->RotSpeedF, LocalVar->GenSpeedF, LocalVar->GenTq,
-        LocalVar->GenTqMeas, LocalVar->GenArTq, LocalVar->GenBrTq,
-        LocalVar->VS_KOmega2_GenTq, LocalVar->VS_ConstPwr_GenTq,
-        LocalVar->IPC_PitComF[0], LocalVar->PC_KP, LocalVar->PC_KI,
-        LocalVar->PC_KD, LocalVar->PC_TF, LocalVar->PC_MaxPit,
-        LocalVar->PC_MinPit, LocalVar->PC_PitComT, LocalVar->PC_PitComT_Last,
-        LocalVar->BlPitchCMeasF, LocalVar->PC_PitComT_IPC[0],
-        LocalVar->PC_PwrErr, LocalVar->PC_SpdErr, LocalVar->IPC_AxisTilt_1P,
-        LocalVar->IPC_AxisYaw_1P, LocalVar->IPC_AxisTilt_2P, LocalVar->IPC_AxisYaw_2P,
-        LocalVar->axisTilt_1P, LocalVar->axisYaw_1P, LocalVar->axisYawF_1P,
-        LocalVar->axisTilt_2P, LocalVar->axisYaw_2P, LocalVar->axisYawF_2P,
-        LocalVar->IPC_KI[0], LocalVar->IPC_KP[0], LocalVar->IPC_IntSat,
-        (double)LocalVar->PC_State, LocalVar->PitCom[0], LocalVar->PitCom_SD[0],
-        LocalVar->PitComAct[0], LocalVar->SS_DelOmegaF, LocalVar->TestType,
-        LocalVar->Kp_Float, LocalVar->VS_MaxTq, LocalVar->VS_LastGenTrq,
-        LocalVar->VS_LastGenPwr, LocalVar->VS_MechGenPwr, LocalVar->VS_SpdErrAr,
-        LocalVar->VS_SpdErrBr, LocalVar->VS_SpdErr, (double)LocalVar->VS_State,
-        LocalVar->VS_Rgn3Pitch, LocalVar->WE_Vw, LocalVar->WE_Vw_F,
-        LocalVar->WE_VwI, LocalVar->WE_VwIdot, (double)LocalVar->WE_Op,
-        (double)LocalVar->WE_Op_Last, LocalVar->VS_LastGenTrqF, LocalVar->PRC_WSE_F,
-        LocalVar->PRC_R_Speed, LocalVar->PRC_R_Torque, LocalVar->PRC_R_Pitch,
-        LocalVar->PRC_R_Total, LocalVar->PRC_Min_Pitch, LocalVar->PS_Min_Pitch,
-        LocalVar->OL_Index, (double)LocalVar->SU_Stage,
-        LocalVar->SU_LoadStageStartTime, LocalVar->SU_RotSpeedF,
-        (double)LocalVar->SD_Trigger, LocalVar->SD_BlPitchF, LocalVar->SD_NacVaneF,
-        LocalVar->SD_GenSpeedF, (double)LocalVar->SD_Stage,
-        LocalVar->SD_StageStartTime, LocalVar->SD_MaxPitchRate,
-        LocalVar->SD_MaxTorqueRate, LocalVar->GenTq_SD, LocalVar->Fl_PitCom,
-        LocalVar->NACIMU_FA_AccF, LocalVar->FA_AccF, (double)LocalVar->FA_Hist,
-        LocalVar->TRA_LastRefSpd, LocalVar->VS_RefSpeed,
-        LocalVar->PtfmTDX, LocalVar->PtfmTDY, LocalVar->PtfmTDZ,
-        LocalVar->PtfmRDX, LocalVar->PtfmRDY, LocalVar->PtfmRDZ,
-        LocalVar->PtfmTVX, LocalVar->PtfmTVY, LocalVar->PtfmTVZ,
-        LocalVar->PtfmRVX, LocalVar->PtfmRVY, LocalVar->PtfmRVZ,
-        LocalVar->PtfmTAX, LocalVar->PtfmTAY, LocalVar->PtfmTAZ,
-        LocalVar->PtfmRAX, LocalVar->PtfmRAY, LocalVar->PtfmRAZ,
-        LocalVar->CC_DesiredL[0], LocalVar->CC_ActuatedL[0],
-        LocalVar->CC_ActuatedDL[0], LocalVar->StC_Input[0],
-        LocalVar->Flp_Angle[0], LocalVar->RootMyb_Last[0],
-        (double)LocalVar->ACC_INFILE_SIZE, LocalVar->AWC_complexangle_re[0],
-        LocalVar->TiltMean, LocalVar->YawMean, (double)LocalVar->ZMQ_ID,
-        LocalVar->ZMQ_YawOffset, LocalVar->ZMQ_TorqueOffset,
-        LocalVar->ZMQ_PitOffset[0], LocalVar->ZMQ_R_Speed,
-        LocalVar->ZMQ_R_Torque, LocalVar->ZMQ_R_Pitch
+        (double)LocalVar.iStatus, (double)LocalVar.AlreadyInitialized,
+        (double)LocalVar.RestartWSE, LocalVar.Time, LocalVar.DT,
+        (double)LocalVar.n_DT, LocalVar.Time_Last, LocalVar.VS_GenPwr,
+        LocalVar.GenSpeed, LocalVar.RotSpeed, LocalVar.NacHeading,
+        LocalVar.NacVane, LocalVar.NacVaneF, LocalVar.WindDir,
+        LocalVar.HorWindV, LocalVar.HorWindV_F, LocalVar.rootMOOP[0],
+        LocalVar.rootMOOPF[0], LocalVar.BlPitch[0], LocalVar.BlPitchCMeas,
+        LocalVar.Azimuth, LocalVar.OL_Azimuth, LocalVar.AzUnwrapped,
+        LocalVar.AzError, LocalVar.GenTqAz, LocalVar.AzBuffer[0],
+        (double)LocalVar.NumBl, LocalVar.FA_Acc_TT, LocalVar.SS_Acc_TT,
+        LocalVar.FA_Acc_Nac, LocalVar.NacIMU_FA_RAcc, LocalVar.FA_AccHPF,
+        LocalVar.FA_AccHPFI, LocalVar.FA_PitCom[0], LocalVar.VS_RefSpd,
+        LocalVar.VS_RefSpd_TSR, LocalVar.VS_RefSpd_TRA, LocalVar.VS_RefSpd_RL,
+        LocalVar.PC_RefSpd, LocalVar.PC_RefSpd_SS, LocalVar.PC_RefSpd_PRC,
+        LocalVar.RotSpeedF, LocalVar.GenSpeedF, LocalVar.GenTq,
+        LocalVar.GenTqMeas, LocalVar.GenArTq, LocalVar.GenBrTq,
+        LocalVar.VS_KOmega2_GenTq, LocalVar.VS_ConstPwr_GenTq,
+        LocalVar.IPC_PitComF[0], LocalVar.PC_KP, LocalVar.PC_KI,
+        LocalVar.PC_KD, LocalVar.PC_TF, LocalVar.PC_MaxPit,
+        LocalVar.PC_MinPit, LocalVar.PC_PitComT, LocalVar.PC_PitComT_Last,
+        LocalVar.BlPitchCMeasF, LocalVar.PC_PitComT_IPC[0],
+        LocalVar.PC_PwrErr, LocalVar.PC_SpdErr, LocalVar.IPC_AxisTilt_1P,
+        LocalVar.IPC_AxisYaw_1P, LocalVar.IPC_AxisTilt_2P, LocalVar.IPC_AxisYaw_2P,
+        LocalVar.axisTilt_1P, LocalVar.axisYaw_1P, LocalVar.axisYawF_1P,
+        LocalVar.axisTilt_2P, LocalVar.axisYaw_2P, LocalVar.axisYawF_2P,
+        LocalVar.IPC_KI[0], LocalVar.IPC_KP[0], LocalVar.IPC_IntSat,
+        (double)LocalVar.PC_State, LocalVar.PitCom[0], LocalVar.PitCom_SD[0],
+        LocalVar.PitComAct[0], LocalVar.SS_DelOmegaF, LocalVar.TestType,
+        LocalVar.Kp_Float, LocalVar.VS_MaxTq, LocalVar.VS_LastGenTrq,
+        LocalVar.VS_LastGenPwr, LocalVar.VS_MechGenPwr, LocalVar.VS_SpdErrAr,
+        LocalVar.VS_SpdErrBr, LocalVar.VS_SpdErr, (double)LocalVar.VS_State,
+        LocalVar.VS_Rgn3Pitch, LocalVar.WE_Vw, LocalVar.WE_Vw_F,
+        LocalVar.WE_VwI, LocalVar.WE_VwIdot, (double)LocalVar.WE_Op,
+        (double)LocalVar.WE_Op_Last, LocalVar.VS_LastGenTrqF, LocalVar.PRC_WSE_F,
+        LocalVar.PRC_R_Speed, LocalVar.PRC_R_Torque, LocalVar.PRC_R_Pitch,
+        LocalVar.PRC_R_Total, LocalVar.PRC_Min_Pitch, LocalVar.PS_Min_Pitch,
+        LocalVar.OL_Index, (double)LocalVar.SU_Stage,
+        LocalVar.SU_LoadStageStartTime, LocalVar.SU_RotSpeedF,
+        (double)LocalVar.SD_Trigger, LocalVar.SD_BlPitchF, LocalVar.SD_NacVaneF,
+        LocalVar.SD_GenSpeedF, (double)LocalVar.SD_Stage,
+        LocalVar.SD_StageStartTime, LocalVar.SD_MaxPitchRate,
+        LocalVar.SD_MaxTorqueRate, LocalVar.GenTq_SD, LocalVar.Fl_PitCom,
+        LocalVar.NACIMU_FA_AccF, LocalVar.FA_AccF, (double)LocalVar.FA_Hist,
+        LocalVar.TRA_LastRefSpd, LocalVar.VS_RefSpeed,
+        LocalVar.PtfmTDX, LocalVar.PtfmTDY, LocalVar.PtfmTDZ,
+        LocalVar.PtfmRDX, LocalVar.PtfmRDY, LocalVar.PtfmRDZ,
+        LocalVar.PtfmTVX, LocalVar.PtfmTVY, LocalVar.PtfmTVZ,
+        LocalVar.PtfmRVX, LocalVar.PtfmRVY, LocalVar.PtfmRVZ,
+        LocalVar.PtfmTAX, LocalVar.PtfmTAY, LocalVar.PtfmTAZ,
+        LocalVar.PtfmRAX, LocalVar.PtfmRAY, LocalVar.PtfmRAZ,
+        LocalVar.CC_DesiredL[0], LocalVar.CC_ActuatedL[0],
+        LocalVar.CC_ActuatedDL[0], LocalVar.StC_Input[0],
+        LocalVar.Flp_Angle[0], LocalVar.RootMyb_Last[0],
+        (double)LocalVar.ACC_INFILE_SIZE, LocalVar.AWC_complexangle_re[0],
+        LocalVar.TiltMean, LocalVar.YawMean, (double)LocalVar.ZMQ_ID,
+        LocalVar.ZMQ_YawOffset, LocalVar.ZMQ_TorqueOffset,
+        LocalVar.ZMQ_PitOffset[0], LocalVar.ZMQ_R_Speed,
+        LocalVar.ZMQ_R_Torque, LocalVar.ZMQ_R_Pitch
     };
     const char* LocalVarOutStrings[nLocalVars] = {
         "iStatus", "AlreadyInitialized", "RestartWSE", "Time", "DT",
@@ -204,7 +204,7 @@ void Debug(localvariables_t* LocalVar, const ControlParameters& CntrPar,
     };
 
     // --- Initialize debug files on first call ---
-    if (LocalVar->iStatus == 0 || LocalVar->iStatus == -9) {
+    if (LocalVar.iStatus == 0 || LocalVar.iStatus == -9) {
         if (CntrPar.LoggingLevel > 0) {
             std::string dbg_path = root + ".RO.dbg";
             dbg_file.open(dbg_path);
@@ -296,12 +296,12 @@ void Debug(localvariables_t* LocalVar, const ControlParameters& CntrPar,
     }
 
     // --- Console output every 10 seconds ---
-    if (std::fmod(LocalVar->Time, 10.0) == 0.0) {
+    if (std::fmod(LocalVar.Time, 10.0) == 0.0) {
         printf("Generator speed: %6.1f RPM, Pitch angle: %5.1f deg, Power: %7.1f kW, Est. wind Speed: %5.1f m/s\n",
-               LocalVar->GenSpeedF * RPS2RPM,
-               LocalVar->BlPitch[0] * R2D,
+               LocalVar.GenSpeedF * RPS2RPM,
+               LocalVar.BlPitch[0] * R2D,
                (double)avrSWAP[14] / 1000.0,  // Fortran avrSWAP(15) → C index 14
-               LocalVar->WE_Vw);
+               LocalVar.WE_Vw);
     }
 
     // --- Clamp debug data ---
@@ -313,17 +313,17 @@ void Debug(localvariables_t* LocalVar, const ControlParameters& CntrPar,
     }
 
     // --- Write debug data ---
-    if (LocalVar->n_DT % CntrPar.n_DT_Out == 0) {
-        if (CntrPar.LoggingLevel > 0 && LocalVar->iStatus >= 0) {
-            write_debug_row(dbg_file, LocalVar->Time, DebugOutData, nDebugOuts);
+    if (LocalVar.n_DT % CntrPar.n_DT_Out == 0) {
+        if (CntrPar.LoggingLevel > 0 && LocalVar.iStatus >= 0) {
+            write_debug_row(dbg_file, LocalVar.Time, DebugOutData, nDebugOuts);
         }
-        if (CntrPar.LoggingLevel > 1 && LocalVar->iStatus >= 0) {
-            write_debug_row(dbg2_file, LocalVar->Time, LocalVarOutData, nLocalVars);
+        if (CntrPar.LoggingLevel > 1 && LocalVar.iStatus >= 0) {
+            write_debug_row(dbg2_file, LocalVar.Time, LocalVarOutData, nLocalVars);
         }
-        if (CntrPar.LoggingLevel > 2 && LocalVar->iStatus >= 0) {
+        if (CntrPar.LoggingLevel > 2 && LocalVar.iStatus >= 0) {
             // Write avrSWAP values at selected indices
             char buf[32];
-            snprintf(buf, sizeof(buf), "%20.5f", LocalVar->Time);
+            snprintf(buf, sizeof(buf), "%20.5f", LocalVar.Time);
             dbg3_file << buf;
             for (size_t i = 0; i < avr_indices.size(); i++) {
                 double val = (double)avrSWAP[avr_indices[i] - 1]; // Fortran 1-indexed
@@ -337,7 +337,7 @@ void Debug(localvariables_t* LocalVar, const ControlParameters& CntrPar,
     }
 
     // --- Close files on shutdown ---
-    if (LocalVar->iStatus < 0) {
+    if (LocalVar.iStatus < 0) {
         if (dbg_file.is_open()) dbg_file.close();
         if (dbg2_file.is_open()) dbg2_file.close();
         if (dbg3_file.is_open()) dbg3_file.close();

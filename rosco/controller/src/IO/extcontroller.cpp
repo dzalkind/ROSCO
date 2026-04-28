@@ -8,7 +8,7 @@
 // Bladed DLL legacy interface — function pointer typedef
 typedef void (*bladed_dll_proc_t)(float*, int*, char*, char*, char*);
 
-void ExtController(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, ExtControlType& ExtDLL, errorvariables_t* ErrVar) {
+void ExtController(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, ExtControlType& ExtDLL, errorvariables_t* ErrVar) {
     static void* dll_handle = nullptr;
     static bladed_dll_proc_t dll_proc = nullptr;
 
@@ -39,7 +39,7 @@ void ExtController(float* avrSWAP, const ControlParameters& CntrPar, localvariab
     memset(avcMSG, 0, sizeof(avcMSG));
 
     // First call: load dynamic library
-    if (LocalVar->iStatus == 0) {
+    if (LocalVar.iStatus == 0) {
         // Build null-terminated filename
         char dll_filename[1024];
         int fn_len = 0;

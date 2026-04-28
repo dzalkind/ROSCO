@@ -659,7 +659,7 @@ typedef struct {
     piparams_t piP;
     resparams_t resP;
     rlparams_t rlP;
-} localvariables_t;
+} LocalVariables;
 
 #endif // LOCALVARIABLES_T_H
 

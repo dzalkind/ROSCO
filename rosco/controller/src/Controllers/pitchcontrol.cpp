@@ -9,123 +9,123 @@
 #include "../ControlElements/ratelimiter.hpp"
 #include "../ControlElements/picontroller.hpp"
 
-void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, localvariables_t* LocalVar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
+void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
     // PitchControl: master blade pitch controller
     // Orchestrates collective pitch PI, IPC, tower damping, floating feedback,
     // pitch saturation, AWC, shutdown, actuator model, and fault handling.
 
     // Load PC State
-    if (LocalVar->PC_State == PC_State_Enabled) {
-        LocalVar->PC_MaxPit = CntrPar.PC_MaxPit;
+    if (LocalVar.PC_State == PC_State_Enabled) {
+        LocalVar.PC_MaxPit = CntrPar.PC_MaxPit;
     } else {
-        LocalVar->PC_MaxPit = CntrPar.PC_FinePit;
+        LocalVar.PC_MaxPit = CntrPar.PC_FinePit;
     }
 
     // Hold blade pitch at last value in pre-startup mode
-    if ((CntrPar.SU_Mode > 0) && (LocalVar->SU_Stage == -1)) {
-        LocalVar->PC_MaxPit = LocalVar->BlPitchCMeas;
-        LocalVar->PC_MinPit = LocalVar->BlPitchCMeas;
+    if ((CntrPar.SU_Mode > 0) && (LocalVar.SU_Stage == -1)) {
+        LocalVar.PC_MaxPit = LocalVar.BlPitchCMeas;
+        LocalVar.PC_MinPit = LocalVar.BlPitchCMeas;
     }
 
     // Gain scheduling via interpolation
     ArrayView gs_angles = CntrPar.PC_GS_angles;
-    LocalVar->PC_KP = interp1d(gs_angles, CntrPar.PC_GS_KP, LocalVar->BlPitchCMeasF, ErrVar);
-    LocalVar->PC_KI = interp1d(gs_angles, CntrPar.PC_GS_KI, LocalVar->BlPitchCMeasF, ErrVar);
-    LocalVar->PC_KD = interp1d(gs_angles, CntrPar.PC_GS_KD, LocalVar->BlPitchCMeasF, ErrVar);
-    LocalVar->PC_TF = interp1d(gs_angles, CntrPar.PC_GS_TF, LocalVar->BlPitchCMeasF, ErrVar);
+    LocalVar.PC_KP = interp1d(gs_angles, CntrPar.PC_GS_KP, LocalVar.BlPitchCMeasF, ErrVar);
+    LocalVar.PC_KI = interp1d(gs_angles, CntrPar.PC_GS_KI, LocalVar.BlPitchCMeasF, ErrVar);
+    LocalVar.PC_KD = interp1d(gs_angles, CntrPar.PC_GS_KD, LocalVar.BlPitchCMeasF, ErrVar);
+    LocalVar.PC_TF = interp1d(gs_angles, CntrPar.PC_GS_TF, LocalVar.BlPitchCMeasF, ErrVar);
 
     // Collective pitch PI controller
     static PIController pcPitComTPI;
-    if (LocalVar->iStatus == 0 || LocalVar->restart) {
-        pcPitComTPI.init(LocalVar->BlPitch[0]);
-        LocalVar->PC_PitComT = LocalVar->BlPitch[0];
+    if (LocalVar.iStatus == 0 || LocalVar.restart) {
+        pcPitComTPI.init(LocalVar.BlPitch[0]);
+        LocalVar.PC_PitComT = LocalVar.BlPitch[0];
     } else {
-        LocalVar->PC_PitComT = pcPitComTPI.step(LocalVar->PC_SpdErr, LocalVar->PC_KP, LocalVar->PC_KI,
-            LocalVar->PC_MinPit, LocalVar->PC_MaxPit, LocalVar->DT);
+        LocalVar.PC_PitComT = pcPitComTPI.step(LocalVar.PC_SpdErr, LocalVar.PC_KP, LocalVar.PC_KI,
+            LocalVar.PC_MinPit, LocalVar.PC_MaxPit, LocalVar.DT);
     }
-    DebugVar->PC_PICommand = LocalVar->PC_PitComT;
+    DebugVar->PC_PICommand = LocalVar.PC_PitComT;
 
     // Individual pitch control
     if ((CntrPar.IPC_ControlMode >= 1) || (CntrPar.Y_ControlMode == 2)) {
         IPC(CntrPar, LocalVar, objInst, DebugVar, ErrVar);
     } else {
-        LocalVar->IPC_PitComF[0] = 0.0;
-        LocalVar->IPC_PitComF[1] = 0.0;
-        LocalVar->IPC_PitComF[2] = 0.0;
+        LocalVar.IPC_PitComF[0] = 0.0;
+        LocalVar.IPC_PitComF[1] = 0.0;
+        LocalVar.IPC_PitComF[2] = 0.0;
     }
 
     // Tower fore-aft damping
     if (CntrPar.TD_Mode > 0) {
         ForeAftDamping(CntrPar, LocalVar, objInst);
     } else {
-        LocalVar->FA_PitCom[0] = 0.0;
-        LocalVar->FA_PitCom[1] = 0.0;
-        LocalVar->FA_PitCom[2] = 0.0;
+        LocalVar.FA_PitCom[0] = 0.0;
+        LocalVar.FA_PitCom[1] = 0.0;
+        LocalVar.FA_PitCom[2] = 0.0;
     }
 
     // Pitch saturation
     if (CntrPar.PS_Mode > 0) {
-        LocalVar->PC_MinPit = PitchSaturation(LocalVar, CntrPar, objInst, DebugVar, ErrVar);
-        LocalVar->PC_MinPit = std::max(LocalVar->PC_MinPit, CntrPar.PC_FinePit);
+        LocalVar.PC_MinPit = PitchSaturation(LocalVar, CntrPar, objInst, DebugVar, ErrVar);
+        LocalVar.PC_MinPit = std::max(LocalVar.PC_MinPit, CntrPar.PC_FinePit);
     } else {
-        LocalVar->PC_MinPit = CntrPar.PC_FinePit;
+        LocalVar.PC_MinPit = CntrPar.PC_FinePit;
     }
-    DebugVar->PC_MinPit = LocalVar->PC_MinPit;
+    DebugVar->PC_MinPit = LocalVar.PC_MinPit;
 
     // Floating feedback
     if (CntrPar.Fl_Mode > 0) {
-        LocalVar->Fl_PitCom = FloatingFeedback(LocalVar, CntrPar, objInst, ErrVar);
-        DebugVar->Fl_PitCom = LocalVar->Fl_PitCom;
-        LocalVar->PC_PitComT += LocalVar->Fl_PitCom;
+        LocalVar.Fl_PitCom = FloatingFeedback(LocalVar, CntrPar, objInst, ErrVar);
+        DebugVar->Fl_PitCom = LocalVar.Fl_PitCom;
+        LocalVar.PC_PitComT += LocalVar.Fl_PitCom;
     }
 
     // Saturate collective pitch
-    LocalVar->PC_PitComT = saturate(LocalVar->PC_PitComT, LocalVar->PC_MinPit, CntrPar.PC_MaxPit);
+    LocalVar.PC_PitComT = saturate(LocalVar.PC_PitComT, LocalVar.PC_MinPit, CntrPar.PC_MaxPit);
     static RateLimiter pitComTRL;
-    if (LocalVar->iStatus == 0 || LocalVar->restart) {
-        pitComTRL.init(LocalVar->BlPitchCMeas);
-        LocalVar->PC_PitComT = LocalVar->BlPitchCMeas;
+    if (LocalVar.iStatus == 0 || LocalVar.restart) {
+        pitComTRL.init(LocalVar.BlPitchCMeas);
+        LocalVar.PC_PitComT = LocalVar.BlPitchCMeas;
     } else {
-        LocalVar->PC_PitComT = pitComTRL.step(LocalVar->PC_PitComT, CntrPar.PC_MinRat, CntrPar.PC_MaxRat, LocalVar->DT);
+        LocalVar.PC_PitComT = pitComTRL.step(LocalVar.PC_PitComT, CntrPar.PC_MinRat, CntrPar.PC_MaxRat, LocalVar.DT);
     }
-    LocalVar->PC_PitComT_Last = LocalVar->PC_PitComT;
+    LocalVar.PC_PitComT_Last = LocalVar.PC_PitComT;
 
     // Combine and saturate individual pitch commands
-    for (int K = 0; K < LocalVar->NumBl; K++) {
-        LocalVar->PitCom[K] = LocalVar->PC_PitComT + LocalVar->FA_PitCom[K];
-        LocalVar->PitCom[K] = saturate(LocalVar->PitCom[K], LocalVar->PC_MinPit, CntrPar.PC_MaxPit);
-        LocalVar->PitCom[K] += LocalVar->IPC_PitComF[K];
+    for (int K = 0; K < LocalVar.NumBl; K++) {
+        LocalVar.PitCom[K] = LocalVar.PC_PitComT + LocalVar.FA_PitCom[K];
+        LocalVar.PitCom[K] = saturate(LocalVar.PitCom[K], LocalVar.PC_MinPit, CntrPar.PC_MaxPit);
+        LocalVar.PitCom[K] += LocalVar.IPC_PitComF[K];
 
         // Hard IPC saturation by peak shaving limit
         if (CntrPar.IPC_SatMode == 1) {
-            LocalVar->PitCom[K] = saturate(LocalVar->PitCom[K], LocalVar->PC_MinPit, CntrPar.PC_MaxPit);
+            LocalVar.PitCom[K] = saturate(LocalVar.PitCom[K], LocalVar.PC_MinPit, CntrPar.PC_MaxPit);
         }
 
         // ZeroMQ pitch offset
-        LocalVar->PitCom[K] += LocalVar->ZMQ_PitOffset[K];
+        LocalVar.PitCom[K] += LocalVar.ZMQ_PitOffset[K];
 
         // Rate limit per blade
         static RateLimiter pitComRL[3];
-        if (LocalVar->iStatus == 0 || LocalVar->restart) {
-            pitComRL[K].init(LocalVar->BlPitch[K]);
-            LocalVar->PitCom[K] = LocalVar->BlPitch[K];
+        if (LocalVar.iStatus == 0 || LocalVar.restart) {
+            pitComRL[K].init(LocalVar.BlPitch[K]);
+            LocalVar.PitCom[K] = LocalVar.BlPitch[K];
         } else {
-            LocalVar->PitCom[K] = pitComRL[K].step(LocalVar->PitCom[K], CntrPar.PC_MinRat, CntrPar.PC_MaxRat, LocalVar->DT);
+            LocalVar.PitCom[K] = pitComRL[K].step(LocalVar.PitCom[K], CntrPar.PC_MinRat, CntrPar.PC_MaxRat, LocalVar.DT);
         }
     }
 
     // Open loop pitch control
     if (CntrPar.OL_Mode > 0) {
-        if (LocalVar->Time >= CntrPar.OL_Breakpoints[0]) {
+        if (LocalVar.Time >= CntrPar.OL_Breakpoints[0]) {
             ArrayView ol_bp = CntrPar.OL_Breakpoints;
             if (CntrPar.Ind_BldPitch[0] > 0) {
-                LocalVar->PitCom[0] = interp1d(ol_bp, CntrPar.OL_BldPitch1, LocalVar->OL_Index, ErrVar);
+                LocalVar.PitCom[0] = interp1d(ol_bp, CntrPar.OL_BldPitch1, LocalVar.OL_Index, ErrVar);
             }
             if (CntrPar.Ind_BldPitch[1] > 0) {
-                LocalVar->PitCom[1] = interp1d(ol_bp, CntrPar.OL_BldPitch2, LocalVar->OL_Index, ErrVar);
+                LocalVar.PitCom[1] = interp1d(ol_bp, CntrPar.OL_BldPitch2, LocalVar.OL_Index, ErrVar);
             }
             if (CntrPar.Ind_BldPitch[2] > 0) {
-                LocalVar->PitCom[2] = interp1d(ol_bp, CntrPar.OL_BldPitch3, LocalVar->OL_Index, ErrVar);
+                LocalVar.PitCom[2] = interp1d(ol_bp, CntrPar.OL_BldPitch3, LocalVar.OL_Index, ErrVar);
             }
         }
     }
@@ -136,68 +136,68 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, localvariabl
     }
 
     // Shutdown
-    if (LocalVar->SD_Trigger == 0) {
-        LocalVar->PitCom_SD[0] = LocalVar->PitCom[0];
-        LocalVar->PitCom_SD[1] = LocalVar->PitCom[1];
-        LocalVar->PitCom_SD[2] = LocalVar->PitCom[2];
+    if (LocalVar.SD_Trigger == 0) {
+        LocalVar.PitCom_SD[0] = LocalVar.PitCom[0];
+        LocalVar.PitCom_SD[1] = LocalVar.PitCom[1];
+        LocalVar.PitCom_SD[2] = LocalVar.PitCom[2];
     } else {
         if (CntrPar.SD_Method == 1 || CntrPar.SD_Method == 2) {
-            for (int K = 0; K < LocalVar->NumBl; K++) {
-                LocalVar->PitCom_SD[K] += LocalVar->SD_MaxPitchRate * LocalVar->DT;
+            for (int K = 0; K < LocalVar.NumBl; K++) {
+                LocalVar.PitCom_SD[K] += LocalVar.SD_MaxPitchRate * LocalVar.DT;
             }
         }
-        LocalVar->PitCom[0] = LocalVar->PitCom_SD[0];
-        LocalVar->PitCom[1] = LocalVar->PitCom_SD[1];
-        LocalVar->PitCom[2] = LocalVar->PitCom_SD[2];
+        LocalVar.PitCom[0] = LocalVar.PitCom_SD[0];
+        LocalVar.PitCom[1] = LocalVar.PitCom_SD[1];
+        LocalVar.PitCom[2] = LocalVar.PitCom_SD[2];
     }
 
     // Pitch actuator model
     static LPFilter pitchActFilter[3];
-    for (int K = 0; K < LocalVar->NumBl; K++) {
+    for (int K = 0; K < LocalVar.NumBl; K++) {
         if (CntrPar.PA_Mode > 0) {
             if (CntrPar.PA_Mode == 1) {
-                if (LocalVar->iStatus == 0 || LocalVar->restart) pitchActFilter[K].init(CntrPar.PA_CornerFreq, LocalVar->DT, LocalVar->PitCom[K]);
-                LocalVar->PitComAct[K] = pitchActFilter[K].step(LocalVar->PitCom[K]);
+                if (LocalVar.iStatus == 0 || LocalVar.restart) pitchActFilter[K].init(CntrPar.PA_CornerFreq, LocalVar.DT, LocalVar.PitCom[K]);
+                LocalVar.PitComAct[K] = pitchActFilter[K].step(LocalVar.PitCom[K]);
             } else if (CntrPar.PA_Mode == 2) {
                 static SecLPFilter pitchActFilter2[3];
-                if (LocalVar->iStatus == 0 || LocalVar->restart) pitchActFilter2[K].init(CntrPar.PA_CornerFreq, CntrPar.PA_Damping, LocalVar->DT, LocalVar->PitCom[K]);
-                LocalVar->PitComAct[K] = pitchActFilter2[K].step(LocalVar->PitCom[K]);
+                if (LocalVar.iStatus == 0 || LocalVar.restart) pitchActFilter2[K].init(CntrPar.PA_CornerFreq, CntrPar.PA_Damping, LocalVar.DT, LocalVar.PitCom[K]);
+                LocalVar.PitComAct[K] = pitchActFilter2[K].step(LocalVar.PitCom[K]);
             }
         } else {
-            LocalVar->PitComAct[K] = LocalVar->PitCom[K];
+            LocalVar.PitComAct[K] = LocalVar.PitCom[K];
         }
     }
 
     // Hardware saturation
-    for (int K = 0; K < LocalVar->NumBl; K++) {
-        LocalVar->PitComAct[K] = saturate(LocalVar->PitComAct[K], CntrPar.PC_MinPit, CntrPar.PC_MaxPit);
+    for (int K = 0; K < LocalVar.NumBl; K++) {
+        LocalVar.PitComAct[K] = saturate(LocalVar.PitComAct[K], CntrPar.PC_MinPit, CntrPar.PC_MaxPit);
         static RateLimiter pitComActRL[3];
-        if (LocalVar->iStatus == 0 || LocalVar->restart) {
-            pitComActRL[K].init(LocalVar->BlPitch[K]);
-            LocalVar->PitComAct[K] = LocalVar->BlPitch[K];
+        if (LocalVar.iStatus == 0 || LocalVar.restart) {
+            pitComActRL[K].init(LocalVar.BlPitch[K]);
+            LocalVar.PitComAct[K] = LocalVar.BlPitch[K];
         } else {
-            LocalVar->PitComAct[K] = pitComActRL[K].step(LocalVar->PitComAct[K], CntrPar.PC_MinRat, CntrPar.PC_MaxRat, LocalVar->DT);
+            LocalVar.PitComAct[K] = pitComActRL[K].step(LocalVar.PitComAct[K], CntrPar.PC_MinRat, CntrPar.PC_MaxRat, LocalVar.DT);
         }
     }
 
     // Pitch fault modes
     if (CntrPar.PF_Mode == 1) {
-        for (int K = 0; K < LocalVar->NumBl; K++) {
-            LocalVar->PitComAct[K] += CntrPar.PF_Offsets[K];
+        for (int K = 0; K < LocalVar.NumBl; K++) {
+            LocalVar.PitComAct[K] += CntrPar.PF_Offsets[K];
         }
     } else if (CntrPar.PF_Mode == 2) {
-        for (int K = 0; K < LocalVar->NumBl; K++) {
-            if (LocalVar->Time > CntrPar.PF_TimeStuck[K]) {
-                LocalVar->PitComAct[K] = LocalVar->BlPitch[K];
+        for (int K = 0; K < LocalVar.NumBl; K++) {
+            if (LocalVar.Time > CntrPar.PF_TimeStuck[K]) {
+                LocalVar.PitComAct[K] = LocalVar.BlPitch[K];
             }
         }
     }
 
     // Command pitch to avrSWAP (Fortran 42-45 → C 41-44)
-    avrSWAP[41] = LocalVar->PitComAct[0];
-    avrSWAP[42] = LocalVar->PitComAct[1];
-    avrSWAP[43] = LocalVar->PitComAct[2];
-    avrSWAP[44] = LocalVar->PitComAct[0];  // Collective pitch = blade 1
+    avrSWAP[41] = LocalVar.PitComAct[0];
+    avrSWAP[42] = LocalVar.PitComAct[1];
+    avrSWAP[43] = LocalVar.PitComAct[2];
+    avrSWAP[44] = LocalVar.PitComAct[0];  // Collective pitch = blade 1
 
     // Prepend routine name to error message if aviFAIL < 0
     if (ErrVar->aviFAIL < 0) {

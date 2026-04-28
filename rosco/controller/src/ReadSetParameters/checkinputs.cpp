@@ -28,7 +28,7 @@ static bool NonDecreasing(const double* arr, int n) {
     return true;
 }
 
-void CheckInputs(localvariables_t* LocalVar, const ControlParameters& CntrPar,
+void CheckInputs(LocalVariables& LocalVar, const ControlParameters& CntrPar,
                  float* avrSWAP, errorvariables_t* ErrVar, int32_t size_avcMSG) {
 
     int Imode;
@@ -49,16 +49,16 @@ void CheckInputs(localvariables_t* LocalVar, const ControlParameters& CntrPar,
         setError(ErrVar, "DT_Out must be greater than 0");
     }
 
-    if (CntrPar.DT_Out < LocalVar->DT) {
+    if (CntrPar.DT_Out < LocalVar.DT) {
         setError(ErrVar, "DT_Out must be greater than or equal to DT in OpenFAST");
     }
 
-    if (std::abs(CntrPar.DT_Out - LocalVar->DT * CntrPar.n_DT_Out) > 0.001) {
+    if (std::abs(CntrPar.DT_Out - LocalVar.DT * CntrPar.n_DT_Out) > 0.001) {
         setError(ErrVar, "DT_Out must be a factor of DT in OpenFAST");
     }
 
     if (CntrPar.ZMQ_Mode > 0) {
-        if (std::abs(CntrPar.ZMQ_UpdatePeriod - LocalVar->DT * CntrPar.n_DT_ZMQ) > 0.001) {
+        if (std::abs(CntrPar.ZMQ_UpdatePeriod - LocalVar.DT * CntrPar.n_DT_ZMQ) > 0.001) {
             setError(ErrVar, "ZMQ_UpdatePeriod must be a factor of DT in OpenFAST");
         }
     }
@@ -798,7 +798,7 @@ void CheckInputs(localvariables_t* LocalVar, const ControlParameters& CntrPar,
     }
 
     // DT
-    if (LocalVar->DT <= 0.0) {
+    if (LocalVar.DT <= 0.0) {
         setError(ErrVar, "DT must be greater than zero.");
     }
 

@@ -1,11 +1,11 @@
 #include "../include/restart_fields.h"
 #include "../include/rosco_types.hpp"
 
-void WriteRestartFile(localvariables_t* LocalVar, const ControlParameters& /*CntrPar*/,
+void WriteRestartFile(LocalVariables& LocalVar, const ControlParameters& /*CntrPar*/,
                       errorvariables_t* ErrVar, objectinstances_t* objInst,
                       char* RootName, int size_avcOUTNAME) {
     std::string root = trim_fortran_string(RootName, size_avcOUTNAME);
-    int timestep = (int)std::round(LocalVar->Time / LocalVar->DT);
+    int timestep = (int)std::round(LocalVar.Time / LocalVar.DT);
     std::string filename = root + std::to_string(timestep) + ".RO.chkp";
 
     std::ofstream f(filename, std::ios::binary);

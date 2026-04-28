@@ -2,16 +2,16 @@
 #include "../include/vit_translated.h"
 #include <cstring>
 
-double PitchSaturation(localvariables_t* LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
+double PitchSaturation(LocalVariables& LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
 
     // Define minimum blade pitch angle for peak shaving as a function of estimated wind speed
-    LocalVar->PS_Min_Pitch = interp1d(CntrPar.PS_WindSpeeds,
+    LocalVar.PS_Min_Pitch = interp1d(CntrPar.PS_WindSpeeds,
                                        CntrPar.PS_BldPitchMin,
-                                       LocalVar->WE_Vw_F, ErrVar);
+                                       LocalVar.WE_Vw_F, ErrVar);
 
     // Total min pitch limit is greater of peak shaving and power control pitch
-    double result = (LocalVar->PS_Min_Pitch > LocalVar->PRC_Min_Pitch)
-                    ? LocalVar->PS_Min_Pitch : LocalVar->PRC_Min_Pitch;
+    double result = (LocalVar.PS_Min_Pitch > LocalVar.PRC_Min_Pitch)
+                    ? LocalVar.PS_Min_Pitch : LocalVar.PRC_Min_Pitch;
 
     // Add RoutineName to error message
     if (ErrVar->aviFAIL < 0) {

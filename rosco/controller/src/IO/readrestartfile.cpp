@@ -2,7 +2,7 @@
 #include "../include/rosco_types.hpp"
 #include "../include/rosco_objects.hpp"
 
-void ReadRestartFile(float* avrSWAP, localvariables_t* LocalVar,
+void ReadRestartFile(float* avrSWAP, LocalVariables& LocalVar,
                      const ControlParameters& /*CntrPar*/, objectinstances_t* objInst,
                      const PerformanceData& /*PerfData*/, char* RootName,
                      int size_avcOUTNAME, errorvariables_t* ErrVar) {

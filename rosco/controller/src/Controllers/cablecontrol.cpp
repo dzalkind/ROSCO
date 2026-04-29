@@ -1,12 +1,9 @@
-#include "../include/vit_types.h"
 #include "../include/vit_translated.h"
-#include <cstring>
-#include <cstdio>
 #include "../include/rosco_constants.h"
 #include "../Filters/seclpfilter_vel.hpp"
 #include "../ControlElements/picontroller.hpp"
 
-void CableControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, errorvariables_t* ErrVar) {
+void CableControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // CableControl: cable length control
     //   CC_Mode = 1: user-defined step inputs
     //   CC_Mode = 2: open-loop from lookup table
@@ -32,7 +29,7 @@ void CableControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
                 }
                 LocalVar.CC_DesiredL[I_GROUP] = interp1d(CntrPar.OL_Breakpoints,
                                                           {row_slice, n_cols},
-                                                          LocalVar.Time, ErrVar);
+                                                          LocalVar.Time);
             }
         }
     }
@@ -61,13 +58,5 @@ void CableControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
         int idx = CntrPar.CC_GroupIndex[I_GROUP] - 1;  // 0-indexed
         avrSWAP[idx] = LocalVar.CC_ActuatedL[I_GROUP];
         avrSWAP[idx + 1] = LocalVar.CC_ActuatedDL[I_GROUP];
-    }
-
-    // Prepend routine name to error message if aviFAIL < 0
-    if (ErrVar->aviFAIL < 0) {
-        char tmp[1024];
-        snprintf(tmp, sizeof(tmp), "CableControl:%s", ErrVar->ErrMsg);
-        strncpy(ErrVar->ErrMsg, tmp, sizeof(ErrVar->ErrMsg) - 1);
-        ErrVar->ErrMsg[sizeof(ErrVar->ErrMsg) - 1] = '\0';
     }
 }

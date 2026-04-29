@@ -1,11 +1,8 @@
-#include "../include/vit_types.h"
 #include "../include/vit_translated.h"
 #include <algorithm>
-#include <cstring>
-#include <cstdio>
 #include "../ControlElements/picontroller.hpp"
 
-void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
+void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar) {
     // IPC: Individual Pitch Control for 1P and 2P load reduction
     // Also handles yaw-by-IPC (Y_ControlMode == 2)
 
@@ -40,9 +37,9 @@ void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariab
     // Soft cutin with sigma function
     for (int i = 0; i < 2; i++) {
         LocalVar.IPC_KP[i] = sigma(LocalVar.WE_Vw, CntrPar.IPC_Vramp[0],
-                                        CntrPar.IPC_Vramp[1], 0.0, CntrPar.IPC_KP[i], ErrVar);
+                                        CntrPar.IPC_Vramp[1], 0.0, CntrPar.IPC_KP[i]);
         LocalVar.IPC_KI[i] = sigma(LocalVar.WE_Vw, CntrPar.IPC_Vramp[0],
-                                        CntrPar.IPC_Vramp[1], 0.0, CntrPar.IPC_KI[i], ErrVar);
+                                        CntrPar.IPC_Vramp[1], 0.0, CntrPar.IPC_KI[i]);
     }
 
     // Handle saturation limit
@@ -122,13 +119,5 @@ void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariab
         }
 
         LocalVar.IPC_PitComF[K] = PitComIPCF[K];
-    }
-
-    // Prepend routine name to error message if aviFAIL < 0
-    if (ErrVar->aviFAIL < 0) {
-        char tmp[1024];
-        snprintf(tmp, sizeof(tmp), "IPC:%s", ErrVar->ErrMsg);
-        strncpy(ErrVar->ErrMsg, tmp, sizeof(ErrVar->ErrMsg) - 1);
-        ErrVar->ErrMsg[sizeof(ErrVar->ErrMsg) - 1] = '\0';
     }
 }

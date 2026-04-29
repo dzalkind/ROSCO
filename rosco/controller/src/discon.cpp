@@ -28,6 +28,7 @@
 #include "include/rosco_types.hpp"
 #include "include/rosco_objects.hpp"
 #include "include/rosco_constants.h"
+#include "include/rosco_error.hpp"
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
@@ -47,7 +48,6 @@ static ControlParameters  CntrPar  = {};  // tuning parameters read from config 
 static LocalVariables     LocalVar = {};  // turbine measurements + derived signals
 static PerformanceData    PerfData = {};  // rotor Cp/Ct/Cq lookup tables
 static debugvariables_t   DebugVar = {};  // quantities written to the log file
-static errorvariables_t   ErrVar   = {};  // error status and message
 static ExtControlType     ExtDLL   = {};  // external controller DLL swap buffer
 
 // ============================================================
@@ -86,22 +86,20 @@ static void read_config_files(char* accINFILE, int accINFILE_size) {
     bool is_toml = (fp.extension() == ".toml" || fp.extension() == ".TOML");
 
     if (is_toml) {
-        CntrPar.load_from_toml(filename.c_str(), &ErrVar);
-        if (ErrVar.aviFAIL < 0) return;
+        CntrPar.load_from_toml(filename.c_str());
     } else {
         // Directory containing the config file — used to resolve relative paths
         std::string priPath = fp.parent_path().string();
         if (!priPath.empty()) priPath += '/';
         else priPath = "./";
 
-        ReadControlParameterFileSub(CntrPar, LocalVar, filename.c_str(), priPath.c_str(), &ErrVar);
-        if (ErrVar.aviFAIL < 0) return;
+        ReadControlParameterFileSub(CntrPar, LocalVar, filename.c_str(), priPath.c_str());
     }
 
     // Load rotor performance tables (required when WE_Mode > 0)
     PerfData = PerformanceData{};
     if (CntrPar.WE_Mode > 0) {
-        ReadCpFile(CntrPar, PerfData, &ErrVar);
+        ReadCpFile(CntrPar, PerfData);
     }
 }
 
@@ -117,15 +115,15 @@ static void read_config_files(char* accINFILE, int accINFILE_size) {
 DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* avcOUTNAME, char* avcMSG) {
 
     // avcMSG buffer size is available before try — needed in the catch handlers
-    const int size_avcMSG = (int)avrSWAP[SWAP_MSG_LEN];
+    const int size_avcMSG = std::max(1, (int)avrSWAP[SWAP_MSG_LEN]);
 
     // Wrap the entire body in try/catch so that C++ exceptions (e.g. bad_alloc)
     // cannot propagate into LabVIEW or the Bladed process — they are caught and
     // converted to the aviFAIL = -1 / avcMSG error reporting channel instead.
     try {
 
-        const int accINFILE_size  = (int)avrSWAP[SWAP_INFILE_LEN];
-        const int avcOUTNAME_size = (int)avrSWAP[SWAP_OUTNAME_LEN];
+        const int accINFILE_size  = std::max(0, (int)avrSWAP[SWAP_INFILE_LEN]);
+        const int avcOUTNAME_size = std::max(0, (int)avrSWAP[SWAP_OUTNAME_LEN]);
         const int iStatus         = (int)avrSWAP[SWAP_STATUS];
 
         // Root name used for checkpoint and log files (output name without extension)
@@ -135,10 +133,6 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         int rn = std::min((int)rootStr.size(), (int)sizeof(RootName) - 1);
         memcpy(RootName, rootStr.c_str(), rn);
         memset(RootName + rn, ' ', sizeof(RootName) - rn);
-
-        // Reset error state and filter-instance counters each timestep
-        ErrVar.aviFAIL    = 0;
-        ErrVar.size_avcMSG = size_avcMSG;
 
         // Default demanded actuator signals (overwritten below by controller modules)
         avrSWAP[34] = 1.0f;   // Record 35: request generator torque (1 = active)
@@ -157,23 +151,23 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         // Warm restart: restore state from checkpoint file
         // then re-read config (parameters may have changed)
         // --------------------------------------------------------
-        if (iStatus == -9 && *aviFAIL >= 0) {
-            ReadRestartFile(avrSWAP, LocalVar, CntrPar, PerfData, RootName, avcOUTNAME_size, &ErrVar);
+        if (iStatus == -9) {
+            ReadRestartFile(avrSWAP, LocalVar, CntrPar, PerfData, RootName, avcOUTNAME_size);
             read_config_files(LocalVar.ACC_INFILE, LocalVar.ACC_INFILE_SIZE);
             if (CntrPar.LoggingLevel > 0) {
-                Debug(LocalVar, CntrPar, &DebugVar, &ErrVar, avrSWAP, RootName, avcOUTNAME_size);
+                Debug(LocalVar, CntrPar, &DebugVar, avrSWAP, RootName, avcOUTNAME_size);
             }
         }
 
         // --------------------------------------------------------
         // Unpack turbine measurements from avrSWAP → LocalVar
         // --------------------------------------------------------
-        ReadAvrSWAP(avrSWAP, LocalVar, CntrPar, &ErrVar);
+        ReadAvrSWAP(avrSWAP, LocalVar, CntrPar);
 
         // --------------------------------------------------------
         // First timestep: print banner, read config, initialize state
         // --------------------------------------------------------
-        if (ErrVar.aviFAIL >= 0 && LocalVar.iStatus == 0) {
+        if (LocalVar.iStatus == 0) {
             printf("                                                                              \n"
                    "------------------------------------------------------------------------------\n"
                    "Running ROSCO-%s (c++ version)\n"
@@ -186,22 +180,21 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
             // Save input filename so it can be re-read on warm restart
             LocalVar.ACC_INFILE_SIZE = accINFILE_size;
             memset(LocalVar.ACC_INFILE, ' ', sizeof(LocalVar.ACC_INFILE));
-            memcpy(LocalVar.ACC_INFILE, accINFILE, std::min(accINFILE_size, (int)sizeof(LocalVar.ACC_INFILE)));
+            memcpy(LocalVar.ACC_INFILE, accINFILE,
+                   std::min(accINFILE_size, (int)sizeof(LocalVar.ACC_INFILE)));
 
             read_config_files(accINFILE, accINFILE_size);
         }
 
         // SetParameters: initialize LocalVar on first call; update OL_Index every call
-        if (ErrVar.aviFAIL >= 0) {
-            SetParameters(CntrPar, LocalVar, avrSWAP, &ErrVar, size_avcMSG);
-        }
+        SetParameters(CntrPar, LocalVar, avrSWAP, size_avcMSG);
 
         // --------------------------------------------------------
         // External DLL controller (optional, Ext_Mode > 0)
         // --------------------------------------------------------
-        if (ErrVar.aviFAIL >= 0 && CntrPar.Ext_Mode > 0) {
+        if (CntrPar.Ext_Mode > 0) {
             ExtDLL.avrSWAP.resize(2000, 0.0f);
-            ExtController(avrSWAP, CntrPar, LocalVar, ExtDLL, &ErrVar);
+            ExtController(avrSWAP, CntrPar, LocalVar, ExtDLL);
         }
 
         // --------------------------------------------------------
@@ -209,80 +202,66 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         // and on the final call to write a checkpoint (iStatus == -8)
         // --------------------------------------------------------
         bool running = (LocalVar.iStatus >= 0) || (LocalVar.iStatus <= -8);
-        if (running && ErrVar.aviFAIL >= 0) {
+        if (running) {
 
             if (LocalVar.iStatus == -8) {
-                WriteRestartFile(LocalVar, CntrPar, &ErrVar, RootName, avcOUTNAME_size);
+                WriteRestartFile(LocalVar, CntrPar, RootName, avcOUTNAME_size);
             }
 
-            if (CntrPar.ZMQ_Mode > 0)  UpdateZeroMQ(LocalVar, CntrPar, &ErrVar);
-            if (CntrPar.SD_Mode  > 0)  Shutdown(LocalVar, CntrPar, &ErrVar);
+            if (CntrPar.ZMQ_Mode > 0)  UpdateZeroMQ(LocalVar, CntrPar);
+            if (CntrPar.SD_Mode  > 0)  Shutdown(LocalVar, CntrPar);
 
-            PreFilterMeasuredSignals(CntrPar, LocalVar, &DebugVar, &ErrVar);
-            WindSpeedEstimator(LocalVar, CntrPar, PerfData, &DebugVar, &ErrVar);
-            PowerControlSetpoints(CntrPar, LocalVar, &DebugVar, &ErrVar);
+            PreFilterMeasuredSignals(CntrPar, LocalVar, &DebugVar);
+            WindSpeedEstimator(LocalVar, CntrPar, PerfData, &DebugVar);
+            PowerControlSetpoints(CntrPar, LocalVar, &DebugVar);
 
-            if (CntrPar.SU_Mode > 0)   Startup(LocalVar, CntrPar, &ErrVar);
+            if (CntrPar.SU_Mode > 0)   Startup(LocalVar, CntrPar);
 
-            SpeedSetpoints(CntrPar, LocalVar, &DebugVar, &ErrVar);
+            SpeedSetpoints(CntrPar, LocalVar, &DebugVar);
             TorqueStateMachine(CntrPar, LocalVar);
             SetpointSmoother(LocalVar, CntrPar);
-            TorqueControl(avrSWAP, CntrPar, LocalVar, &ErrVar);
+            TorqueControl(avrSWAP, CntrPar, LocalVar);
 
-            if (CntrPar.PC_ControlMode > 0) PitchControl(avrSWAP, CntrPar, LocalVar, &DebugVar, &ErrVar);
-            if (CntrPar.Y_ControlMode  > 0) YawRateControl(avrSWAP, CntrPar, LocalVar, &DebugVar, &ErrVar);
+            if (CntrPar.PC_ControlMode > 0) PitchControl(avrSWAP, CntrPar, LocalVar, &DebugVar);
+            if (CntrPar.Y_ControlMode  > 0) YawRateControl(avrSWAP, CntrPar, LocalVar, &DebugVar);
             if (CntrPar.Flp_Mode       > 0) FlapControl(avrSWAP, CntrPar, LocalVar);
-            if (CntrPar.CC_Mode        > 0) CableControl(avrSWAP, CntrPar, LocalVar, &ErrVar);
-            if (CntrPar.StC_Mode       > 0) StructuralControl(avrSWAP, CntrPar, LocalVar, &ErrVar);
+            if (CntrPar.CC_Mode        > 0) CableControl(avrSWAP, CntrPar, LocalVar);
+            if (CntrPar.StC_Mode       > 0) StructuralControl(avrSWAP, CntrPar, LocalVar);
 
         } else if (LocalVar.iStatus == -1 && CntrPar.ZMQ_Mode > 0) {
             // Final call: send last measurement to ZMQ coordinator
-            UpdateZeroMQ(LocalVar, CntrPar, &ErrVar);
+            UpdateZeroMQ(LocalVar, CntrPar);
         }
 
         // --------------------------------------------------------
         // Debug logging
         // --------------------------------------------------------
-        if (CntrPar.LoggingLevel > 0 && ErrVar.aviFAIL >= 0) {
-            Debug(LocalVar, CntrPar, &DebugVar, &ErrVar, avrSWAP, RootName, avcOUTNAME_size);
+        if (CntrPar.LoggingLevel > 0) {
+            Debug(LocalVar, CntrPar, &DebugVar, avrSWAP, RootName, avcOUTNAME_size);
         }
 
-        // --------------------------------------------------------
-        // Return error status and message to Bladed / LabVIEW
-        // --------------------------------------------------------
-        if (ErrVar.aviFAIL < 0) {
-            // Print the error to console (trim trailing spaces first)
-            char msg[sizeof(ErrVar.ErrMsg) + 8];
-            snprintf(msg, sizeof(msg), "ROSCO: %.1024s", ErrVar.ErrMsg);
-            int trimLen = (int)strlen(msg) - 1;
-            while (trimLen > 0 && msg[trimLen] == ' ') trimLen--;
-            msg[trimLen + 1] = '\0';
-            printf(" %s\n", msg);
-        }
+        // No error — report success
+        *aviFAIL = 0;
+        if (size_avcMSG > 0) avcMSG[0] = '\0';
 
-        // Copy error message to avcMSG output buffer
-        {
-            int msgLen = (int)sizeof(ErrVar.ErrMsg);
-            while (msgLen > 0 && (ErrVar.ErrMsg[msgLen-1] == ' ' || ErrVar.ErrMsg[msgLen-1] == '\0'))
-                msgLen--;
-            int copyLen = std::min(msgLen, size_avcMSG - 1);
-            memcpy(avcMSG, ErrVar.ErrMsg, copyLen);
-            if (copyLen < size_avcMSG) avcMSG[copyLen] = '\0';
-        }
-
-        *aviFAIL = ErrVar.aviFAIL;
-        memset(ErrVar.ErrMsg, ' ', sizeof(ErrVar.ErrMsg));
-
+    } catch (const RoscoError& e) {
+        *aviFAIL = -1;
+        int n = size_avcMSG > 1 ? size_avcMSG - 1 : 0;
+        std::strncpy(avcMSG, e.what(), (size_t)n);
+        avcMSG[n] = '\0';
+        printf(" ROSCO ERROR: %s\n", e.what());
     } catch (const std::exception& e) {
         *aviFAIL = -1;
         int n = size_avcMSG > 1 ? size_avcMSG - 1 : 0;
         std::strncpy(avcMSG, e.what(), (size_t)n);
         avcMSG[n] = '\0';
+        printf(" ROSCO ERROR (std::exception): %s\n", e.what());
     } catch (...) {
         *aviFAIL = -1;
         const char* msg = "Unknown C++ exception in DISCON";
         int n = size_avcMSG > 1 ? size_avcMSG - 1 : 0;
         std::strncpy(avcMSG, msg, (size_t)n);
         avcMSG[n] = '\0';
+        printf(" ROSCO ERROR: %s\n", msg);
     }
 }

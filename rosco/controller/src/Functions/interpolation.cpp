@@ -1,31 +1,25 @@
 #include "../include/vit_types.h"
 #include "../include/rosco_array.hpp"
+#include "../include/rosco_error.hpp"
 #include <cmath>
 #include <cstring>
 #include <cstdio>
+#include <vector>
 
 // Linear interpolation of (xData, yData) at query point xq.
 // Clamps to the endpoint values outside the data range.
-double interp1d(ArrayView xData, ArrayView yData, double xq, errorvariables_t* ErrVar) {
+double interp1d(ArrayView xData, ArrayView yData, double xq) {
 
     // xData and yData must be the same length
     if (xData.size != yData.size) {
-        ErrVar->aviFAIL = -1;
-        int len = snprintf(ErrVar->ErrMsg, 1024,
-            " SIZE(xData) =%2d and SIZE(yData) =%2d are not the same",
-            xData.size, yData.size);
-        if (len >= 0 && len < 1024) memset(ErrVar->ErrMsg + len, ' ', 1024 - len);
+        rosco_throw("interp1d", "SIZE(xData) =%2d and SIZE(yData) =%2d are not the same",
+                     xData.size, yData.size);
     }
 
     // xData must be strictly increasing
     for (int i = 0; i < xData.size - 1; i++) {
         if (xData[i + 1] - xData[i] <= 0.0) {
-            ErrVar->aviFAIL = -1;
-            const char msg[] = " xData is not strictly increasing";
-            int len = (int)sizeof(msg) - 1;
-            memcpy(ErrVar->ErrMsg, msg, len);
-            if (len < 1024) memset(ErrVar->ErrMsg + len, ' ', 1024 - len);
-            break;
+            rosco_throw("interp1d", "xData is not strictly increasing");
         }
     }
 
@@ -42,22 +36,6 @@ double interp1d(ArrayView xData, ArrayView yData, double xq, errorvariables_t* E
         }
     }
 
-    // Prefix routine name onto any error message (matches Fortran convention)
-    if (ErrVar->aviFAIL < 0) {
-        int trimmed_len = 1024;
-        while (trimmed_len > 0 && ErrVar->ErrMsg[trimmed_len - 1] == ' ')
-            trimmed_len--;
-        char buf[1024];
-        const char prefix[] = "interp1d:";
-        int prefix_len = (int)sizeof(prefix) - 1;
-        memcpy(buf, prefix, prefix_len);
-        int copy_len = (prefix_len + trimmed_len <= 1024) ? trimmed_len : 1024 - prefix_len;
-        memcpy(buf + prefix_len, ErrVar->ErrMsg, copy_len);
-        int total = prefix_len + copy_len;
-        if (total < 1024) memset(buf + total, ' ', 1024 - total);
-        memcpy(ErrVar->ErrMsg, buf, 1024);
-    }
-
     return yData[n - 1]; // unreachable; loop above always finds a bracket
 }
 
@@ -67,47 +45,33 @@ double interp1d(ArrayView xData, ArrayView yData, double xq, errorvariables_t* E
 
 double interp2d(const double* xData, int n_xData, const double* yData, int n_yData,
                 const double* zData, int n_zData_rows, int n_zData_cols,
-                double xq, double yq, errorvariables_t* ErrVar) {
+                double xq, double yq) {
 
     double result = 0.0;
 
     // Error catching: xData size must match zData columns
     if (n_xData != n_zData_cols) {
-        ErrVar->aviFAIL = -1;
-        snprintf(ErrVar->ErrMsg, 1024, " SIZE(xData) =%4d and SIZE(zData,1) =%4d are not the same",
-                 n_xData, n_zData_cols);
-        int len = (int)strlen(ErrVar->ErrMsg);
-        if (len < 1024) memset(ErrVar->ErrMsg + len, ' ', 1024 - len);
+        rosco_throw("interp2d", "SIZE(xData) =%4d and SIZE(zData,1) =%4d are not the same",
+                     n_xData, n_zData_cols);
     }
 
     // Error catching: yData size must match zData rows
     if (n_yData != n_zData_rows) {
-        ErrVar->aviFAIL = -1;
-        snprintf(ErrVar->ErrMsg, 1024, " SIZE(yData) =%4d and SIZE(zData,2) =%4d are not the same",
-                 n_yData, n_zData_rows);
-        int len = (int)strlen(ErrVar->ErrMsg);
-        if (len < 1024) memset(ErrVar->ErrMsg + len, ' ', 1024 - len);
+        rosco_throw("interp2d", "SIZE(yData) =%4d and SIZE(zData,2) =%4d are not the same",
+                     n_yData, n_zData_rows);
     }
 
     // Check xData is strictly increasing
     for (int k = 0; k < n_xData - 1; k++) {
         if (xData[k + 1] - xData[k] <= 0) {
-            ErrVar->aviFAIL = -1;
-            snprintf(ErrVar->ErrMsg, 1024, " xData is not strictly increasing");
-            int len = (int)strlen(ErrVar->ErrMsg);
-            if (len < 1024) memset(ErrVar->ErrMsg + len, ' ', 1024 - len);
-            break;
+            rosco_throw("interp2d", "xData is not strictly increasing");
         }
     }
 
     // Check yData is strictly increasing
     for (int k = 0; k < n_yData - 1; k++) {
         if (yData[k + 1] - yData[k] <= 0) {
-            ErrVar->aviFAIL = -1;
-            snprintf(ErrVar->ErrMsg, 1024, " yData is not strictly increasing");
-            int len = (int)strlen(ErrVar->ErrMsg);
-            if (len < 1024) memset(ErrVar->ErrMsg + len, ' ', 1024 - len);
-            break;
+            rosco_throw("interp2d", "yData is not strictly increasing");
         }
     }
 
@@ -125,17 +89,17 @@ double interp2d(const double* xData, int n_xData, const double* yData, int n_yDa
     ArrayView xv = {const_cast<double*>(xData), n_xData};
     if (xq <= xMin || std::isnan(xq)) {
         // On lower x-bound: interp1d on column 0
-        return interp1d(yv, {const_cast<double*>(&zData[0]), n_zData_rows}, yq, ErrVar);
+        return interp1d(yv, {const_cast<double*>(&zData[0]), n_zData_rows}, yq);
     } else if (xq >= xMax) {
         // On upper x-bound: interp1d on last column
         int last_col = n_xData - 1;
-        return interp1d(yv, {const_cast<double*>(&zData[last_col * n_zData_rows]), n_zData_rows}, yq, ErrVar);
+        return interp1d(yv, {const_cast<double*>(&zData[last_col * n_zData_rows]), n_zData_rows}, yq);
     } else {
         jj = -1;
         for (j = 0; j < n_xData; j++) {
             if (xq == xData[j]) {
                 // On axis: interp1d on this column
-                return interp1d(yv, {const_cast<double*>(&zData[j * n_zData_rows]), n_zData_rows}, yq, ErrVar);
+                return interp1d(yv, {const_cast<double*>(&zData[j * n_zData_rows]), n_zData_rows}, yq);
             } else if (xq < xData[j]) {
                 jj = j;
                 break;
@@ -156,29 +120,23 @@ double interp2d(const double* xData, int n_xData, const double* yData, int n_yDa
 
     if (yq <= yMin || std::isnan(yq)) {
         // On lower y-bound: interp1d on row 0 (strided — need temp copy)
-        double* row_temp = new double[n_xData];
+        std::vector<double> row_temp(n_xData);
         for (int k = 0; k < n_xData; k++) row_temp[k] = Z(0, k);
-        result = interp1d(xv, {row_temp, n_xData}, xq, ErrVar);
-        delete[] row_temp;
-        return result;
+        return interp1d(xv, {row_temp.data(), n_xData}, xq);
     } else if (yq >= yMax) {
         // On upper y-bound: interp1d on last row
         int last_row = n_yData - 1;
-        double* row_temp = new double[n_xData];
+        std::vector<double> row_temp(n_xData);
         for (int k = 0; k < n_xData; k++) row_temp[k] = Z(last_row, k);
-        result = interp1d(xv, {row_temp, n_xData}, xq, ErrVar);
-        delete[] row_temp;
-        return result;
+        return interp1d(xv, {row_temp.data(), n_xData}, xq);
     } else {
         ii = -1;
         for (i = 0; i < n_yData; i++) {
             if (yq == yData[i]) {
                 // On axis: interp1d on this row
-                double* row_temp = new double[n_xData];
+                std::vector<double> row_temp(n_xData);
                 for (int k = 0; k < n_xData; k++) row_temp[k] = Z(i, k);
-                result = interp1d(xv, {row_temp, n_xData}, xq, ErrVar);
-                delete[] row_temp;
-                return result;
+                return interp1d(xv, {row_temp.data(), n_xData}, xq);
             } else if (yq < yData[i]) {
                 ii = i;
                 break;
@@ -201,22 +159,6 @@ double interp2d(const double* xData, int n_xData, const double* yData, int n_yDa
                 + (xq - xData[j]) / (xData[jj] - xData[j]) * fQ_22;
     result = (yData[ii] - yq) / (yData[ii] - yData[i]) * fxy1
            + (yq - yData[i]) / (yData[ii] - yData[i]) * fxy2;
-
-    // Add RoutineName to error message
-    if (ErrVar->aviFAIL < 0) {
-        int trimmed_len = 1024;
-        while (trimmed_len > 0 && ErrVar->ErrMsg[trimmed_len - 1] == ' ') trimmed_len--;
-        char buf[1024];
-        const char prefix[] = "interp2d:";
-        int prefix_len = 9;
-        memcpy(buf, prefix, prefix_len);
-        int copy_len = trimmed_len;
-        if (prefix_len + copy_len > 1024) copy_len = 1024 - prefix_len;
-        memcpy(buf + prefix_len, ErrVar->ErrMsg, copy_len);
-        int total = prefix_len + copy_len;
-        if (total < 1024) memset(buf + total, ' ', 1024 - total);
-        memcpy(ErrVar->ErrMsg, buf, 1024);
-    }
 
     return result;
 }

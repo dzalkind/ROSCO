@@ -1,16 +1,13 @@
-#include "../include/vit_types.h"
 #include "../include/rosco_objects.hpp"
 #include "../include/vit_translated.h"
 #include <cmath>
-#include <cstring>
 #include <limits>
 
 #include "../include/rosco_constants.h"
 
 double AeroDynTorque(double RotSpeed, double BldPitch, double WE_Vw,
                      double WE_BladeRadius, double WE_RhoAir,
-                     const PerformanceData& PerfData,
-                     errorvariables_t* ErrVar) {
+                     const PerformanceData& PerfData) {
 
     // Find Torque
     double RotorArea = PI * (WE_BladeRadius * WE_BladeRadius);
@@ -22,26 +19,10 @@ double AeroDynTorque(double RotSpeed, double BldPitch, double WE_Vw,
     double Cp = interp2d(PerfData.Beta_vec.data(), (int)PerfData.Beta_vec.size(),
                          PerfData.TSR_vec.data(),  (int)PerfData.TSR_vec.size(),
                          PerfData.Cp_mat.data(),   (int)PerfData.TSR_vec.size(), (int)PerfData.Beta_vec.size(),
-                         BldPitch * R2D, Lambda, ErrVar);
+                         BldPitch * R2D, Lambda);
 
     double result = 0.5 * (WE_RhoAir * RotorArea) * (WE_Vw * WE_Vw * WE_Vw / RotSpeed) * Cp;
     result = result > 0.0 ? result : 0.0;
-
-    // Add RoutineName to error message
-    if (ErrVar->aviFAIL < 0) {
-        int trimmed_len = 1024;
-        while (trimmed_len > 0 && ErrVar->ErrMsg[trimmed_len - 1] == ' ') trimmed_len--;
-        char buf[1024];
-        const char prefix[] = "AeroDynTorque:";
-        int prefix_len = 14;
-        std::memcpy(buf, prefix, prefix_len);
-        int copy_len = trimmed_len;
-        if (prefix_len + copy_len > 1024) copy_len = 1024 - prefix_len;
-        std::memcpy(buf + prefix_len, ErrVar->ErrMsg, copy_len);
-        int total = prefix_len + copy_len;
-        if (total < 1024) std::memset(buf + total, ' ', 1024 - total);
-        std::memcpy(ErrVar->ErrMsg, buf, 1024);
-    }
 
     return result;
 }

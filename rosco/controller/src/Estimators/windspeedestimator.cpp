@@ -1,9 +1,6 @@
-#include "../include/vit_types.h"
 #include "../include/rosco_objects.hpp"
 #include "../include/vit_translated.h"
 #include <cmath>
-#include <cstring>
-#include <cstdio>
 #include <limits>
 
 #include "../include/rosco_constants.h"
@@ -15,7 +12,7 @@
 
 void WindSpeedEstimator(LocalVariables& LocalVar, const ControlParameters& CntrPar,
                         const PerformanceData& PerfData,
-                        debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
+                        debugvariables_t* DebugVar) {
 
     double WE_Inp_Pitch, WE_Inp_Torque, WE_Inp_Speed, Max_Op_Pitch;
     double eps = std::numeric_limits<double>::epsilon();
@@ -90,7 +87,7 @@ void WindSpeedEstimator(LocalVariables& LocalVar, const ControlParameters& CntrP
     if (CntrPar.WE_Mode == 1 && LocalVar.WE_Op > 0) {
         Tau_r = AeroDynTorque(LocalVar.RotSpeedF, LocalVar.BlPitchCMeas,
                                 LocalVar.WE_Vw, CntrPar.WE_BladeRadius, CntrPar.WE_RhoAir,
-                                PerfData, ErrVar);
+                                PerfData);
 
         LocalVar.WE_VwIdot = CntrPar.WE_Gamma / CntrPar.WE_Jtot *
             (LocalVar.VS_LastGenTrq * CntrPar.WE_GearboxRatio - Tau_r);
@@ -144,13 +141,13 @@ void WindSpeedEstimator(LocalVariables& LocalVar, const ControlParameters& CntrP
             // Find estimated operating Cp and system pole
             double A_op = interp1d(CntrPar.WE_FOPoles_v,
                                    CntrPar.WE_FOPoles,
-                                   LocalVar.WE.v_h, ErrVar);
+                                   LocalVar.WE.v_h);
 
             lambda = (WE_Inp_Speed > eps ? WE_Inp_Speed : eps) * CntrPar.WE_BladeRadius / LocalVar.WE.v_h;
             Cp_op = interp2d(PerfData.Beta_vec.data(), (int)PerfData.Beta_vec.size(),
                              PerfData.TSR_vec.data(),  (int)PerfData.TSR_vec.size(),
                              PerfData.Cp_mat.data(),   (int)PerfData.TSR_vec.size(), (int)PerfData.Beta_vec.size(),
-                             WE_Inp_Pitch * R2D, lambda, ErrVar);
+                             WE_Inp_Pitch * R2D, lambda);
             Cp_op = Cp_op > 0.0 ? Cp_op : 0.0;
 
             // Update Jacobian F
@@ -172,7 +169,7 @@ void WindSpeedEstimator(LocalVariables& LocalVar, const ControlParameters& CntrP
             // Prediction update
             Tau_r = AeroDynTorque(WE_Inp_Speed, WE_Inp_Pitch,
                                   LocalVar.WE_Vw, CntrPar.WE_BladeRadius, CntrPar.WE_RhoAir,
-                                  PerfData, ErrVar);
+                                  PerfData);
             double a = PI * LocalVar.WE.v_m / (2.0 * L);
             double dxh[3];
             dxh[0] = 1.0 / CntrPar.WE_Jtot * (Tau_r - CntrPar.WE_GearboxRatio * WE_Inp_Torque);
@@ -270,35 +267,6 @@ void WindSpeedEstimator(LocalVariables& LocalVar, const ControlParameters& CntrP
     }
 
     DebugVar->WE_Vw = LocalVar.WE_Vw;
-
-    // Diagnostic: pitch trace
-    {
-        static int wse_call = 0;
-        static FILE* diag = fopen("/tmp/wse_diag.txt", "w");
-        wse_call++;
-        if (diag) {
-            fprintf(diag, "%8d %25.17E %25.17E %25.17E %25.17E\n",
-                wse_call, LocalVar.WE_Vw,
-                LocalVar.BlPitchCMeas, WE_Inp_Pitch, WE_Inp_Pitch * R2D);
-            fflush(diag);
-        }
-    }
-
-    // Add RoutineName to error message
-    if (ErrVar->aviFAIL < 0) {
-        int trimmed_len = 1024;
-        while (trimmed_len > 0 && ErrVar->ErrMsg[trimmed_len - 1] == ' ') trimmed_len--;
-        char buf[1024];
-        const char prefix[] = "WindSpeedEstimator:";
-        int prefix_len = 19;
-        std::memcpy(buf, prefix, prefix_len);
-        int copy_len = trimmed_len;
-        if (prefix_len + copy_len > 1024) copy_len = 1024 - prefix_len;
-        std::memcpy(buf + prefix_len, ErrVar->ErrMsg, copy_len);
-        int total = prefix_len + copy_len;
-        if (total < 1024) std::memset(buf + total, ' ', 1024 - total);
-        std::memcpy(ErrVar->ErrMsg, buf, 1024);
-    }
 }
 
 #undef WE_P

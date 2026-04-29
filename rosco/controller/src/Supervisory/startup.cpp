@@ -1,7 +1,6 @@
-#include "../include/vit_types.h"
 #include "../include/vit_translated.h"
 
-void Startup(LocalVariables& LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar) {
+void Startup(LocalVariables& LocalVar, const ControlParameters& CntrPar) {
 
     double SU_PrevLoad;
 
@@ -51,7 +50,7 @@ void Startup(LocalVariables& LocalVar, const ControlParameters& CntrPar, errorva
         // Ramp up PRC_R_Speed
         LocalVar.PRC_R_Speed = sigma(LocalVar.Time, LocalVar.SU_LoadStageStartTime,
             LocalVar.SU_LoadStageStartTime + CntrPar.SU_LoadRampDuration[LocalVar.SU_Stage - 2],
-            CntrPar.SU_RotorSpeedThresh * CntrPar.WE_GearboxRatio / CntrPar.PC_RefSpd, 1.0, ErrVar);
+            CntrPar.SU_RotorSpeedThresh * CntrPar.WE_GearboxRatio / CntrPar.PC_RefSpd, 1.0);
     } else if ((LocalVar.SU_Stage >= 2) && (LocalVar.SU_Stage <= CntrPar.SU_LoadStages_N + 1)) {
         // Fortran: SU_LoadStages(SU_Stage-2) → C: SU_LoadStages[SU_Stage-3]
         SU_PrevLoad = CntrPar.SU_LoadStages[LocalVar.SU_Stage - 3];
@@ -66,7 +65,7 @@ void Startup(LocalVariables& LocalVar, const ControlParameters& CntrPar, errorva
         if (LocalVar.Time < LocalVar.SU_LoadStageStartTime + CntrPar.SU_LoadRampDuration[LocalVar.SU_Stage - 2]) {
             LocalVar.PRC_R_Torque = sigma(LocalVar.Time, LocalVar.SU_LoadStageStartTime,
                 LocalVar.SU_LoadStageStartTime + CntrPar.SU_LoadRampDuration[LocalVar.SU_Stage - 2],
-                SU_PrevLoad, CntrPar.SU_LoadStages[LocalVar.SU_Stage - 2], ErrVar);
+                SU_PrevLoad, CntrPar.SU_LoadStages[LocalVar.SU_Stage - 2]);
         } else {
             LocalVar.PRC_R_Torque = CntrPar.SU_LoadStages[LocalVar.SU_Stage - 2];
         }

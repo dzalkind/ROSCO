@@ -15,6 +15,8 @@
 
 #pragma once
 #include <cstddef>
+#include <cstdio>
+#include <cstdlib>
 #include <vector>
 
 // ---------------------------------------------------------------------------
@@ -24,9 +26,26 @@ struct ArrayView {
     double* data;
     int     size;
 
-    // Element access — bounds-unchecked, matching raw-pointer semantics.
+    // Element access — checked in debug builds (ASan), unchecked in release.
+#ifdef NDEBUG
     double& operator[](int i)       { return data[i]; }
     double  operator[](int i) const { return data[i]; }
+#else
+    double& operator[](int i)       {
+        if (!data || i < 0 || i >= size) {
+            std::fprintf(stderr, "ArrayView: out-of-bounds access [%d] on array of size %d\n", i, size);
+            std::abort();
+        }
+        return data[i];
+    }
+    double  operator[](int i) const {
+        if (!data || i < 0 || i >= size) {
+            std::fprintf(stderr, "ArrayView: out-of-bounds access [%d] on array of size %d\n", i, size);
+            std::abort();
+        }
+        return data[i];
+    }
+#endif
 };
 
 // ---------------------------------------------------------------------------

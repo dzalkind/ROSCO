@@ -1,20 +1,12 @@
 #include "../include/vit_types.h"
 #include "../include/rosco_types.hpp"
 #include "../include/rosco_objects.hpp"
+#include "../include/rosco_error.hpp"
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <cstring>
 #include <cstdint>
-
-// Helper: set error with space-padded Fortran CHARACTER field
-static void setError(errorvariables_t* ErrVar, const char* msg) {
-    ErrVar->aviFAIL = -1;
-    std::memset(ErrVar->ErrMsg, ' ', 1024);
-    size_t len = std::strlen(msg);
-    if (len > 1024) len = 1024;
-    std::memcpy(ErrVar->ErrMsg, msg, len);
-}
 
 // Helper: extract a trimmed std::string from a Fortran space-padded char array
 static std::string trimFortranString(const char* s, int maxLen) {
@@ -45,32 +37,25 @@ static bool readRow(std::ifstream& f, double* dest, int n) {
 // Read a 2D matrix in column-major order (Fortran layout).
 // Each file line contains one row (n_cols values).
 // Fortran: mat(row, col) stored as mat[col * n_rows + row]
-static bool readMatrix(std::ifstream& f, double* mat, int n_rows, int n_cols,
-                       const std::string& filename, const char* tableName,
-                       errorvariables_t* ErrVar) {
+static void readMatrix(std::ifstream& f, double* mat, int n_rows, int n_cols,
+                       const std::string& filename, const char* tableName) {
     for (int row = 0; row < n_rows; row++) {
         std::string line;
         if (!std::getline(f, line)) {
-            std::string msg = "Error reading " + filename + " " + tableName +
-                              " table. Please check formatting and size of matrices in that file.";
-            setError(ErrVar, msg.c_str());
-            return false;
+            rosco_throw("ReadCpFile", "Error reading %s %s table. Please check formatting and size of matrices in that file.",
+                         filename.c_str(), tableName);
         }
         std::istringstream iss(line);
         for (int col = 0; col < n_cols; col++) {
             if (!(iss >> mat[col * n_rows + row])) {
-                std::string msg = "Error reading " + filename + " " + tableName +
-                                  " table. Please check formatting and size of matrices in that file.";
-                setError(ErrVar, msg.c_str());
-                return false;
+                rosco_throw("ReadCpFile", "Error reading %s %s table. Please check formatting and size of matrices in that file.",
+                             filename.c_str(), tableName);
             }
         }
     }
-    return true;
 }
 
-void ReadCpFile(const ControlParameters& CntrPar, PerformanceData& PerfData,
-                errorvariables_t* ErrVar) {
+void ReadCpFile(const ControlParameters& CntrPar, PerformanceData& PerfData) {
 
     // PerfFileName is already a std::string
     std::string filename = CntrPar.PerfFileName;
@@ -78,9 +63,7 @@ void ReadCpFile(const ControlParameters& CntrPar, PerformanceData& PerfData,
     // Open file
     std::ifstream f(filename);
     if (!f.is_open()) {
-        std::string msg = "Error opening performance file: " + filename;
-        setError(ErrVar, msg.c_str());
-        return;
+        rosco_throw("ReadCpFile", "Error opening performance file: %s", filename.c_str());
     }
 
     int n_pitch = CntrPar.PerfTableSize[0];  // PerfTableSize(1) = number of pitch angles (columns)
@@ -93,9 +76,7 @@ void ReadCpFile(const ControlParameters& CntrPar, PerformanceData& PerfData,
     // Read pitch angle vector (Beta_vec): n_pitch values
     PerfData.Beta_vec.resize(n_pitch, 0.0);
     if (!readRow(f, PerfData.Beta_vec.data(), n_pitch)) {
-        setError(ErrVar, "Error reading pitch angle vector from performance file.");
-        f.close();
-        return;
+        rosco_throw("ReadCpFile", "Error reading pitch angle vector from performance file.");
     }
 
     // Skip 1 comment line ("# TSR vector...")
@@ -104,9 +85,7 @@ void ReadCpFile(const ControlParameters& CntrPar, PerformanceData& PerfData,
     // Read TSR vector: n_tsr values
     PerfData.TSR_vec.resize(n_tsr, 0.0);
     if (!readRow(f, PerfData.TSR_vec.data(), n_tsr)) {
-        setError(ErrVar, "Error reading TSR vector from performance file.");
-        f.close();
-        return;
+        rosco_throw("ReadCpFile", "Error reading TSR vector from performance file.");
     }
 
     // ---- Read Cp, Ct, Cq Tables ----
@@ -115,39 +94,19 @@ void ReadCpFile(const ControlParameters& CntrPar, PerformanceData& PerfData,
 
     // Read Cp matrix: n_tsr rows x n_pitch cols (column-major)
     PerfData.Cp_mat.resize(n_tsr * n_pitch, 0.0);
-    if (!readMatrix(f, PerfData.Cp_mat.data(), n_tsr, n_pitch, filename, "Cp", ErrVar)) {
-        f.close();
-        return;
-    }
+    readMatrix(f, PerfData.Cp_mat.data(), n_tsr, n_pitch, filename, "Cp");
 
     // Skip 4 lines (blank, blank, "# Thrust coefficient", blank)
     skipLines(f, 4);
 
     // Read Ct matrix
     PerfData.Ct_mat.resize(n_tsr * n_pitch, 0.0);
-    if (!readMatrix(f, PerfData.Ct_mat.data(), n_tsr, n_pitch, filename, "Ct", ErrVar)) {
-        f.close();
-        return;
-    }
+    readMatrix(f, PerfData.Ct_mat.data(), n_tsr, n_pitch, filename, "Ct");
 
     // Skip 4 lines (blank, blank, "# Torque coefficient", blank)
     skipLines(f, 4);
 
     // Read Cq matrix
     PerfData.Cq_mat.resize(n_tsr * n_pitch, 0.0);
-    if (!readMatrix(f, PerfData.Cq_mat.data(), n_tsr, n_pitch, filename, "Cq", ErrVar)) {
-        f.close();
-        return;
-    }
-
-    f.close();
-
-    // Add RoutineName to error message if there was an error
-    if (ErrVar->aviFAIL < 0) {
-        char tmp[1024];
-        int msgLen = 1024;
-        while (msgLen > 0 && ErrVar->ErrMsg[msgLen - 1] == ' ') msgLen--;
-        std::snprintf(tmp, sizeof(tmp), "ReadCpFile:%.*s", msgLen, ErrVar->ErrMsg);
-        setError(ErrVar, tmp);
-    }
+    readMatrix(f, PerfData.Cq_mat.data(), n_tsr, n_pitch, filename, "Cq");
 }

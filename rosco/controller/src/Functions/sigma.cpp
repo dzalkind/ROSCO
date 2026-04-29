@@ -1,7 +1,7 @@
 #include "../include/vit_types.h"
 #include <cstring>
 
-double sigma(double x, double x0, double x1, double y0, double y1, errorvariables_t* ErrVar) {
+double sigma(double x, double x0, double x1, double y0, double y1) {
     double d = x0 - x1;
     double d3 = d * d * d;
     double a3 = 2.0 / d3;
@@ -16,25 +16,6 @@ double sigma(double x, double x0, double x1, double y0, double y1, errorvariable
         result = y1;
     } else {
         result = (a3 * x * x * x + a2 * x * x + a1 * x + a0) * (y1 - y0) + y0;
-    }
-
-    // Add RoutineName to error message
-    if (ErrVar->aviFAIL < 0) {
-        // Fortran: ErrVar%ErrMsg = 'sigma'//':'//TRIM(ErrVar%ErrMsg)
-        int trimmed_len = 1024;
-        while (trimmed_len > 0 && ErrVar->ErrMsg[trimmed_len - 1] == ' ') {
-            trimmed_len--;
-        }
-        char buf[1024];
-        const char prefix[] = "sigma:";
-        int prefix_len = 6;
-        memcpy(buf, prefix, prefix_len);
-        int copy_len = trimmed_len;
-        if (prefix_len + copy_len > 1024) copy_len = 1024 - prefix_len;
-        memcpy(buf + prefix_len, ErrVar->ErrMsg, copy_len);
-        int total = prefix_len + copy_len;
-        if (total < 1024) memset(buf + total, ' ', 1024 - total);
-        memcpy(ErrVar->ErrMsg, buf, 1024);
     }
 
     return result;

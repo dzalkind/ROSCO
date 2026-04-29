@@ -1,4 +1,3 @@
-#include "../include/vit_types.h"
 #include "../include/rosco_types.hpp"
 #include "../include/rosco_objects.hpp"
 #include <dlfcn.h>
@@ -8,7 +7,7 @@
 // Bladed DLL legacy interface — function pointer typedef
 typedef void (*bladed_dll_proc_t)(float*, int*, char*, char*, char*);
 
-void ExtController(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, ExtControlType& ExtDLL, errorvariables_t* ErrVar) {
+void ExtController(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, ExtControlType& ExtDLL) {
     static void* dll_handle = nullptr;
     static bladed_dll_proc_t dll_proc = nullptr;
 
@@ -66,20 +65,14 @@ void ExtController(float* avrSWAP, const ControlParameters& CntrPar, LocalVariab
         // dlopen
         dll_handle = dlopen(dll_filename, RTLD_LAZY);
         if (!dll_handle) {
-            ErrVar->ErrStat = -1;
-            snprintf(ErrVar->ErrMsg, 1024, "ExtController:The dynamic library %s could not be loaded.", dll_filename);
-            int len = (int)strlen(ErrVar->ErrMsg);
-            for (int k = len; k < 1024; k++) ErrVar->ErrMsg[k] = ' ';
+            fprintf(stderr, "ExtController: The dynamic library %s could not be loaded.\n", dll_filename);
             return;
         }
 
         // dlsym
         dll_proc = (bladed_dll_proc_t)dlsym(dll_handle, dll_procname);
         if (!dll_proc) {
-            ErrVar->ErrStat = -1;
-            snprintf(ErrVar->ErrMsg, 1024, "ExtController:The procedure %s could not be loaded.", dll_procname);
-            int len = (int)strlen(ErrVar->ErrMsg);
-            for (int k = len; k < 1024; k++) ErrVar->ErrMsg[k] = ' ';
+            fprintf(stderr, "ExtController: The procedure %s could not be loaded.\n", dll_procname);
             return;
         }
 
@@ -101,13 +94,8 @@ void ExtController(float* avrSWAP, const ControlParameters& CntrPar, LocalVariab
 
     // Check for errors from the DLL
     if (aviFAIL < 0) {
-        ErrVar->aviFAIL = aviFAIL;
         char tmp[1024];
         snprintf(tmp, sizeof(tmp), "ExtController:%s", avcMSG);
-        int len = (int)strlen(tmp);
-        if (len > 1024) len = 1024;
-        memcpy(ErrVar->ErrMsg, tmp, len);
-        for (int k = len; k < 1024; k++) ErrVar->ErrMsg[k] = ' ';
         printf("%s\n", tmp);
     }
 }

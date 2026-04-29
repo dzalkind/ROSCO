@@ -1,4 +1,3 @@
-#include "../include/vit_types.h"
 #include "../include/rosco_types.hpp"
 #include "../include/vit_translated.h"
 #include "../include/rosco_constants.h"
@@ -7,7 +6,7 @@
 
 void SetParameters(const ControlParameters& CntrPar, LocalVariables& LocalVar,
                    float* avrSWAP,
-                   errorvariables_t* ErrVar, int size_avcMSG) {
+                   int size_avcMSG) {
 
     // iStatus==0: Initialize LocalVar fields (CntrPar is populated by wrapper)
     if (LocalVar.iStatus == 0) {
@@ -35,7 +34,7 @@ void SetParameters(const ControlParameters& CntrPar, LocalVariables& LocalVar,
             }
         } else {
             LocalVar.GenTq = interp1d(CntrPar.VS_FBP_U, CntrPar.VS_FBP_Tau,
-                                       LocalVar.HorWindV, ErrVar);
+                                       LocalVar.HorWindV);
         }
         LocalVar.VS_LastGenTrq = LocalVar.GenTq;
         LocalVar.VS_MaxTq = CntrPar.VS_MaxTq;
@@ -52,7 +51,7 @@ void SetParameters(const ControlParameters& CntrPar, LocalVariables& LocalVar,
         LocalVar.ZMQ_ID = CntrPar.ZMQ_ID;
 
         // Check validity of input parameters
-        CheckInputs(LocalVar, CntrPar, avrSWAP, ErrVar, size_avcMSG);
+        CheckInputs(LocalVar, CntrPar, avrSWAP, size_avcMSG);
     }
 
     // Per-timestep: Open Loop index

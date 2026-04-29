@@ -1,8 +1,7 @@
-#include "../include/vit_types.h"
 #include "../include/vit_translated.h"
 #include "../ControlElements/picontroller.hpp"
 
-double FloatingFeedback(LocalVariables& LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar) {
+double FloatingFeedback(LocalVariables& LocalVar, const ControlParameters& CntrPar) {
     // FloatingFeedback: pitch contribution from nacelle velocity feedback
     //   Fl_Mode = 1: proportional feedback of translational nacelle velocity
     //   Fl_Mode = 2: proportional feedback of rotational nacelle velocity
@@ -10,7 +9,7 @@ double FloatingFeedback(LocalVariables& LocalVar, const ControlParameters& CntrP
     // Gain scheduling — interpolate Kp_Float from wind speed
     LocalVar.Kp_Float = interp1d(CntrPar.Fl_U,
                                     CntrPar.Fl_Kp,
-                                    LocalVar.WE_Vw_F, ErrVar);
+                                    LocalVar.WE_Vw_F);
 
     // Integrate fore-aft acceleration to get velocity (KP=0, KI=1 → pure integrator)
     static PIController faVelPI;

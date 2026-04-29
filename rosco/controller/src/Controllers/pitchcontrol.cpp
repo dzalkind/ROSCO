@@ -1,15 +1,12 @@
-#include "../include/vit_types.h"
 #include "../include/vit_translated.h"
 #include <algorithm>
-#include <cstring>
-#include <cstdio>
 
 #include "../include/rosco_constants.h"
 #include "../Filters/seclpfilter.hpp"
 #include "../ControlElements/ratelimiter.hpp"
 #include "../ControlElements/picontroller.hpp"
 
-void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
+void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar) {
     // PitchControl: master blade pitch controller
     // Orchestrates collective pitch PI, IPC, tower damping, floating feedback,
     // pitch saturation, AWC, shutdown, actuator model, and fault handling.
@@ -29,10 +26,10 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
 
     // Gain scheduling via interpolation
     ArrayView gs_angles = CntrPar.PC_GS_angles;
-    LocalVar.PC_KP = interp1d(gs_angles, CntrPar.PC_GS_KP, LocalVar.BlPitchCMeasF, ErrVar);
-    LocalVar.PC_KI = interp1d(gs_angles, CntrPar.PC_GS_KI, LocalVar.BlPitchCMeasF, ErrVar);
-    LocalVar.PC_KD = interp1d(gs_angles, CntrPar.PC_GS_KD, LocalVar.BlPitchCMeasF, ErrVar);
-    LocalVar.PC_TF = interp1d(gs_angles, CntrPar.PC_GS_TF, LocalVar.BlPitchCMeasF, ErrVar);
+    LocalVar.PC_KP = interp1d(gs_angles, CntrPar.PC_GS_KP, LocalVar.BlPitchCMeasF);
+    LocalVar.PC_KI = interp1d(gs_angles, CntrPar.PC_GS_KI, LocalVar.BlPitchCMeasF);
+    LocalVar.PC_KD = interp1d(gs_angles, CntrPar.PC_GS_KD, LocalVar.BlPitchCMeasF);
+    LocalVar.PC_TF = interp1d(gs_angles, CntrPar.PC_GS_TF, LocalVar.BlPitchCMeasF);
 
     // Collective pitch PI controller
     static PIController pcPitComTPI;
@@ -47,7 +44,7 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
 
     // Individual pitch control
     if ((CntrPar.IPC_ControlMode >= 1) || (CntrPar.Y_ControlMode == 2)) {
-        IPC(CntrPar, LocalVar, DebugVar, ErrVar);
+        IPC(CntrPar, LocalVar, DebugVar);
     } else {
         LocalVar.IPC_PitComF[0] = 0.0;
         LocalVar.IPC_PitComF[1] = 0.0;
@@ -65,7 +62,7 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
 
     // Pitch saturation
     if (CntrPar.PS_Mode > 0) {
-        LocalVar.PC_MinPit = PitchSaturation(LocalVar, CntrPar, DebugVar, ErrVar);
+        LocalVar.PC_MinPit = PitchSaturation(LocalVar, CntrPar, DebugVar);
         LocalVar.PC_MinPit = std::max(LocalVar.PC_MinPit, CntrPar.PC_FinePit);
     } else {
         LocalVar.PC_MinPit = CntrPar.PC_FinePit;
@@ -74,7 +71,7 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
 
     // Floating feedback
     if (CntrPar.Fl_Mode > 0) {
-        LocalVar.Fl_PitCom = FloatingFeedback(LocalVar, CntrPar, ErrVar);
+        LocalVar.Fl_PitCom = FloatingFeedback(LocalVar, CntrPar);
         DebugVar->Fl_PitCom = LocalVar.Fl_PitCom;
         LocalVar.PC_PitComT += LocalVar.Fl_PitCom;
     }
@@ -119,13 +116,13 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
         if (LocalVar.Time >= CntrPar.OL_Breakpoints[0]) {
             ArrayView ol_bp = CntrPar.OL_Breakpoints;
             if (CntrPar.Ind_BldPitch[0] > 0) {
-                LocalVar.PitCom[0] = interp1d(ol_bp, CntrPar.OL_BldPitch1, LocalVar.OL_Index, ErrVar);
+                LocalVar.PitCom[0] = interp1d(ol_bp, CntrPar.OL_BldPitch1, LocalVar.OL_Index);
             }
             if (CntrPar.Ind_BldPitch[1] > 0) {
-                LocalVar.PitCom[1] = interp1d(ol_bp, CntrPar.OL_BldPitch2, LocalVar.OL_Index, ErrVar);
+                LocalVar.PitCom[1] = interp1d(ol_bp, CntrPar.OL_BldPitch2, LocalVar.OL_Index);
             }
             if (CntrPar.Ind_BldPitch[2] > 0) {
-                LocalVar.PitCom[2] = interp1d(ol_bp, CntrPar.OL_BldPitch3, LocalVar.OL_Index, ErrVar);
+                LocalVar.PitCom[2] = interp1d(ol_bp, CntrPar.OL_BldPitch3, LocalVar.OL_Index);
             }
         }
     }
@@ -198,12 +195,4 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
     avrSWAP[42] = LocalVar.PitComAct[1];
     avrSWAP[43] = LocalVar.PitComAct[2];
     avrSWAP[44] = LocalVar.PitComAct[0];  // Collective pitch = blade 1
-
-    // Prepend routine name to error message if aviFAIL < 0
-    if (ErrVar->aviFAIL < 0) {
-        char tmp[1024];
-        snprintf(tmp, sizeof(tmp), "PitchControl:%s", ErrVar->ErrMsg);
-        strncpy(ErrVar->ErrMsg, tmp, sizeof(ErrVar->ErrMsg) - 1);
-        ErrVar->ErrMsg[sizeof(ErrVar->ErrMsg) - 1] = '\0';
-    }
 }

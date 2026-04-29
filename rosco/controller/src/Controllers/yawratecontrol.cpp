@@ -1,9 +1,8 @@
-#include "../include/vit_types.h"
 #include "../include/vit_translated.h"
 #include <cmath>
 #include "../include/rosco_constants.h"
 
-void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
+void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar) {
     // YawRateControl: yaw rate control using yaw drive
     //   Y_ControlMode = 1: active yaw rate control
 
@@ -94,7 +93,7 @@ void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVaria
             if (LocalVar.Time >= CntrPar.OL_Breakpoints[0]) {
                 avrSWAP[47] = interp1d(CntrPar.OL_Breakpoints,
                                        CntrPar.OL_YawRate,
-                                       LocalVar.OL_Index, ErrVar);
+                                       LocalVar.OL_Index);
             }
         }
 

@@ -1,10 +1,11 @@
 #include "../include/vit_types.h"
 #include "../include/rosco_types.hpp"
 #include "../include/rosco_constants.h"
+#include "../include/rosco_error.hpp"
 #include <cmath>
 #include <cstring>
 
-void ReadAvrSWAP(float* avrSWAP, LocalVariables& LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar) {
+void ReadAvrSWAP(float* avrSWAP, LocalVariables& LocalVar, const ControlParameters& CntrPar) {
     int32_t K;
 
     // Load variables from calling program (See Appendix A of Bladed User's Guide)
@@ -55,11 +56,7 @@ void ReadAvrSWAP(float* avrSWAP, LocalVariables& LocalVar, const ControlParamete
         if (LocalVar.AlreadyInitialized == 0) {
             LocalVar.AlreadyInitialized = 1;
         } else {
-            ErrVar->aviFAIL = -1;
-            std::memset(ErrVar->ErrMsg, ' ', 1024);
-            const char* msg = "ERROR: This ROSCO dynamic library has already been loaded.";
-            std::memcpy(ErrVar->ErrMsg, msg, std::strlen(msg));
-            return;
+            throw RoscoError("ERROR: This ROSCO dynamic library has already been loaded.");
         }
     }
 

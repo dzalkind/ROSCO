@@ -1,8 +1,7 @@
-#include "../include/vit_types.h"
 #include "../include/vit_translated.h"
 #include "../include/rosco_constants.h"
 
-void PowerControlSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
+void PowerControlSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar) {
 
     // Set up power control
     if (CntrPar.PRC_Mode == 2) { // Using power reference control
@@ -15,19 +14,19 @@ void PowerControlSetpoints(const ControlParameters& CntrPar, LocalVariables& Loc
 
             ArrayView ol_bp = CntrPar.OL_Breakpoints;
             if (CntrPar.Ind_R_Speed > 0) {
-                LocalVar.PRC_R_Speed  = interp1d(ol_bp, CntrPar.OL_R_Speed,  LocalVar.OL_Index, ErrVar);
+                LocalVar.PRC_R_Speed  = interp1d(ol_bp, CntrPar.OL_R_Speed,  LocalVar.OL_Index);
             } else {
                 LocalVar.PRC_R_Speed = 1.0;
             }
 
             if (CntrPar.Ind_R_Torque > 0) {
-                LocalVar.PRC_R_Torque = interp1d(ol_bp, CntrPar.OL_R_Torque, LocalVar.OL_Index, ErrVar);
+                LocalVar.PRC_R_Torque = interp1d(ol_bp, CntrPar.OL_R_Torque, LocalVar.OL_Index);
             } else {
                 LocalVar.PRC_R_Torque = 1.0;
             }
 
             if (CntrPar.Ind_R_Pitch > 0) {
-                LocalVar.PRC_R_Pitch  = interp1d(ol_bp, CntrPar.OL_R_Pitch,  LocalVar.OL_Index, ErrVar);
+                LocalVar.PRC_R_Pitch  = interp1d(ol_bp, CntrPar.OL_R_Pitch,  LocalVar.OL_Index);
             } else {
                 LocalVar.PRC_R_Pitch = 1.0;
             }
@@ -41,7 +40,7 @@ void PowerControlSetpoints(const ControlParameters& CntrPar, LocalVariables& Loc
         // Set min pitch for power control
         LocalVar.PRC_Min_Pitch = interp1d(CntrPar.PRC_R_Table,
                                            CntrPar.PRC_Pitch_Table,
-                                           LocalVar.PRC_R_Pitch, ErrVar);
+                                           LocalVar.PRC_R_Pitch);
 
     } else {
         LocalVar.PRC_R_Speed = 1.0;

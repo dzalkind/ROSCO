@@ -1,9 +1,8 @@
-#include "../include/vit_types.h"
 #include "../include/vit_translated.h"
 #include <cmath>
 #include "../include/rosco_constants.h"
 
-void SpeedSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
+void SpeedSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar) {
 
     // Change pitch reference speed
     LocalVar.PC_RefSpd_PRC = CntrPar.PC_RefSpd * LocalVar.PRC_R_Speed;
@@ -15,7 +14,7 @@ void SpeedSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar, 
         LocalVar.PRC_WSE_F = prcWindFilter.step(LocalVar.WE_Vw);
         LocalVar.PC_RefSpd_PRC = interp1d(CntrPar.PRC_WindSpeeds,
                                            CntrPar.PRC_GenSpeeds,
-                                           LocalVar.PRC_WSE_F, ErrVar);
+                                           LocalVar.PRC_WSE_F);
     }
 
     // Implement setpoint smoothing
@@ -51,11 +50,11 @@ void SpeedSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar, 
         if (CntrPar.VS_FBP == VS_FBP_WSE_Ref) {
             LocalVar.VS_RefSpd_TSR = interp1d(CntrPar.VS_FBP_U,
                                                CntrPar.VS_FBP_Omega,
-                                               LocalVar.WE_Vw, ErrVar);
+                                               LocalVar.WE_Vw);
         } else if (CntrPar.VS_FBP == VS_FBP_Torque_Ref) {
             LocalVar.VS_RefSpd_TSR = interp1d(CntrPar.VS_FBP_Tau,
                                                CntrPar.VS_FBP_Omega,
-                                               LocalVar.GenTq, ErrVar);
+                                               LocalVar.GenTq);
         }
     }
 
@@ -81,7 +80,7 @@ void SpeedSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar, 
     if (CntrPar.PRC_Mode == 1) {
         LocalVar.VS_RefSpd = interp1d(CntrPar.PRC_WindSpeeds,
                                        CntrPar.PRC_GenSpeeds,
-                                       LocalVar.PRC_WSE_F, ErrVar);
+                                       LocalVar.PRC_WSE_F);
     }
 
     // Implement setpoint smoothing

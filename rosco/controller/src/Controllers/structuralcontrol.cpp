@@ -1,9 +1,6 @@
-#include "../include/vit_types.h"
 #include "../include/vit_translated.h"
-#include <cstring>
-#include <cstdio>
 
-void StructuralControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, errorvariables_t* ErrVar) {
+void StructuralControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // StructuralControl: structural control input assignment
     //   StC_Mode = 1: user-defined step inputs
     //   StC_Mode = 2: open-loop from lookup table
@@ -31,7 +28,7 @@ void StructuralControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVa
                 }
                 LocalVar.StC_Input[I_GROUP] = interp1d(CntrPar.OL_Breakpoints,
                                                         {row_slice, n_cols},
-                                                        LocalVar.Time, ErrVar);
+                                                        LocalVar.Time);
             }
         }
     }
@@ -41,13 +38,5 @@ void StructuralControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVa
         // Fortran: avrSWAP(StC_GroupIndex(I_GROUP)) — 1-indexed
         // C++: avrSWAP[StC_GroupIndex[I_GROUP] - 1] — 0-indexed
         avrSWAP[CntrPar.StC_GroupIndex[I_GROUP] - 1] = LocalVar.StC_Input[I_GROUP];
-    }
-
-    // Prepend routine name to error message if aviFAIL < 0
-    if (ErrVar->aviFAIL < 0) {
-        char tmp[1024];
-        snprintf(tmp, sizeof(tmp), "StructuralControl:%s", ErrVar->ErrMsg);
-        strncpy(ErrVar->ErrMsg, tmp, sizeof(ErrVar->ErrMsg) - 1);
-        ErrVar->ErrMsg[sizeof(ErrVar->ErrMsg) - 1] = '\0';
     }
 }

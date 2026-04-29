@@ -1,8 +1,8 @@
 #include "../include/restart_fields.h"
 #include "../include/rosco_types.hpp"
+#include "../include/rosco_error.hpp"
 
 void WriteRestartFile(LocalVariables& LocalVar, const ControlParameters& /*CntrPar*/,
-                      errorvariables_t* ErrVar,
                       char* RootName, int size_avcOUTNAME) {
     std::string root = trim_fortran_string(RootName, size_avcOUTNAME);
     int timestep = (int)std::round(LocalVar.Time / LocalVar.DT);
@@ -10,9 +10,7 @@ void WriteRestartFile(LocalVariables& LocalVar, const ControlParameters& /*CntrP
 
     std::ofstream f(filename, std::ios::binary);
     if (!f.is_open()) {
-        ErrVar->aviFAIL = 1;
-        snprintf(ErrVar->ErrMsg, sizeof(ErrVar->ErrMsg),
-                 "ROSCO_IO: Cannot open checkpoint file %s for writing", filename.c_str());
+        rosco_warn("WriteRestartFile", "Cannot open checkpoint file %s for writing", filename.c_str());
         return;
     }
 
@@ -21,8 +19,6 @@ void WriteRestartFile(LocalVariables& LocalVar, const ControlParameters& /*CntrP
     });
 
     if (!f.good()) {
-        ErrVar->aviFAIL = 1;
-        snprintf(ErrVar->ErrMsg, sizeof(ErrVar->ErrMsg),
-                 "ROSCO_IO: Error writing checkpoint file.");
+        rosco_warn("WriteRestartFile", "Error writing checkpoint file.");
     }
 }

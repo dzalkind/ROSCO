@@ -25,7 +25,7 @@ import numpy as np
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXAMPLES_DIR = os.path.join(REPO_ROOT, "Examples")
 BASELINE_DIR = os.path.join(REPO_ROOT, "baseline_arrays")
-BUILD_DIR = os.path.join(REPO_ROOT, "rosco", "controller", "build")
+DEFAULT_BUILD_DIR = os.path.join(REPO_ROOT, "rosco", "controller", "build")
 CONTROLLER_DIR = os.path.join(REPO_ROOT, "rosco", "controller")
 LIB_DIR = os.path.join(REPO_ROOT, "rosco", "lib")
 SCRUB_SRC = os.path.join(CONTROLLER_DIR, "src", "scrub_stack.c")
@@ -34,11 +34,23 @@ SCRUB_LIB = os.path.join(LIB_DIR, "libscrub.so")
 ALL_SCENARIOS = list(range(1, 28))
 
 
-def build_discon():
+def build_discon(build_dir, preset=None):
     """cmake --build the controller and copy libdiscon to rosco/lib."""
+    if preset:
+        # Configure with preset first
+        print(f"Configuring with preset '{preset}'...")
+        r = subprocess.run(
+            ["cmake", "--preset", preset],
+            cwd=CONTROLLER_DIR,
+            capture_output=False,
+        )
+        if r.returncode != 0:
+            print("ERROR: cmake configure failed.", file=sys.stderr)
+            sys.exit(1)
+
     print("Building libdiscon...")
     r = subprocess.run(
-        ["cmake", "--build", BUILD_DIR],
+        ["cmake", "--build", build_dir],
         capture_output=False,
     )
     if r.returncode != 0:
@@ -47,7 +59,7 @@ def build_discon():
 
     # Copy built library to rosco/lib (where rosco.discon_lib_path points)
     import glob
-    libs = glob.glob(os.path.join(BUILD_DIR, "libdiscon.*"))
+    libs = glob.glob(os.path.join(build_dir, "libdiscon.*"))
     if not libs:
         print("ERROR: no libdiscon.* found in build dir.", file=sys.stderr)
         sys.exit(1)
@@ -80,8 +92,12 @@ def build_scrub():
     print()
 
 
-def run_scenario(scenario_num, output_dir):
+def run_scenario(scenario_num, output_dir, asan_env=None):
     """Run a single scenario in a subprocess. Returns True on success."""
+    env = None
+    if asan_env:
+        env = os.environ.copy()
+        env.update(asan_env)
     r = subprocess.run(
         [sys.executable, "vit_sim.py",
          "--scenario", str(scenario_num),
@@ -89,6 +105,7 @@ def run_scenario(scenario_num, output_dir):
         cwd=EXAMPLES_DIR,
         capture_output=True,
         text=True,
+        env=env,
     )
     if r.returncode != 0:
         print(f"  scenario_{scenario_num}: SUBPROCESS FAILED")
@@ -137,16 +154,37 @@ def main():
                         help="Run cmake --build before verifying.")
     parser.add_argument("--update-baseline", action="store_true",
                         help="Overwrite baseline_arrays/ with current outputs instead of comparing.")
+    parser.add_argument("--preset", type=str, default=None,
+                        help="CMake preset name (e.g. 'asan'). Sets build dir to build-{preset}.")
     args = parser.parse_args()
+
+    # Resolve build directory from preset
+    if args.preset:
+        build_dir = os.path.join(CONTROLLER_DIR, f"build-{args.preset}")
+    else:
+        build_dir = DEFAULT_BUILD_DIR
 
     if not os.path.exists(BASELINE_DIR):
         print(f"ERROR: baseline_arrays/ not found at {BASELINE_DIR}", file=sys.stderr)
         sys.exit(1)
 
     if args.rebuild:
-        build_discon()
+        build_discon(build_dir, preset=args.preset)
 
     build_scrub()
+
+    # On macOS, ASan-instrumented shared libraries loaded via dlopen need
+    # DYLD_INSERT_LIBRARIES pointing to the ASan runtime.
+    asan_env = None
+    if args.preset and "asan" in args.preset:
+        import glob as globmod
+        asan_libs = globmod.glob("/Library/Developer/CommandLineTools/usr/lib/clang/*/lib/darwin/libclang_rt.asan_osx_dynamic.dylib")
+        if asan_libs:
+            asan_env = {"DYLD_INSERT_LIBRARIES": asan_libs[-1]}
+            print(f"ASan runtime: {asan_libs[-1]}")
+        else:
+            print("WARNING: Could not find ASan runtime library. ASan may not work.")
+        print()
 
     scenarios = [args.scenario] if args.scenario > 0 else ALL_SCENARIOS
 
@@ -161,7 +199,7 @@ def main():
         for s in scenarios:
             sys.stdout.write(f"  scenario_{s:2d}: running... ")
             sys.stdout.flush()
-            ok = run_scenario(s, BASELINE_DIR)
+            ok = run_scenario(s, BASELINE_DIR, asan_env=asan_env)
             print("saved" if ok else "FAILED")
         print()
         print("Baseline updated. Commit baseline_arrays/ to lock in the new reference.")
@@ -173,7 +211,7 @@ def main():
         for s in scenarios:
             sys.stdout.write(f"  scenario_{s:2d}: running... ")
             sys.stdout.flush()
-            ok = run_scenario(s, tmpdir)
+            ok = run_scenario(s, tmpdir, asan_env=asan_env)
             if not ok:
                 results[s] = (False, "subprocess error")
                 print("FAIL (subprocess)")

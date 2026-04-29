@@ -1,11 +1,9 @@
-#include "../include/vit_types.h"
 #include "../include/vit_translated.h"
 #include <cmath>
-#include <cstring>
 
 #include "../include/rosco_constants.h"
 
-void Shutdown(LocalVariables& LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar) {
+void Shutdown(LocalVariables& LocalVar, const ControlParameters& CntrPar) {
 
     // Initialize shutdown trigger
     if (LocalVar.iStatus == 0) {
@@ -100,23 +98,5 @@ void Shutdown(LocalVariables& LocalVar, const ControlParameters& CntrPar, errorv
                 LocalVar.SD_MaxTorqueRate = CntrPar.SD_MaxTorqueRate[LocalVar.SD_Stage - 1];
             }
         }
-    }
-
-    // Add RoutineName to error message
-    if (ErrVar->aviFAIL < 0) {
-        int trimmed_len = 1024;
-        while (trimmed_len > 0 && ErrVar->ErrMsg[trimmed_len - 1] == ' ') {
-            trimmed_len--;
-        }
-        char buf[1024];
-        const char prefix[] = "Shutdown:";
-        int prefix_len = 9;
-        std::memcpy(buf, prefix, prefix_len);
-        int copy_len = trimmed_len;
-        if (prefix_len + copy_len > 1024) copy_len = 1024 - prefix_len;
-        std::memcpy(buf + prefix_len, ErrVar->ErrMsg, copy_len);
-        int total = prefix_len + copy_len;
-        if (total < 1024) std::memset(buf + total, ' ', 1024 - total);
-        std::memcpy(ErrVar->ErrMsg, buf, 1024);
     }
 }

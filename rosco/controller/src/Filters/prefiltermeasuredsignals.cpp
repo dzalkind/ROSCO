@@ -1,4 +1,3 @@
-#include "../include/vit_types.h"
 #include "../include/vit_translated.h"
 #include "../include/rosco_constants.h"
 #include "hpfilter.hpp"
@@ -8,13 +7,7 @@
 #include <cmath>
 
 void PreFilterMeasuredSignals(const ControlParameters& CntrPar, LocalVariables& LocalVar,
-                              debugvariables_t* DebugVar,
-                              errorvariables_t* ErrVar) {
-    // If there's an error, don't even try to run
-    if (ErrVar->aviFAIL < 0) {
-        return;
-    }
-
+                              debugvariables_t* DebugVar) {
     int reset = (LocalVar.restart != 0);
 
     // Filter the HSS (generator) and LSS (rotor) speed measurement:

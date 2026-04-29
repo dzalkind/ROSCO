@@ -69,7 +69,7 @@ static std::ofstream dbg3_file;
 static std::vector<int32_t> avr_indices;
 
 void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
-           debugvariables_t* DebugVar, errorvariables_t* ErrVar,
+           debugvariables_t* DebugVar,
            float* avrSWAP, char* RootName, int size_avcOUTNAME) {
 
     std::string root = trim_fortran_string(RootName, size_avcOUTNAME);

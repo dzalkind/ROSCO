@@ -15,16 +15,16 @@
 double saturate(double inputValue, double minValue, double maxValue);
 double wrap_180(double x);
 double wrap_360(double x);
-void unwrap(double* x, int n_x, errorvariables_t* ErrVar, double* unwrap_result);
+void unwrap(double* x, int n_x, double* unwrap_result);
 
 // --- Interpolation ---
-double interp1d(ArrayView xData, ArrayView yData, double xq, errorvariables_t* ErrVar);
+double interp1d(ArrayView xData, ArrayView yData, double xq);
 double interp2d(const double* xData, int n_xData, const double* yData, int n_yData,
     const double* zData, int n_zData_rows, int n_zData_cols,
-    double xq, double yq, errorvariables_t* ErrVar);
-    
+    double xq, double yq);
+
 // --- Smooth step / sigmoid ---
-double sigma(double x, double x0, double x1, double y0, double y1, errorvariables_t* ErrVar);
+double sigma(double x, double x0, double x1, double y0, double y1);
 
 // --- Coleman (multi-blade coordinate) transforms ---
 void ColemanTransform(double* rootMOOP, double aziAngle, int nHarmonic,
@@ -38,6 +38,6 @@ void identity(int n, double* identity_result);
 // --- Aerodynamics ---
 double AeroDynTorque(double RotSpeed, double BldPitch, double WE_Vw,
                      double WE_BladeRadius, double WE_RhoAir,
-                     const PerformanceData& PerfData, errorvariables_t* ErrVar);
+                     const PerformanceData& PerfData);
 
 #endif // ROSCO_FUNCTIONS_H

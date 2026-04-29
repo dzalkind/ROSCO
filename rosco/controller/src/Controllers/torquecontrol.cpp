@@ -1,14 +1,11 @@
-#include "../include/vit_types.h"
 #include "../include/vit_translated.h"
 #include <algorithm>
-#include <cstring>
-#include <cstdio>
 #include "../include/rosco_constants.h"
 #include "../ControlElements/ratelimiter.hpp"
 #include "../ControlElements/picontroller.hpp"
 #include "../ControlElements/pidcontroller.hpp"
 
-void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, errorvariables_t* ErrVar) {
+void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // TorqueControl: generator torque controller
     // State machine with K*Omega^2 law, PI transitions, constant torque/power modes
 
@@ -113,7 +110,7 @@ void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariab
         if (LocalVar.Time >= CntrPar.OL_Breakpoints[0]) {
             LocalVar.GenTq = interp1d(CntrPar.OL_Breakpoints,
                                        CntrPar.OL_GenTq,
-                                       LocalVar.OL_Index, ErrVar);
+                                       LocalVar.OL_Index);
         }
 
         // Azimuth tracking control (OL_Mode == 2)
@@ -129,7 +126,7 @@ void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariab
 
             // Unwrap azimuth buffer via shared unwrap
             double az_unwrapped[2];
-            unwrap(LocalVar.AzBuffer, 2, ErrVar, az_unwrapped);
+            unwrap(LocalVar.AzBuffer, 2, az_unwrapped);
             LocalVar.AzBuffer[0] = az_unwrapped[0];
             LocalVar.AzBuffer[1] = az_unwrapped[1];
 
@@ -138,7 +135,7 @@ void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariab
             // Desired azimuth from OL file
             LocalVar.OL_Azimuth = interp1d(CntrPar.OL_Breakpoints,
                                             CntrPar.OL_Azimuth,
-                                            LocalVar.Time, ErrVar);
+                                            LocalVar.Time);
 
             LocalVar.AzError = LocalVar.OL_Azimuth - LocalVar.AzUnwrapped;
 
@@ -162,12 +159,4 @@ void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariab
 
     // Set commanded generator torque (Fortran avrSWAP(47) → C [46])
     avrSWAP[46] = std::max(0.0, LocalVar.VS_LastGenTrq);
-
-    // Prepend routine name to error message if aviFAIL < 0
-    if (ErrVar->aviFAIL < 0) {
-        char tmp[1024];
-        snprintf(tmp, sizeof(tmp), "TorqueControl:%s", ErrVar->ErrMsg);
-        strncpy(ErrVar->ErrMsg, tmp, sizeof(ErrVar->ErrMsg) - 1);
-        ErrVar->ErrMsg[sizeof(ErrVar->ErrMsg) - 1] = '\0';
-    }
 }

@@ -1,5 +1,6 @@
 #include "../include/vit_types.h"
 #include "../include/rosco_types.hpp"
+#include "../include/rosco_error.hpp"
 #include <cstring>
 
 #ifdef ZMQ_CLIENT
@@ -8,7 +9,7 @@ extern "C" {
 }
 #endif
 
-void UpdateZeroMQ(LocalVariables& LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar) {
+void UpdateZeroMQ(LocalVariables& LocalVar, const ControlParameters& CntrPar) {
     // Only communicate at ZMQ update interval or on final timestep
     if (LocalVar.n_DT % CntrPar.n_DT_ZMQ == 0 || LocalVar.iStatus == -1) {
 
@@ -46,15 +47,10 @@ void UpdateZeroMQ(LocalVariables& LocalVar, const ControlParameters& CntrPar, er
 #ifdef ZMQ_CLIENT
         zmq_client(zmq_address, turbine_measurements, setpoints);
 #else
-        // ZMQ client not compiled — set error if ZMQ_Mode > 0
-        ErrVar->aviFAIL = -1;
+        // ZMQ client not compiled — throw if ZMQ_Mode > 0
         if (CntrPar.ZMQ_Mode > 0) {
-            const char* msg = "UpdateZeroMQ: >> The ZeroMQ client has not been properly installed, "
-                              "please install it to use ZMQ_Mode > 0.";
-            int mlen = (int)strlen(msg);
-            if (mlen > 1024) mlen = 1024;
-            memcpy(ErrVar->ErrMsg, msg, mlen);
-            for (int k = mlen; k < 1024; k++) ErrVar->ErrMsg[k] = ' ';
+            throw RoscoError("UpdateZeroMQ: >> The ZeroMQ client has not been properly installed, "
+                             "please install it to use ZMQ_Mode > 0.");
         }
 #endif
 

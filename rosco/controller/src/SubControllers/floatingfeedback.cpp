@@ -2,7 +2,7 @@
 #include "../include/vit_translated.h"
 #include "../ControlElements/picontroller.hpp"
 
-double FloatingFeedback(LocalVariables& LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
+double FloatingFeedback(LocalVariables& LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar) {
     // FloatingFeedback: pitch contribution from nacelle velocity feedback
     //   Fl_Mode = 1: proportional feedback of translational nacelle velocity
     //   Fl_Mode = 2: proportional feedback of rotational nacelle velocity

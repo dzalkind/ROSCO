@@ -1,7 +1,7 @@
 #include "../include/vit_types.h"
 #include "../include/vit_translated.h"
 
-void Startup(LocalVariables& LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
+void Startup(LocalVariables& LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar) {
 
     double SU_PrevLoad;
 

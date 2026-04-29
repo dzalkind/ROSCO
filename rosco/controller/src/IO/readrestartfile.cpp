@@ -3,7 +3,7 @@
 #include "../include/rosco_objects.hpp"
 
 void ReadRestartFile(float* avrSWAP, LocalVariables& LocalVar,
-                     const ControlParameters& /*CntrPar*/, objectinstances_t* objInst,
+                     const ControlParameters& /*CntrPar*/,
                      const PerformanceData& /*PerfData*/, char* RootName,
                      int size_avcOUTNAME, errorvariables_t* ErrVar) {
     std::string root = trim_fortran_string(RootName, size_avcOUTNAME);
@@ -19,7 +19,7 @@ void ReadRestartFile(float* avrSWAP, LocalVariables& LocalVar,
         return;
     }
 
-    checkpoint_fields(f, LocalVar, objInst, [](std::ifstream& s, auto& val) {
+    checkpoint_fields(f, LocalVar, [](std::ifstream& s, auto& val) {
         read_field(s, val);
     });
 

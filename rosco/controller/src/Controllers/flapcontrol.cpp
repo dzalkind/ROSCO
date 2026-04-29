@@ -5,7 +5,7 @@
 #include "../ControlElements/picontroller.hpp"
 #include "../ControlElements/piicontroller.hpp"
 
-void FlapControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, objectinstances_t* objInst) {
+void FlapControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // FlapControl: blade flap angle control
     //   Flp_Mode = 1: steady-state flap angle
     //   Flp_Mode = 2: PII flap control (proportional-integral-integral)

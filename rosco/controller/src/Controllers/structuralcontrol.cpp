@@ -3,7 +3,7 @@
 #include <cstring>
 #include <cstdio>
 
-void StructuralControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
+void StructuralControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, errorvariables_t* ErrVar) {
     // StructuralControl: structural control input assignment
     //   StC_Mode = 1: user-defined step inputs
     //   StC_Mode = 2: open-loop from lookup table

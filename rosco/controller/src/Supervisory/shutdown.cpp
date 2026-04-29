@@ -5,7 +5,7 @@
 
 #include "../include/rosco_constants.h"
 
-void Shutdown(LocalVariables& LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
+void Shutdown(LocalVariables& LocalVar, const ControlParameters& CntrPar, errorvariables_t* ErrVar) {
 
     // Initialize shutdown trigger
     if (LocalVar.iStatus == 0) {

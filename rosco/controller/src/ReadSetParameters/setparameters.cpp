@@ -6,7 +6,7 @@
 #include <algorithm>
 
 void SetParameters(const ControlParameters& CntrPar, LocalVariables& LocalVar,
-                   float* avrSWAP, objectinstances_t* objInst,
+                   float* avrSWAP,
                    errorvariables_t* ErrVar, int size_avcMSG) {
 
     // iStatus==0: Initialize LocalVar fields (CntrPar is populated by wrapper)

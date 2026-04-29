@@ -2,7 +2,7 @@
 #include "../include/rosco_types.hpp"
 
 void WriteRestartFile(LocalVariables& LocalVar, const ControlParameters& /*CntrPar*/,
-                      errorvariables_t* ErrVar, objectinstances_t* objInst,
+                      errorvariables_t* ErrVar,
                       char* RootName, int size_avcOUTNAME) {
     std::string root = trim_fortran_string(RootName, size_avcOUTNAME);
     int timestep = (int)std::round(LocalVar.Time / LocalVar.DT);
@@ -16,7 +16,7 @@ void WriteRestartFile(LocalVariables& LocalVar, const ControlParameters& /*CntrP
         return;
     }
 
-    checkpoint_fields(f, LocalVar, objInst, [](std::ofstream& s, auto& val) {
+    checkpoint_fields(f, LocalVar, [](std::ofstream& s, auto& val) {
         write_field(s, val);
     });
 

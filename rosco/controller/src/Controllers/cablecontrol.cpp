@@ -6,7 +6,7 @@
 #include "../Filters/seclpfilter_vel.hpp"
 #include "../ControlElements/picontroller.hpp"
 
-void CableControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
+void CableControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, errorvariables_t* ErrVar) {
     // CableControl: cable length control
     //   CC_Mode = 1: user-defined step inputs
     //   CC_Mode = 2: open-loop from lookup table

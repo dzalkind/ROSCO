@@ -2,7 +2,7 @@
 //
 // Replaces the flat [1024] parallel arrays in filterparameters_t, piparams_t,
 // resparams_t, and rlparams_t.  Each filter call gets one element of the
-// appropriate vector (indexed by the objectinstances_t counter).  Vectors
+// appropriate vector.  Vectors
 // grow on demand the first time a new instance index is seen; after that
 // the element persists across timesteps, carrying state between calls.
 //

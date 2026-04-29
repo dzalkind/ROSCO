@@ -14,7 +14,7 @@
 #define WE_K(i)    LocalVar.WE.K[(i)-1][0]
 
 void WindSpeedEstimator(LocalVariables& LocalVar, const ControlParameters& CntrPar,
-                        objectinstances_t* objInst, const PerformanceData& PerfData,
+                        const PerformanceData& PerfData,
                         debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
 
     double WE_Inp_Pitch, WE_Inp_Torque, WE_Inp_Speed, Max_Op_Pitch;

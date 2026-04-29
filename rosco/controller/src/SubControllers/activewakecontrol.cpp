@@ -5,7 +5,7 @@
 #include "../ControlElements/picontroller.hpp"
 #include "../ControlElements/rescontroller.hpp"
 
-void ActiveWakeControl(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar, objectinstances_t* objInst) {
+void ActiveWakeControl(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar) {
     // ActiveWakeControl: active wake mixing via individual pitch
     //   AWC_Mode 1: SNL complex-number approach
     //   AWC_Mode 2: Open-loop Coleman transform

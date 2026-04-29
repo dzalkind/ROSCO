@@ -3,7 +3,7 @@
 #include <cmath>
 #include "../include/rosco_constants.h"
 
-void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
+void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
     // YawRateControl: yaw rate control using yaw drive
     //   Y_ControlMode = 1: active yaw rate control
 

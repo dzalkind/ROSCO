@@ -2,7 +2,7 @@
 #include "../include/vit_translated.h"
 #include <cstring>
 
-double PitchSaturation(LocalVariables& LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
+double PitchSaturation(LocalVariables& LocalVar, const ControlParameters& CntrPar, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
 
     // Define minimum blade pitch angle for peak shaving as a function of estimated wind speed
     LocalVar.PS_Min_Pitch = interp1d(CntrPar.PS_WindSpeeds,

@@ -51,8 +51,7 @@ void read_field(std::ifstream& f, std::vector<T>& v) {
 
 // Shared field order for Write and Read — follows ROSCO_IO.f90 lines 39-349 exactly.
 template<typename Stream, typename FieldOp>
-void checkpoint_fields(Stream& f, LocalVariables& LocalVar,
-                       objectinstances_t* objInst, FieldOp field_op) {
+void checkpoint_fields(Stream& f, LocalVariables& LocalVar, FieldOp field_op) {
     // --- LocalVar scalars ---
     field_op(f, LocalVar.iStatus);
     field_op(f, LocalVar.AlreadyInitialized);
@@ -253,15 +252,7 @@ void checkpoint_fields(Stream& f, LocalVariables& LocalVar,
     field_op(f, LocalVar.resP.res);
     field_op(f, LocalVar.rlP.rl);
 
-    // --- objInst ---
-    field_op(f, objInst->instSecLPF);
-    field_op(f, objInst->instSecLPFV);
-    field_op(f, objInst->instHPF);
-    field_op(f, objInst->instNotchSlopes);
-    field_op(f, objInst->instNotch);
-    field_op(f, objInst->instPI);
-    field_op(f, objInst->instRes);
-    field_op(f, objInst->instRL);
+
 }
 
 } // anonymous namespace

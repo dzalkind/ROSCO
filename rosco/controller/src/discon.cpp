@@ -45,7 +45,6 @@ static const char* ROSCO_VERSION = "2.10.1";
 // ============================================================
 static ControlParameters  CntrPar  = {};  // tuning parameters read from config file
 static LocalVariables     LocalVar = {};  // turbine measurements + derived signals
-static objectinstances_t  objInst  = {};  // filter / integrator instance counters
 static PerformanceData    PerfData = {};  // rotor Cp/Ct/Cq lookup tables
 static debugvariables_t   DebugVar = {};  // quantities written to the log file
 static errorvariables_t   ErrVar   = {};  // error status and message
@@ -141,15 +140,6 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         ErrVar.aviFAIL    = 0;
         ErrVar.size_avcMSG = size_avcMSG;
 
-        objInst.instSecLPF      = 1;
-        objInst.instSecLPFV     = 1;
-        objInst.instHPF         = 1;
-        objInst.instNotchSlopes = 1;
-        objInst.instNotch       = 1;
-        objInst.instPI          = 1;
-        objInst.instRes         = 1;
-        objInst.instRL          = 1;
-
         // Default demanded actuator signals (overwritten below by controller modules)
         avrSWAP[34] = 1.0f;   // Record 35: request generator torque (1 = active)
         avrSWAP[35] = 0.0f;   // Record 36: shaft brake state (0 = off)
@@ -168,7 +158,7 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         // then re-read config (parameters may have changed)
         // --------------------------------------------------------
         if (iStatus == -9 && *aviFAIL >= 0) {
-            ReadRestartFile(avrSWAP, LocalVar, CntrPar, &objInst, PerfData, RootName, avcOUTNAME_size, &ErrVar);
+            ReadRestartFile(avrSWAP, LocalVar, CntrPar, PerfData, RootName, avcOUTNAME_size, &ErrVar);
             read_config_files(LocalVar.ACC_INFILE, LocalVar.ACC_INFILE_SIZE);
             if (CntrPar.LoggingLevel > 0) {
                 Debug(LocalVar, CntrPar, &DebugVar, &ErrVar, avrSWAP, RootName, avcOUTNAME_size);
@@ -203,7 +193,7 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
 
         // SetParameters: initialize LocalVar on first call; update OL_Index every call
         if (ErrVar.aviFAIL >= 0) {
-            SetParameters(CntrPar, LocalVar, avrSWAP, &objInst, &ErrVar, size_avcMSG);
+            SetParameters(CntrPar, LocalVar, avrSWAP, &ErrVar, size_avcMSG);
         }
 
         // --------------------------------------------------------
@@ -222,28 +212,28 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         if (running && ErrVar.aviFAIL >= 0) {
 
             if (LocalVar.iStatus == -8) {
-                WriteRestartFile(LocalVar, CntrPar, &ErrVar, &objInst, RootName, avcOUTNAME_size);
+                WriteRestartFile(LocalVar, CntrPar, &ErrVar, RootName, avcOUTNAME_size);
             }
 
             if (CntrPar.ZMQ_Mode > 0)  UpdateZeroMQ(LocalVar, CntrPar, &ErrVar);
-            if (CntrPar.SD_Mode  > 0)  Shutdown(LocalVar, CntrPar, &objInst, &ErrVar);
+            if (CntrPar.SD_Mode  > 0)  Shutdown(LocalVar, CntrPar, &ErrVar);
 
-            PreFilterMeasuredSignals(CntrPar, LocalVar, &DebugVar, &objInst, &ErrVar);
-            WindSpeedEstimator(LocalVar, CntrPar, &objInst, PerfData, &DebugVar, &ErrVar);
-            PowerControlSetpoints(CntrPar, LocalVar, &objInst, &DebugVar, &ErrVar);
+            PreFilterMeasuredSignals(CntrPar, LocalVar, &DebugVar, &ErrVar);
+            WindSpeedEstimator(LocalVar, CntrPar, PerfData, &DebugVar, &ErrVar);
+            PowerControlSetpoints(CntrPar, LocalVar, &DebugVar, &ErrVar);
 
-            if (CntrPar.SU_Mode > 0)   Startup(LocalVar, CntrPar, &objInst, &ErrVar);
+            if (CntrPar.SU_Mode > 0)   Startup(LocalVar, CntrPar, &ErrVar);
 
-            SpeedSetpoints(CntrPar, LocalVar, &objInst, &DebugVar, &ErrVar);
+            SpeedSetpoints(CntrPar, LocalVar, &DebugVar, &ErrVar);
             TorqueStateMachine(CntrPar, LocalVar);
-            SetpointSmoother(LocalVar, CntrPar, &objInst);
-            TorqueControl(avrSWAP, CntrPar, LocalVar, &objInst, &ErrVar);
+            SetpointSmoother(LocalVar, CntrPar);
+            TorqueControl(avrSWAP, CntrPar, LocalVar, &ErrVar);
 
-            if (CntrPar.PC_ControlMode > 0) PitchControl(avrSWAP, CntrPar, LocalVar, &objInst, &DebugVar, &ErrVar);
-            if (CntrPar.Y_ControlMode  > 0) YawRateControl(avrSWAP, CntrPar, LocalVar, &objInst, &DebugVar, &ErrVar);
-            if (CntrPar.Flp_Mode       > 0) FlapControl(avrSWAP, CntrPar, LocalVar, &objInst);
-            if (CntrPar.CC_Mode        > 0) CableControl(avrSWAP, CntrPar, LocalVar, &objInst, &ErrVar);
-            if (CntrPar.StC_Mode       > 0) StructuralControl(avrSWAP, CntrPar, LocalVar, &objInst, &ErrVar);
+            if (CntrPar.PC_ControlMode > 0) PitchControl(avrSWAP, CntrPar, LocalVar, &DebugVar, &ErrVar);
+            if (CntrPar.Y_ControlMode  > 0) YawRateControl(avrSWAP, CntrPar, LocalVar, &DebugVar, &ErrVar);
+            if (CntrPar.Flp_Mode       > 0) FlapControl(avrSWAP, CntrPar, LocalVar);
+            if (CntrPar.CC_Mode        > 0) CableControl(avrSWAP, CntrPar, LocalVar, &ErrVar);
+            if (CntrPar.StC_Mode       > 0) StructuralControl(avrSWAP, CntrPar, LocalVar, &ErrVar);
 
         } else if (LocalVar.iStatus == -1 && CntrPar.ZMQ_Mode > 0) {
             // Final call: send last measurement to ZMQ coordinator

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include "../ControlElements/picontroller.hpp"
 
-void ForeAftDamping(const ControlParameters& CntrPar, LocalVariables& LocalVar, objectinstances_t* objInst) {
+void ForeAftDamping(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // Fore-aft damping controller: reduces tower vibrations using pitch
 
     // PI controller on fore-aft acceleration (high-pass filtered)

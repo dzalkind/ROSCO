@@ -8,7 +8,7 @@
 #include <cmath>
 
 void PreFilterMeasuredSignals(const ControlParameters& CntrPar, LocalVariables& LocalVar,
-                              debugvariables_t* DebugVar, objectinstances_t* objInst,
+                              debugvariables_t* DebugVar,
                               errorvariables_t* ErrVar) {
     // If there's an error, don't even try to run
     if (ErrVar->aviFAIL < 0) {

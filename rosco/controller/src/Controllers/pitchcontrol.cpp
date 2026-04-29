@@ -9,7 +9,7 @@
 #include "../ControlElements/ratelimiter.hpp"
 #include "../ControlElements/picontroller.hpp"
 
-void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
+void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
     // PitchControl: master blade pitch controller
     // Orchestrates collective pitch PI, IPC, tower damping, floating feedback,
     // pitch saturation, AWC, shutdown, actuator model, and fault handling.
@@ -47,7 +47,7 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
 
     // Individual pitch control
     if ((CntrPar.IPC_ControlMode >= 1) || (CntrPar.Y_ControlMode == 2)) {
-        IPC(CntrPar, LocalVar, objInst, DebugVar, ErrVar);
+        IPC(CntrPar, LocalVar, DebugVar, ErrVar);
     } else {
         LocalVar.IPC_PitComF[0] = 0.0;
         LocalVar.IPC_PitComF[1] = 0.0;
@@ -56,7 +56,7 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
 
     // Tower fore-aft damping
     if (CntrPar.TD_Mode > 0) {
-        ForeAftDamping(CntrPar, LocalVar, objInst);
+        ForeAftDamping(CntrPar, LocalVar);
     } else {
         LocalVar.FA_PitCom[0] = 0.0;
         LocalVar.FA_PitCom[1] = 0.0;
@@ -65,7 +65,7 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
 
     // Pitch saturation
     if (CntrPar.PS_Mode > 0) {
-        LocalVar.PC_MinPit = PitchSaturation(LocalVar, CntrPar, objInst, DebugVar, ErrVar);
+        LocalVar.PC_MinPit = PitchSaturation(LocalVar, CntrPar, DebugVar, ErrVar);
         LocalVar.PC_MinPit = std::max(LocalVar.PC_MinPit, CntrPar.PC_FinePit);
     } else {
         LocalVar.PC_MinPit = CntrPar.PC_FinePit;
@@ -74,7 +74,7 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
 
     // Floating feedback
     if (CntrPar.Fl_Mode > 0) {
-        LocalVar.Fl_PitCom = FloatingFeedback(LocalVar, CntrPar, objInst, ErrVar);
+        LocalVar.Fl_PitCom = FloatingFeedback(LocalVar, CntrPar, ErrVar);
         DebugVar->Fl_PitCom = LocalVar.Fl_PitCom;
         LocalVar.PC_PitComT += LocalVar.Fl_PitCom;
     }
@@ -132,7 +132,7 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
 
     // Active wake control
     if (CntrPar.AWC_Mode > 0) {
-        ActiveWakeControl(CntrPar, LocalVar, DebugVar, objInst);
+        ActiveWakeControl(CntrPar, LocalVar, DebugVar);
     }
 
     // Shutdown

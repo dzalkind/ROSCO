@@ -3,7 +3,7 @@
 #include <cmath>
 #include "../include/rosco_constants.h"
 
-void SpeedSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar, objectinstances_t* objInst, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
+void SpeedSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar, errorvariables_t* ErrVar) {
 
     // Change pitch reference speed
     LocalVar.PC_RefSpd_PRC = CntrPar.PC_RefSpd * LocalVar.PRC_R_Speed;
@@ -69,7 +69,7 @@ void SpeedSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar, 
 
     // Exclude reference speeds specified by user
     if (CntrPar.TRA_Mode > 0) {
-        RefSpeedExclusion(LocalVar, CntrPar, objInst, DebugVar);
+        RefSpeedExclusion(LocalVar, CntrPar, DebugVar);
     }
 
     // Saturate torque reference speed below rated speed if using pitch control in Region 3

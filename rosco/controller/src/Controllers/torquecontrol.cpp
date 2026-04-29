@@ -8,7 +8,7 @@
 #include "../ControlElements/picontroller.hpp"
 #include "../ControlElements/pidcontroller.hpp"
 
-void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, objectinstances_t* objInst, errorvariables_t* ErrVar) {
+void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, errorvariables_t* ErrVar) {
     // TorqueControl: generator torque controller
     // State machine with K*Omega^2 law, PI transitions, constant torque/power modes
 

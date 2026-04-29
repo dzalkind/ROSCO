@@ -2,7 +2,7 @@
 #include "../include/vit_translated.h"
 #include "../ControlElements/ratelimiter.hpp"
 
-void RefSpeedExclusion(LocalVariables& LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst, debugvariables_t* DebugVar) {
+void RefSpeedExclusion(LocalVariables& LocalVar, const ControlParameters& CntrPar, debugvariables_t* DebugVar) {
 
     // Get LSS Ref speed
     double VS_RefSpeed_LSS = LocalVar.VS_RefSpd / CntrPar.WE_GearboxRatio;

@@ -1,7 +1,7 @@
 #include "../include/vit_types.h"
 #include "../include/vit_translated.h"
 
-void SetpointSmoother(LocalVariables& LocalVar, const ControlParameters& CntrPar, objectinstances_t* objInst) {
+void SetpointSmoother(LocalVariables& LocalVar, const ControlParameters& CntrPar) {
 
     // ------ Setpoint Smoothing ------
     if (CntrPar.SS_Mode == 1) {

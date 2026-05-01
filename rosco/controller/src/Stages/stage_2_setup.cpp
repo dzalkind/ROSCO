@@ -1,25 +1,69 @@
 // Stage 2 — Setup
 //
-// First-timestep initialization (banner, config file reading, performance
-// tables) and per-timestep parameter updates (OL index, external DLL,
-// ZeroMQ offsets).
-//
-// On the first call (iStatus == 0), the caller (DISCON) invokes a
-// dedicated first-call init path before this stage runs. This stage
-// then handles SetParameters (which does its own first-call init
-// internally) and optional external I/O on every timestep.
+// Per-timestep initialization and config management. Handles:
+//   - Default actuator signals (safe defaults before controller runs)
+//   - Warm restart (iStatus == -9): restore checkpoint, re-read config
+//   - First-call init (iStatus == 0): print banner, read config files
+//   - SetParameters (every call): init LocalVar on first call, update OL index
+//   - External DLL controller (optional)
+//   - ZeroMQ wind-farm offsets (optional)
 //
 // Note on numbering: this is stage_2 despite being "setup" because
-// stage_1_sensing (ReadAvrSWAP) must run first to populate iStatus,
-// which gates the first-call config loading in the DISCON orchestrator.
-// The numbering reflects execution order, not conceptual priority.
+// stage_1_sensing (ReadAvrSWAP) must run first to populate iStatus.
 
 #include "../include/rosco_stages.h"
 #include "../include/vit_translated.h"
+#include <cstdio>
+
+static const char* ROSCO_VERSION = "2.10.1";
 
 void stage_2_setup(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
                    PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL)
 {
+    // Default demanded actuator signals (overwritten by stage_7_actuators)
+    avrSWAP[34] = 1.0f;   // Record 35: request generator torque (1 = active)
+    avrSWAP[35] = 0.0f;   // Record 36: shaft brake state (0 = off)
+    avrSWAP[40] = 0.0f;   // Record 41: demanded nacelle yaw (rad)
+    avrSWAP[45] = 0.0f;   // Record 46: demanded pitch — blade 1 (rad)
+    avrSWAP[54] = 0.0f;   // Record 55: demanded pitch — blade 2 (rad)
+    avrSWAP[55] = 0.0f;   // Record 56: demanded pitch — blade 3 (rad)
+    avrSWAP[64] = 0.0f;   // Record 65: variable-slip flag
+    avrSWAP[71] = 0.0f;   // Record 72: cable control output
+    avrSWAP[78] = 4.0f;   // Record 79: generator torque output (Bladed expects 4)
+    avrSWAP[79] = 0.0f;   // Record 80: demanded pitch rate (rad/s)
+    avrSWAP[80] = 0.0f;   // Record 81: shaft brake override
+
+    // --------------------------------------------------------
+    // Warm restart: restore state from checkpoint file,
+    // then re-read config (parameters may have changed).
+    // Re-run ReadAvrSWAP after restore so current sensor
+    // readings overwrite the checkpointed values.
+    // --------------------------------------------------------
+    if (LocalVar.iStatus == -9) {
+        ReadRestartFile(avrSWAP, LocalVar, CntrPar, PerfData);
+        read_config_files(CntrPar, LocalVar, PerfData);
+        ReadAvrSWAP(avrSWAP, LocalVar, CntrPar);
+        if (CntrPar.LoggingLevel > 0) {
+            Debug(LocalVar, CntrPar, DebugVar, avrSWAP);
+        }
+    }
+
+    // --------------------------------------------------------
+    // First-call: print banner, read config files
+    // --------------------------------------------------------
+    if (LocalVar.iStatus == 0) {
+        printf("                                                                              \n"
+               "------------------------------------------------------------------------------\n"
+               "Running ROSCO-%s (c++ version)\n"
+               "A wind turbine controller framework for public use in the scientific field    \n"
+               "Developed in collaboration: National Renewable Energy Laboratory              \n"
+               "                            Delft University of Technology, The Netherlands   \n"
+               "------------------------------------------------------------------------------\n",
+               ROSCO_VERSION);
+
+        read_config_files(CntrPar, LocalVar, PerfData);
+    }
+
     // SetParameters: initialize LocalVar on first call; update OL_Index every call
     constexpr int SWAP_MSG_LEN = 48;
     int size_avcMSG = std::max(1, (int)avrSWAP[SWAP_MSG_LEN]);

@@ -70,9 +70,9 @@ static std::vector<int32_t> avr_indices;
 
 void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
            debugvariables_t* DebugVar,
-           float* avrSWAP, char* RootName, int size_avcOUTNAME) {
+           float* avrSWAP) {
 
-    std::string root = trim_fortran_string(RootName, size_avcOUTNAME);
+    const std::string& root = LocalVar.RootName;
 
     // --- Debug output data (26 fields) ---
     const int nDebugOuts = 26;
@@ -159,7 +159,7 @@ void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
         LocalVar.CC_DesiredL[0], LocalVar.CC_ActuatedL[0],
         LocalVar.CC_ActuatedDL[0], LocalVar.StC_Input[0],
         LocalVar.Flp_Angle[0], LocalVar.RootMyb_Last[0],
-        (double)LocalVar.ACC_INFILE_SIZE, LocalVar.AWC_complexangle_re[0],
+        (double)LocalVar.ACC_INFILE.size(), LocalVar.AWC_complexangle_re[0],
         LocalVar.TiltMean, LocalVar.YawMean, (double)LocalVar.ZMQ_ID,
         LocalVar.ZMQ_YawOffset, LocalVar.ZMQ_TorqueOffset,
         LocalVar.ZMQ_PitOffset[0], LocalVar.ZMQ_R_Speed,

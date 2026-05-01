@@ -140,8 +140,7 @@ write_registry.py         ← run this to regenerate
 
 discon.cpp                ← thin orchestrator, calls stages in order
   ├── stage_1_sensing()           ← ReadAvrSWAP (+ future sensor models)
-  ├── [first-call config]         ← banner, DISCON.IN/TOML, perf tables
-  ├── stage_2_setup()             ← SetParameters, ExtController, ZMQ
+  ├── stage_2_setup()             ← defaults, banner, config, SetParameters, ExtDLL, ZMQ
   ├── stage_3_filtering()         ← LP / notch filtering
   ├── stage_4_estimation()        ← wind speed estimator
   ├── stage_5_supervisory()       ← power-ref setpoints, shutdown, startup
@@ -272,6 +271,38 @@ Key ordering notes:
 - The ZMQ final-call edge case (`iStatus == -1`) is handled directly by DISCON outside the stage pipeline.
 
 Files added: `src/Stages/stage_1_sensing.cpp`, `stage_2_setup.cpp`, `stage_{3..8}_*.cpp`, `src/include/rosco_stages.h`.
+
+### 10. DISCON orchestrator cleanup — self-contained stages
+
+Moved all inline logic from the `DISCON()` function body into `stage_2_setup` and `ReadSetParameters/`, leaving DISCON as a pure orchestrator (~30 lines of logic: store file paths, call stages, catch exceptions).
+
+**What moved into `stage_2_setup`:**
+- Default actuator signals (`avrSWAP[34]`, `[35]`, `[40]`, `[45]`, etc.)
+- First-call banner print (`ROSCO_VERSION`)
+- First-call config loading (now calls `read_config_files`)
+- Warm restart logic (`ReadRestartFile` + `read_config_files` + re-run `ReadAvrSWAP`)
+
+**What moved to `ReadSetParameters/readconfigfiles.cpp`:**
+- The `read_config_files()` function (was `static` in `discon.cpp`) — auto-detects DISCON.IN vs TOML, calls the appropriate parser, loads Cp/Ct/Cq performance tables.
+
+**RootName simplification:**
+- Added `std::string RootName` field to `LocalVariables` (in `vit_types.h`)
+- DISCON sets `LocalVar.RootName` from `avcOUTNAME` (via `GetRoot`) before calling stages
+- `Debug`, `WriteRestartFile`, `ReadRestartFile` now read `LocalVar.RootName` directly — removed `char* RootName, int size_avcOUTNAME` parameters from all three
+- `stage_8_output` now has the uniform stage signature (no extra `RootName` args)
+- Eliminated the Fortran-style space-padded `char RootName[1024]` buffer and `trim_fortran_string` round-trip
+
+**Warm restart in stage_2_setup:** The original DISCON ran warm restart *before* `ReadAvrSWAP` so checkpointed sensor values would be overwritten by current readings. With warm restart now in `stage_2_setup` (after `stage_1_sensing`), the sequence is: `ReadAvrSWAP` → `ReadRestartFile` (restores internal state, overwrites sensor fields) → `ReadAvrSWAP` again (re-reads current sensors). Net effect is identical.
+
+### 11. ACC_INFILE modernization and GetRoot relocation
+
+Replaced the Fortran-heritage `char ACC_INFILE[1024]` + `int ACC_INFILE_SIZE` pair with `std::string ACC_INFILE` in `LocalVariables`. DISCON now sets it with a one-liner: `LocalVar.ACC_INFILE = TrimBladedString(accINFILE, accINFILE_size)`. The `read_config_files()` function uses `LocalVar.ACC_INFILE` directly — no more manual null/space trimming.
+
+`GetRoot()` moved from `discon.cpp` to `ReadSetParameters/readconfigfiles.cpp` as a non-static function declared in `vit_translated.h`. Simplified signature: takes `const std::string&` (no raw `char*` + length). DISCON calls `GetRoot(TrimBladedString(...))`.
+
+Added `std::string` write/read overloads to `restart_fields.h` (length-prefixed, like vectors). Removed the `ACC_INFILE_SIZE` checkpoint field — the string length is encoded in the string serialization itself.
+
+**Checkpoint compatibility:** This changes the binary `.chkp` format. Old checkpoint files from prior builds are not compatible.
 
 ---
 

@@ -2,9 +2,8 @@
 #include "../include/rosco_types.hpp"
 #include "../include/rosco_error.hpp"
 
-void WriteRestartFile(LocalVariables& LocalVar, const ControlParameters& /*CntrPar*/,
-                      char* RootName, int size_avcOUTNAME) {
-    std::string root = trim_fortran_string(RootName, size_avcOUTNAME);
+void WriteRestartFile(LocalVariables& LocalVar, const ControlParameters& /*CntrPar*/) {
+    const std::string& root = LocalVar.RootName;
     int timestep = (int)std::round(LocalVar.Time / LocalVar.DT);
     std::string filename = root + std::to_string(timestep) + ".RO.chkp";
 

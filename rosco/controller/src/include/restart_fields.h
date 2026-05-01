@@ -49,6 +49,22 @@ void read_field(std::ifstream& f, std::vector<T>& v) {
         f.read(reinterpret_cast<char*>(v.data()), n * sizeof(T));
 }
 
+// String overloads: write/read as length-prefixed UTF-8 bytes.
+inline void write_field(std::ofstream& f, const std::string& s) {
+    uint32_t n = static_cast<uint32_t>(s.size());
+    f.write(reinterpret_cast<const char*>(&n), sizeof(n));
+    if (n > 0)
+        f.write(s.data(), n);
+}
+
+inline void read_field(std::ifstream& f, std::string& s) {
+    uint32_t n = 0;
+    f.read(reinterpret_cast<char*>(&n), sizeof(n));
+    s.resize(n);
+    if (n > 0)
+        f.read(s.data(), n);
+}
+
 // Shared field order for Write and Read — follows ROSCO_IO.f90 lines 39-349 exactly.
 template<typename Stream, typename FieldOp>
 void checkpoint_fields(Stream& f, LocalVariables& LocalVar, FieldOp field_op) {
@@ -211,7 +227,6 @@ void checkpoint_fields(Stream& f, LocalVariables& LocalVar, FieldOp field_op) {
     for (int i = 0; i < 3; i++) field_op(f, LocalVar.Flp_Angle[i]);
     for (int i = 0; i < 3; i++) field_op(f, LocalVar.RootMyb_Last[i]);
 
-    field_op(f, LocalVar.ACC_INFILE_SIZE);
     field_op(f, LocalVar.ACC_INFILE);
     field_op(f, LocalVar.restart);
 

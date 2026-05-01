@@ -2,7 +2,7 @@
 //
 // The controller executes these stages in numbered order each timestep:
 //   1. Sensing      — unpack measurements from avrSWAP (+ future sensor models)
-//   2. Setup        — config loading (first call), OL index, external I/O
+//   2. Setup        — defaults, config loading, SetParameters, external I/O
 //   3. Filtering    — low-pass / notch filtering of sensor signals
 //   4. Estimation   — wind speed estimation
 //   5. Supervisory  — power-reference setpoints, shutdown, startup
@@ -10,14 +10,11 @@
 //   7. Actuators    — torque, pitch, yaw, flap, cable, structural control
 //   8. Output       — debug logging, checkpoint writing
 //
-// Note on stage 1/2 ordering: sensing precedes setup because ReadAvrSWAP
-// sets iStatus, which gates first-call config loading in the orchestrator.
-// The numbering reflects execution order, not conceptual priority.
+// All stages share a uniform signature so they can be called generically
+// or exported individually for Simulink integration.
 //
-// All stages share a uniform signature so they can be called generically.
-// stage_8_output requires additional file-path arguments (RootName).
-// First-call config loading is handled by the DISCON orchestrator between
-// stage_1 and stage_2 (not inside a stage function).
+// Note on stage 1/2 ordering: sensing precedes setup because ReadAvrSWAP
+// sets iStatus, which gates first-call config loading in stage_2_setup.
 
 #ifndef ROSCO_STAGES_H
 #define ROSCO_STAGES_H
@@ -31,9 +28,8 @@
 void stage_1_sensing(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
                      PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL);
 
-// Stage 2 — Setup: SetParameters (init + OL index), external DLL, ZeroMQ.
-// First-call config loading (banner, DISCON.IN/TOML, perf tables) is handled
-// by the DISCON orchestrator between stage_1 and stage_2.
+// Stage 2 — Setup: default actuator signals, config loading (first call),
+// warm restart, SetParameters (init + OL index), external DLL, ZeroMQ.
 void stage_2_setup(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
                    PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL);
 
@@ -59,7 +55,6 @@ void stage_7_actuators(float* avrSWAP, ControlParameters& CntrPar, LocalVariable
 
 // Stage 8 — Output: debug logging, restart-file checkpointing.
 void stage_8_output(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                    PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL,
-                    char* RootName, int avcOUTNAME_size);
+                    PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL);
 
 #endif // ROSCO_STAGES_H

@@ -48,12 +48,14 @@ void ReadControlParameterFileSub(ControlParameters& CntrPar, LocalVariables& Loc
 void ReadCpFile(const ControlParameters& CntrPar, PerformanceData& PerfData);
 void SetParameters(const ControlParameters& CntrPar, LocalVariables& LocalVar, float* avrSWAP, int size_avcMSG);
 void CheckInputs(LocalVariables& LocalVar, const ControlParameters& CntrPar, float* avrSWAP, int32_t size_avcMSG);
+void read_config_files(ControlParameters& CntrPar, LocalVariables& LocalVar, PerformanceData& PerfData);
+std::string GetRoot(const std::string& filename);
 
 // IO
 void ExtController(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, ExtControlType& ExtDLL);
-void WriteRestartFile(LocalVariables& LocalVar, const ControlParameters& CntrPar, char* RootName, int size_avcOUTNAME);
-void ReadRestartFile(float* avrSWAP, LocalVariables& LocalVar, const ControlParameters& CntrPar, const PerformanceData& PerfData, char* RootName, int size_avcOUTNAME);
-void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar, debugvariables_t* DebugVar, float* avrSWAP, char* RootName, int size_avcOUTNAME);
+void WriteRestartFile(LocalVariables& LocalVar, const ControlParameters& CntrPar);
+void ReadRestartFile(float* avrSWAP, LocalVariables& LocalVar, const ControlParameters& CntrPar, const PerformanceData& PerfData);
+void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar, debugvariables_t* DebugVar, float* avrSWAP);
 void UpdateZeroMQ(LocalVariables& LocalVar, const ControlParameters& CntrPar);
 
 #endif // VIT_TRANSLATED_H

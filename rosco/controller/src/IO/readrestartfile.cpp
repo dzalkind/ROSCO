@@ -5,9 +5,8 @@
 
 void ReadRestartFile(float* avrSWAP, LocalVariables& LocalVar,
                      const ControlParameters& /*CntrPar*/,
-                     const PerformanceData& /*PerfData*/, char* RootName,
-                     int size_avcOUTNAME) {
-    std::string root = trim_fortran_string(RootName, size_avcOUTNAME);
+                     const PerformanceData& /*PerfData*/) {
+    const std::string& root = LocalVar.RootName;
     // Fortran: NINT(avrSWAP(2)/avrSWAP(3))  — 1-indexed
     int timestep = (int)std::round((double)avrSWAP[1] / (double)avrSWAP[2]);
     std::string filename = root + std::to_string(timestep) + ".RO.chkp";

@@ -81,6 +81,7 @@ set(SOURCES
     src/ReadSetParameters/readavrswap.cpp
     src/ReadSetParameters/readcontrolparameterfilesub.cpp
     src/ReadSetParameters/readcpfile.cpp
+    src/ReadSetParameters/readconfigfiles.cpp
     src/ReadSetParameters/setparameters.cpp
 )
 

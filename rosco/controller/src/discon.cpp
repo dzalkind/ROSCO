@@ -2,24 +2,19 @@
 //
 // This file is the top-level orchestrator. Each timestep, the simulation
 // calls DISCON() with the avrSWAP array (turbine measurements in, control
-// demands out). DISCON reads the measurements, runs the controller modules
-// in sequence, and writes the demanded actuator signals back.
+// demands out). DISCON calls the controller stages in numbered order and
+// handles warm-restart, first-timestep gating, and error reporting.
 //
-// Controller call sequence (per timestep):
-//   ReadAvrSWAP          — unpack turbine measurements from avrSWAP
-//   SetParameters        — initialize state on first call; update OL index
-//   PreFilterMeasuredSignals — low-pass / notch filtering of sensor signals
-//   WindSpeedEstimator   — estimate effective hub-height wind speed
-//   PowerControlSetpoints — compute power-reference setpoints
-//   SpeedSetpoints    — compute rated-speed / torque setpoints
-//   TorqueStateMachine — determine operating region
-//   SetpointSmoother     — blend setpoints between VS and PC regions
-//   TorqueControl        — generator torque demand
-//   PitchControl         — collective + individual pitch demand
-//   YawRateControl       — yaw rate demand (if enabled)
-//   FlapControl          — trailing-edge flap demand (if enabled)
-//   CableControl / StructuralControl — mooring / StC demand (if enabled)
-//   Debug                — write log file
+// Controller stage sequence (per timestep):
+//   stage_1_sensing      — unpack measurements from avrSWAP
+//   [first-call config]  — banner, DISCON.IN/TOML, perf tables (inline)
+//   stage_2_setup        — SetParameters, external DLL, ZeroMQ
+//   stage_3_filtering    — low-pass / notch filtering of sensor signals
+//   stage_4_estimation   — wind speed estimation
+//   stage_5_supervisory  — power-reference setpoints, shutdown, startup
+//   stage_6_setpoints    — speed setpoints, torque state machine, smoother
+//   stage_7_actuators    — torque, pitch, yaw, flap, cable, structural
+//   stage_8_output       — debug logging, checkpoint writing
 //
 // Config file: DISCON.IN (legacy key-value) or DISCON.toml — auto-detected
 // by file extension.
@@ -29,16 +24,17 @@
 #include "include/rosco_objects.hpp"
 #include "include/rosco_constants.h"
 #include "include/rosco_error.hpp"
+#include "include/rosco_stages.h"
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
 #include <filesystem>
 #include <string>
 
-static const char* ROSCO_VERSION = "2.10.1";
-
-// Controller function declarations
+// Controller function declarations (still needed for warm-restart helpers)
 #include "include/vit_translated.h"
+
+static const char* ROSCO_VERSION = "2.10.1";
 
 // ============================================================
 // Controller state — persists across timesteps for the full
@@ -134,7 +130,7 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         memcpy(RootName, rootStr.c_str(), rn);
         memset(RootName + rn, ' ', sizeof(RootName) - rn);
 
-        // Default demanded actuator signals (overwritten below by controller modules)
+        // Default demanded actuator signals (overwritten below by controller stages)
         avrSWAP[34] = 1.0f;   // Record 35: request generator torque (1 = active)
         avrSWAP[35] = 0.0f;   // Record 36: shaft brake state (0 = off)
         avrSWAP[40] = 0.0f;   // Record 41: demanded nacelle yaw (rad)
@@ -160,12 +156,16 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         }
 
         // --------------------------------------------------------
-        // Unpack turbine measurements from avrSWAP → LocalVar
+        // Stage 1 — Sensing: unpack measurements from avrSWAP
+        // (must precede setup — sets LocalVar.iStatus for first-call gate)
         // --------------------------------------------------------
-        ReadAvrSWAP(avrSWAP, LocalVar, CntrPar);
+        stage_1_sensing(avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
 
         // --------------------------------------------------------
-        // First timestep: print banner, read config, initialize state
+        // First-call config loading (between stage 1 and 2)
+        // Reads DISCON.IN or DISCON.toml, loads Cp/Ct/Cq tables.
+        // Must run after stage_1 (needs iStatus) and before stage_2
+        // (SetParameters needs CntrPar).
         // --------------------------------------------------------
         if (LocalVar.iStatus == 0) {
             printf("                                                                              \n"
@@ -177,7 +177,6 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
                    "------------------------------------------------------------------------------\n",
                    ROSCO_VERSION);
 
-            // Save input filename so it can be re-read on warm restart
             LocalVar.ACC_INFILE_SIZE = accINFILE_size;
             memset(LocalVar.ACC_INFILE, ' ', sizeof(LocalVar.ACC_INFILE));
             memcpy(LocalVar.ACC_INFILE, accINFILE,
@@ -186,59 +185,33 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
             read_config_files(accINFILE, accINFILE_size);
         }
 
-        // SetParameters: initialize LocalVar on first call; update OL_Index every call
-        SetParameters(CntrPar, LocalVar, avrSWAP, size_avcMSG);
+        // --------------------------------------------------------
+        // Stage 2 — Setup (SetParameters, ExtController, ZMQ)
+        // --------------------------------------------------------
+        stage_2_setup(avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
 
         // --------------------------------------------------------
-        // External DLL controller (optional, Ext_Mode > 0)
-        // --------------------------------------------------------
-        if (CntrPar.Ext_Mode > 0) {
-            ExtDLL.avrSWAP.resize(2000, 0.0f);
-            ExtController(avrSWAP, CntrPar, LocalVar, ExtDLL);
-        }
-
-        // --------------------------------------------------------
-        // Main control loop — runs on normal timesteps (iStatus >= 0)
-        // and on the final call to write a checkpoint (iStatus == -8)
+        // Stages 3–7: main control pipeline
+        // Runs on normal timesteps (iStatus >= 0) and checkpoint
+        // calls (iStatus == -8).
         // --------------------------------------------------------
         bool running = (LocalVar.iStatus >= 0) || (LocalVar.iStatus <= -8);
         if (running) {
-
-            if (LocalVar.iStatus == -8) {
-                WriteRestartFile(LocalVar, CntrPar, RootName, avcOUTNAME_size);
-            }
-
-            if (CntrPar.ZMQ_Mode > 0)  UpdateZeroMQ(LocalVar, CntrPar);
-            if (CntrPar.SD_Mode  > 0)  Shutdown(LocalVar, CntrPar);
-
-            PreFilterMeasuredSignals(CntrPar, LocalVar, &DebugVar);
-            WindSpeedEstimator(LocalVar, CntrPar, PerfData, &DebugVar);
-            PowerControlSetpoints(CntrPar, LocalVar, &DebugVar);
-
-            if (CntrPar.SU_Mode > 0)   Startup(LocalVar, CntrPar);
-
-            SpeedSetpoints(CntrPar, LocalVar, &DebugVar);
-            TorqueStateMachine(CntrPar, LocalVar);
-            SetpointSmoother(LocalVar, CntrPar);
-            TorqueControl(avrSWAP, CntrPar, LocalVar);
-
-            if (CntrPar.PC_ControlMode > 0) PitchControl(avrSWAP, CntrPar, LocalVar, &DebugVar);
-            if (CntrPar.Y_ControlMode  > 0) YawRateControl(avrSWAP, CntrPar, LocalVar, &DebugVar);
-            if (CntrPar.Flp_Mode       > 0) FlapControl(avrSWAP, CntrPar, LocalVar);
-            if (CntrPar.CC_Mode        > 0) CableControl(avrSWAP, CntrPar, LocalVar);
-            if (CntrPar.StC_Mode       > 0) StructuralControl(avrSWAP, CntrPar, LocalVar);
-
+            stage_3_filtering  (avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
+            stage_4_estimation (avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
+            stage_5_supervisory(avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
+            stage_6_setpoints  (avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
+            stage_7_actuators  (avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
         } else if (LocalVar.iStatus == -1 && CntrPar.ZMQ_Mode > 0) {
             // Final call: send last measurement to ZMQ coordinator
             UpdateZeroMQ(LocalVar, CntrPar);
         }
 
         // --------------------------------------------------------
-        // Debug logging
+        // Stage 8 — Output (debug logging, checkpoint writing)
         // --------------------------------------------------------
-        if (CntrPar.LoggingLevel > 0) {
-            Debug(LocalVar, CntrPar, &DebugVar, avrSWAP, RootName, avcOUTNAME_size);
-        }
+        stage_8_output(avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL,
+                       RootName, avcOUTNAME_size);
 
         // No error — report success
         *aviFAIL = 0;

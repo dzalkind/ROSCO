@@ -138,11 +138,20 @@ write_registry.py         ← run this to regenerate
        ├── rosco_types_io.cpp      ← TOML loader (generated)
        └── DISCON_template.toml   ← annotated input template (generated)
 
-discon.cpp
-  ├── is_toml_file()              ← branches on .toml extension
-  ├── TOML path: CntrPar.load_from_toml()
-  ├── DISCON.IN path: existing two-pass parser (unchanged)
+discon.cpp                ← thin orchestrator, calls stages in order
+  ├── stage_1_sensing()           ← ReadAvrSWAP (+ future sensor models)
+  ├── [first-call config]         ← banner, DISCON.IN/TOML, perf tables
+  ├── stage_2_setup()             ← SetParameters, ExtController, ZMQ
+  ├── stage_3_filtering()         ← LP / notch filtering
+  ├── stage_4_estimation()        ← wind speed estimator
+  ├── stage_5_supervisory()       ← power-ref setpoints, shutdown, startup
+  ├── stage_6_setpoints()         ← speed setpoints, torque state machine
+  ├── stage_7_actuators()         ← torque, pitch, yaw, flap, cable, StC
+  ├── stage_8_output()            ← debug logging, checkpoint writing
   └── try/catch boundary          ← LabVIEW compatibility
+
+Stages/                   ← one file per stage, numbered for execution order
+  stage_1_sensing.cpp … stage_8_output.cpp
 ```
 
 ---
@@ -239,8 +248,35 @@ This removed `ErrVar` from nearly every function signature and eliminated hundre
 
 The verification script (`verify_cpp.py`) was also updated to check for memory errors using AddressSanitizer when available.
 
+### 9. Stage functions — controller pipeline decomposition
+
+The monolithic `DISCON()` function body was decomposed into eight numbered stage functions, each in its own source file under `src/Stages/`. DISCON is now a thin orchestrator that calls them in sequence:
+
+| # | Stage | Functions inside |
+|---|-------|------------------|
+| 1 | `stage_1_sensing` | ReadAvrSWAP (+ future sensor models) |
+| 2 | `stage_2_setup` | SetParameters, ExtController, UpdateZeroMQ |
+| 3 | `stage_3_filtering` | PreFilterMeasuredSignals |
+| 4 | `stage_4_estimation` | WindSpeedEstimator |
+| 5 | `stage_5_supervisory` | PowerControlSetpoints, Shutdown, Startup |
+| 6 | `stage_6_setpoints` | SpeedSetpoints, TorqueStateMachine, SetpointSmoother |
+| 7 | `stage_7_actuators` | TorqueControl, PitchControl, YawRateControl, FlapControl, CableControl, StructuralControl |
+| 8 | `stage_8_output` | Debug, WriteRestartFile |
+
+All stages share a uniform signature `(float* avrSWAP, ControlParameters&, LocalVariables&, PerformanceData&, debugvariables_t*, ExtControlType&)` so they can be called generically or exported individually for Simulink integration.
+
+Key ordering notes:
+- Stage 1 (sensing) precedes stage 2 (setup) because `ReadAvrSWAP` sets `iStatus`, which the DISCON orchestrator needs to gate first-call config loading (banner, DISCON.IN/TOML, performance tables). The numbering reflects execution order, not conceptual priority.
+- First-call config loading runs inline in DISCON between stages 1 and 2 (not inside a stage function) because it requires the `accINFILE` parameter which is only available to DISCON.
+- Shutdown and Startup are combined into `stage_5_supervisory` alongside PowerControlSetpoints. Order within the stage: PCS first (sets baseline PRC_R_Speed), then Shutdown, then Startup (overrides PRC_R_Speed during ramp).
+- The ZMQ final-call edge case (`iStatus == -1`) is handled directly by DISCON outside the stage pipeline.
+
+Files added: `src/Stages/stage_1_sensing.cpp`, `stage_2_setup.cpp`, `stage_{3..8}_*.cpp`, `src/include/rosco_stages.h`.
+
 ---
 
 ## Future Work
 
+- **Controller class refactor**: Wrap all static globals in a `RoscoController` class. Stage functions become methods. Prerequisite: migrate static locals (e.g. `static LPFilter` in shutdown.cpp, startup.cpp, speedsetpoints.cpp) into `LocalVariables` to enable multi-instance.
+- **Simulink S-Function export**: Stage functions are `extern "C"` exportable. Create a MEX wrapper that maps Simulink mdlOutputs/mdlUpdate to the stage pipeline.
 - **`discon_convert.py`**: Migration script to convert existing `DISCON.IN` files to TOML format for users who want to migrate without retuning.

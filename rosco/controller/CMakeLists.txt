@@ -29,6 +29,14 @@ FetchContent_MakeAvailable(tomlplusplus)
 set(SOURCES
     src/rosco_types_io.cpp
     src/discon.cpp
+    src/Stages/stage_1_sensing.cpp
+    src/Stages/stage_2_setup.cpp
+    src/Stages/stage_3_filtering.cpp
+    src/Stages/stage_4_estimation.cpp
+    src/Stages/stage_5_supervisory.cpp
+    src/Stages/stage_6_setpoints.cpp
+    src/Stages/stage_7_actuators.cpp
+    src/Stages/stage_8_output.cpp
     src/Setpoints/speedsetpoints.cpp
     src/Setpoints/pitchsaturation.cpp
     src/Setpoints/powercontrolsetpoints.cpp

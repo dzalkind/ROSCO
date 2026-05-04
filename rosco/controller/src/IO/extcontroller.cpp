@@ -1,14 +1,23 @@
 #include "../include/rosco_types.hpp"
 #include "../include/rosco_objects.hpp"
-#include <dlfcn.h>
 #include <cstdio>
 #include <cstring>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
 
 // Bladed DLL legacy interface — function pointer typedef
 typedef void (*bladed_dll_proc_t)(float*, int*, char*, char*, char*);
 
 void ExtController(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, ExtControlType& ExtDLL) {
+#ifdef _WIN32
+    static HMODULE dll_handle = nullptr;
+#else
     static void* dll_handle = nullptr;
+#endif
     static bladed_dll_proc_t dll_proc = nullptr;
 
     const int max_avr_entries = 2000;
@@ -62,19 +71,29 @@ void ExtController(float* avrSWAP, const ControlParameters& CntrPar, LocalVariab
         printf("DLL_InFile: %s\n", accINFILE);
         printf("DLL_ProcName: %s\n", dll_procname);
 
-        // dlopen
+#ifdef _WIN32
+        dll_handle = LoadLibraryA(dll_filename);
+        if (!dll_handle) {
+            fprintf(stderr, "ExtController: The dynamic library %s could not be loaded.\n", dll_filename);
+            return;
+        }
+        dll_proc = (bladed_dll_proc_t)GetProcAddress(dll_handle, dll_procname);
+        if (!dll_proc) {
+            fprintf(stderr, "ExtController: The procedure %s could not be loaded.\n", dll_procname);
+            return;
+        }
+#else
         dll_handle = dlopen(dll_filename, RTLD_LAZY);
         if (!dll_handle) {
             fprintf(stderr, "ExtController: The dynamic library %s could not be loaded.\n", dll_filename);
             return;
         }
-
-        // dlsym
         dll_proc = (bladed_dll_proc_t)dlsym(dll_handle, dll_procname);
         if (!dll_proc) {
             fprintf(stderr, "ExtController: The procedure %s could not be loaded.\n", dll_procname);
             return;
         }
+#endif
 
         printf("Library loaded successfully\n");
     }

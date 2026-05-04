@@ -1,110 +1,80 @@
 /*
- * Build instructions for this wrapper:
+ * discon_wrapper.c — LabVIEW-friendly C ABI shim for ROSCO's DISCON controller.
  *
- * Unix (Linux):
- *   gcc -O2 -fPIC -shared discon_wrapper.c -o discon_wrapper.so -ldl
+ * This wrapper converts individual scalar inputs/outputs into the Bladed-style
+ * avrSWAP float array that DISCON expects.  ROSCO (libdiscon) is statically
+ * linked at build time — no runtime DLL loading required.
  *
- * Unix (macOS):
- *   clang -O2 -fPIC -dynamiclib discon_wrapper.c -o discon_wrapper.dylib
+ * Exported functions (called from LabVIEW CLFN):
+ *   hello_ping     — returns 42; deployment sanity check
+ *   run_discon     — packs scalars into avrSWAP, calls DISCON, unpacks outputs
  *
- * Windows 32-bit (for 32-bit LabVIEW):
- *   gcc -O2 -m32 -shared discon_wrapper.c -o discon_wrapper.dll
+ * Build (MinGW 32-bit, MSVCRT variant, static linkage):
+ *   gcc -m32 -O2 -shared -static -static-libgcc \
+ *       -o discon_wrapper.dll discon_wrapper.c \
+ *       -L<path-to-libdiscon> -ldiscon \
+ *       -Wl,--kill-at
  *
- * Notes:
- *   - LabVIEW bitness must match the DLL bitness (use 32-bit build with 32-bit LabVIEW).
- *   - Place libdiscon.dll next to this wrapper DLL, or update LIB_NAME accordingly.
+ * Target: Phar Lap ETS 13.1 on NI PXIe-8133, LabVIEW 2019 (32-bit).
+ * The resulting DLL must depend only on KERNEL32.dll and msvcrt.dll.
  */
 
 #include <stdio.h>
 #include <string.h>
 
 #ifdef _WIN32
-  #include <windows.h>
-  #include <direct.h>
   #define EXPORT __declspec(dllexport)
-  #define OPEN_LIB(name)   LoadLibraryA(name)
-    #define CLOSE_LIB(h)     FreeLibrary(h)
-  #define GET_SYM(h, sym)  GetProcAddress(h, sym)
-  typedef HMODULE lib_handle_t;
-  #define LIB_NAME "C:\\Users\\schamot\\Documents\\Code\\ROSCO-C\\rosco\\controller\\build\\win32-mingw\\liblibdiscon_win32.dll"
-  #define GETCWD _getcwd
 #else
-  #include <dlfcn.h>
   #define EXPORT
-  #define OPEN_LIB(name)   dlopen(name, RTLD_NOW)
-    #define CLOSE_LIB(h)     dlclose(h)
-  #define GET_SYM(h, sym)  dlsym(h, sym)
-  typedef void* lib_handle_t;
-  #define LIB_NAME "/Users/dzalkind/Tools/ROSCO-C/rosco/lib/libdiscon.dylib"
 #endif
 
-#define DISCON_IN  "USFLOWT_10_DISCON.IN"
-#define SIM_NAME   "rosco_test"
-#define AVR_SIZE   500
-#define MSG_SIZE   1000
-#define NUM_BL     3
+/* ------------------------------------------------------------------ */
+/*  Configuration — adjust these for your deployment                   */
+/* ------------------------------------------------------------------ */
+#define DISCON_IN  "USFLOWT_10_DISCON.IN"   /* Controller config file name  */
+#define SIM_NAME   "rosco_test"             /* Output/log name prefix       */
+#define AVR_SIZE   500                      /* Bladed swap array length     */
+#define MSG_SIZE   1000                     /* DISCON message buffer size   */
+#define NUM_BL     3                        /* Number of blades             */
 
-typedef void (*DISCON_fn)(float*, int*, const char*, const char*, char*);
+/* ------------------------------------------------------------------ */
+/*  Forward declaration of ROSCO's DISCON entry point                  */
+/*                                                                     */
+/*  Linked statically from libdiscon.a at build time.                  */
+/*  Original Fortran: BIND(C, NAME='DISCON'); now C++ with C linkage.  */
+/* ------------------------------------------------------------------ */
+extern void DISCON(float* avrSWAP, int* aviFAIL,
+                   const char* accINFILE, const char* avcOUTNAME,
+                   char* avcMSG);
 
-static lib_handle_t discon_lib = NULL;
-static DISCON_fn    discon_fn  = NULL;
-
-EXPORT void shutdown_discon(void) {
-    if (discon_lib) {
-        CLOSE_LIB(discon_lib);
-        discon_lib = NULL;
-        discon_fn = NULL;
-    }
+/* ------------------------------------------------------------------ */
+/*  hello_ping — deployment sanity check                               */
+/*  Returns 42.  Use to verify DLL loads before involving ROSCO.       */
+/* ------------------------------------------------------------------ */
+EXPORT int hello_ping(void) {
+    return 42;
 }
 
-static int load_discon(char* avcMSG) {
-    if (discon_fn) return 0;  /* already loaded */
-
-    const char* logName = "C:\\Users\\schamot\\Documents\\Code\\ROSCO-USFLOWT\\Examples\\Labview_Tests\\Logs\\discon_log.txt";
-    const char* message = "Loading DISCON library";
-    FILE* log_file = fopen(logName, "a");
-    if (log_file) {
-        fprintf(log_file, "%s\n", message);
-    }
-    
-    discon_lib = OPEN_LIB(LIB_NAME);
-    if (!discon_lib) {
-        #ifdef _WIN32
-        if (log_file) {
-            fprintf(log_file, "Failed to load %s: error %lu\n", LIB_NAME, GetLastError());
-            fclose(log_file);
-        }
-        snprintf(avcMSG, MSG_SIZE, "Failed to load %s: error %lu", LIB_NAME, GetLastError());
-        #else
-        snprintf(avcMSG, MSG_SIZE, "Failed to load %s: %s", LIB_NAME, dlerror());
-        if (log_file) {
-            fprintf(log_file, "Failed to load %s: %s\n", LIB_NAME, dlerror());
-            fclose(log_file);
-        }
-        #endif
-        return -1;
-    }
-    if (log_file) {
-        fprintf(log_file, "Successfully loaded %s\n", LIB_NAME);
-    }
-    
-    discon_fn = (DISCON_fn) GET_SYM(discon_lib, "DISCON");
-    if (!discon_fn) {
-        if (log_file) {
-            fprintf(log_file, "Failed to find DISCON symbol in %s\n", LIB_NAME);
-            fclose(log_file);
-        }
-        shutdown_discon();
-        snprintf(avcMSG, MSG_SIZE, "Failed to find DISCON symbol in %s", LIB_NAME);
-        return -1;
-    }
-    
-    if (log_file) {
-        fclose(log_file);
-    }
-    return 0;
-}
-
+/* ------------------------------------------------------------------ */
+/*  run_discon — main controller interface for LabVIEW                 */
+/*                                                                     */
+/*  Packs scalar inputs into the Bladed avrSWAP array, calls DISCON,   */
+/*  then unpacks the relevant outputs back to scalar pointers.         */
+/*                                                                     */
+/*  Parameters (LabVIEW CLFN types in parentheses):                    */
+/*    iStatus    — simulation status: 0=first call, 1=normal, -1=last  */
+/*    time       — current simulation time [s]                         */
+/*    dt         — timestep [s]                                        */
+/*    bld_pitch  — measured blade pitch angle [rad]                    */
+/*    gen_speed  — generator speed [rad/s]                             */
+/*    rot_speed  — rotor speed [rad/s]                                 */
+/*    wind_speed — hub-height wind speed [m/s]                         */
+/*    gen_torque — (in/out) generator torque demand [Nm]               */
+/*    pitch1..3  — (out) individual blade pitch commands [rad]         */
+/*    yaw_rate   — (out) nacelle yaw rate command [rad/s]              */
+/*    aviFAIL    — (out) error flag from DISCON                        */
+/*    avcMSG     — (out) message buffer, pre-allocate >=1000 chars     */
+/* ------------------------------------------------------------------ */
 EXPORT void run_discon(
     /* inputs */
     int   iStatus,
@@ -126,79 +96,40 @@ EXPORT void run_discon(
 ) {
     *aviFAIL = 0;
     avcMSG[0] = '\0';
-    #ifdef _WIN32
-    _chdir("C:\\Users\\schamot\\Documents\\Code\\ROSCO-USFLOWT\\Examples\\Labview_Tests");
-    #else
-        chdir("/Users/dzalkind/Tools/ROSCO-USFLOWT/Examples/Labview_Tests");
-    #endif
-
-
-
-    char cwd[FILENAME_MAX];  
-    GETCWD(cwd, sizeof(cwd));
-
-    const char* message = cwd; // Message to log, which is the current working directory
-    FILE* log_file;
-
-    const char* logName = "C:\\Users\\schamot\\Documents\\Code\\ROSCO-USFLOWT\\Examples\\Labview_Tests\\Logs\\discon_log.txt";
-    log_file = fopen(logName, "a");
-    if (log_file) {
-        fprintf(log_file, "%s\n", message);
-    }
-    
-    if (load_discon(avcMSG) != 0) {
-        *aviFAIL = -1;
-        return;
-    }
 
     /* Build avrSWAP from scalar inputs */
     float avrSWAP[AVR_SIZE] = {0};
-    
-    avrSWAP[0]  = (float)iStatus;
-    avrSWAP[1]  = time;
-    avrSWAP[2]  = dt;
-    avrSWAP[3]  = bld_pitch;
-    avrSWAP[19] = gen_speed;
-    avrSWAP[20] = rot_speed;
-    avrSWAP[26] = wind_speed;
-    avrSWAP[60] = (float)NUM_BL;
 
-    avrSWAP[32] = bld_pitch; // Set all blade pitches to the same value for this test
-    avrSWAP[33] = bld_pitch;
-    avrSWAP[22] = gen_torque ? *gen_torque : 0.0f; // Initial guess for gen torque, if provided
+    avrSWAP[0]  = (float)iStatus;       /* iStatus                  */
+    avrSWAP[1]  = time;                 /* current time [s]         */
+    avrSWAP[2]  = dt;                   /* timestep [s]             */
+    avrSWAP[3]  = bld_pitch;            /* measured pitch blade 1   */
+    avrSWAP[19] = gen_speed;            /* generator speed [rad/s]  */
+    avrSWAP[20] = rot_speed;            /* rotor speed [rad/s]      */
+    avrSWAP[26] = wind_speed;           /* hub-height wind [m/s]    */
+    avrSWAP[60] = (float)NUM_BL;        /* number of blades         */
 
+    avrSWAP[32] = bld_pitch;            /* blade 2 pitch            */
+    avrSWAP[33] = bld_pitch;            /* blade 3 pitch            */
+    avrSWAP[22] = gen_torque ? *gen_torque : 0.0f;  /* initial torque guess */
 
-    /* String buffer sizes */
+    /* String buffer sizes (Bladed convention) */
     avrSWAP[48] = (float)MSG_SIZE;
     avrSWAP[49] = (float)strlen(DISCON_IN);
     avrSWAP[50] = (float)strlen(SIM_NAME);
-    if (log_file) {
-        fprintf(log_file, "DISCON_IN length: %d, SIM_NAME length: %d\n", (int)avrSWAP[49], (int)avrSWAP[50]);
-    }
+
+    /* Call ROSCO — statically linked, no runtime loading */
     char msg_buf[MSG_SIZE] = {0};
-    discon_fn(avrSWAP, aviFAIL, DISCON_IN, SIM_NAME, msg_buf);
-    if (log_file) {
-        fprintf(log_file, "DISCON returned aviFAIL=%d, msg=%s\n", *aviFAIL, msg_buf);
-        fclose(log_file);
-    }
+    DISCON(avrSWAP, aviFAIL, DISCON_IN, SIM_NAME, msg_buf);
+
+    /* Copy message to caller's buffer */
     strncpy(avcMSG, msg_buf, MSG_SIZE - 1);
     avcMSG[MSG_SIZE - 1] = '\0';
-    
-    /* Extract outputs */
-    *gen_torque = avrSWAP[46];
-    *pitch1     = avrSWAP[41];
-    *pitch2     = avrSWAP[42];
-    *pitch3     = avrSWAP[43];
-    *yaw_rate   = avrSWAP[47];
 
-    /* Log errors/warnings */
-    if (*aviFAIL != 0) {
-        const char* logName = "C:\\Users\\schamot\\Documents\\Code\\ROSCO-USFLOWT\\Examples\\Labview_Tests\\Logs\\discon_log.txt";
-        FILE* f = fopen(logName, "a");
-        if (f) {
-            fprintf(f, "iStatus=%d t=%.3f aviFAIL=%d msg=%s\n",
-                    iStatus, time, *aviFAIL, avcMSG);
-            fclose(f);
-        }
-    }
+    /* Extract outputs from avrSWAP */
+    *gen_torque = avrSWAP[46];           /* demanded generator torque */
+    *pitch1     = avrSWAP[41];           /* blade 1 pitch command     */
+    *pitch2     = avrSWAP[42];           /* blade 2 pitch command     */
+    *pitch3     = avrSWAP[43];           /* blade 3 pitch command     */
+    *yaw_rate   = avrSWAP[47];           /* yaw rate command          */
 }

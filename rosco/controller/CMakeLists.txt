@@ -102,7 +102,10 @@ endif()
 
 add_library(discon SHARED ${SOURCES})
 target_include_directories(discon PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../translations)
-target_link_libraries(discon PRIVATE stdc++ dl tomlplusplus::tomlplusplus)
+if(NOT MSVC)
+    target_link_libraries(discon PRIVATE dl)
+endif()
+target_link_libraries(discon PRIVATE tomlplusplus::tomlplusplus)
 
 if(PC_ZeroMQ_FOUND)
     target_include_directories(discon PUBLIC ${ZeroMQ_INCLUDE_DIR})

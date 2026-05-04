@@ -1,3 +1,4 @@
+#include <vector>
 #include "../include/vit_translated.h"
 
 void StructuralControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar) {
@@ -22,12 +23,12 @@ void StructuralControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVa
                 // Column-major: element (row, col) = flat[col * n_rows + row]
                 int n_rows = CntrPar.OL_StructControl_rows;
                 int n_cols = CntrPar.OL_StructControl_cols;
-                double row_slice[n_cols];
+                std::vector<double> row_slice(n_cols);
                 for (int col = 0; col < n_cols; col++) {
                     row_slice[col] = CntrPar.OL_StructControl[col * n_rows + I_GROUP];
                 }
                 LocalVar.StC_Input[I_GROUP] = interp1d(CntrPar.OL_Breakpoints,
-                                                        {row_slice, n_cols},
+                                                        {row_slice.data(), n_cols},
                                                         LocalVar.Time);
             }
         }

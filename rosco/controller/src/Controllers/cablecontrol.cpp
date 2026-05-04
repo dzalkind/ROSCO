@@ -1,3 +1,4 @@
+#include <vector>
 #include "../include/vit_translated.h"
 #include "../include/rosco_constants.h"
 #include "../Filters/seclpfilter_vel.hpp"
@@ -23,12 +24,12 @@ void CableControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
                 // Extract row from column-major 2D array
                 int n_rows = CntrPar.OL_CableControl_rows;
                 int n_cols = CntrPar.OL_CableControl_cols;
-                double row_slice[n_cols];
+                std::vector<double> row_slice(n_cols);
                 for (int col = 0; col < n_cols; col++) {
                     row_slice[col] = CntrPar.OL_CableControl[col * n_rows + I_GROUP];
                 }
                 LocalVar.CC_DesiredL[I_GROUP] = interp1d(CntrPar.OL_Breakpoints,
-                                                          {row_slice, n_cols},
+                                                          {row_slice.data(), n_cols},
                                                           LocalVar.Time);
             }
         }

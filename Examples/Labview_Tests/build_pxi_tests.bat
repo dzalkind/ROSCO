@@ -6,34 +6,34 @@ REM veh_stubs.c provides local implementations of AddVectoredExceptionHandler
 REM and RemoveVectoredExceptionHandler so they are NOT imported from KERNEL32.dll
 REM (Phar Lap ETS doesn't have them).
 
-echo Compiling VEH stubs...
-gcc -m32 -c -o veh_stubs.o veh_stubs.c
-if errorlevel 1 (echo FAILED to compile veh_stubs.c & goto :eof)
+echo Compiling Phar Lap compatibility stubs...
+gcc -m32 -c -o pharlap_compat.o pharlap_compat.c
+if errorlevel 1 (echo FAILED to compile pharlap_compat.c & goto :eof)
 
 set LFLAGS=-m32 -shared -static -static-libgcc -static-libstdc++ -fno-exceptions -fno-rtti -Wl,--kill-at
 
 echo Building test_1 (minimal C++) ...
-g++ %LFLAGS% -DBUILD_TEST1 -o test_1.dll pxi_tests.c veh_stubs.o
+g++ %LFLAGS% -DBUILD_TEST1 -o test_1.dll pxi_tests.c pharlap_compat.o
 if errorlevel 1 (echo FAILED & goto :eof)
 
 echo Building test_2 (new/delete) ...
-g++ %LFLAGS% -DBUILD_TEST2 -o test_2.dll pxi_tests.c veh_stubs.o
+g++ %LFLAGS% -DBUILD_TEST2 -o test_2.dll pxi_tests.c pharlap_compat.o
 if errorlevel 1 (echo FAILED & goto :eof)
 
 echo Building test_3 (std::string) ...
-g++ %LFLAGS% -DBUILD_TEST3 -o test_3.dll pxi_tests.c veh_stubs.o
+g++ %LFLAGS% -DBUILD_TEST3 -o test_3.dll pxi_tests.c pharlap_compat.o
 if errorlevel 1 (echo FAILED & goto :eof)
 
 echo Building test_4 (C file I/O) ...
-g++ %LFLAGS% -DBUILD_TEST4 -o test_4.dll pxi_tests.c veh_stubs.o
+g++ %LFLAGS% -DBUILD_TEST4 -o test_4.dll pxi_tests.c pharlap_compat.o
 if errorlevel 1 (echo FAILED & goto :eof)
 
 echo Building test_5 (C++ streams) ...
-g++ %LFLAGS% -DBUILD_TEST5 -o test_5.dll pxi_tests.c veh_stubs.o
+g++ %LFLAGS% -DBUILD_TEST5 -o test_5.dll pxi_tests.c pharlap_compat.o
 if errorlevel 1 (echo FAILED & goto :eof)
 
 echo Building test_6 (strings + malloc + snprintf + getenv) ...
-g++ %LFLAGS% -DBUILD_TEST6 -o test_6.dll pxi_tests.c veh_stubs.o
+g++ %LFLAGS% -DBUILD_TEST6 -o test_6.dll pxi_tests.c pharlap_compat.o
 if errorlevel 1 (echo FAILED & goto :eof)
 
 echo.

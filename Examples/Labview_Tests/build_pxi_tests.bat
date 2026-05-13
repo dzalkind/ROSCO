@@ -10,7 +10,7 @@ echo Compiling VEH stubs...
 gcc -m32 -c -o veh_stubs.o veh_stubs.c
 if errorlevel 1 (echo FAILED to compile veh_stubs.c & goto :eof)
 
-set LFLAGS=-m32 -shared -static -static-libgcc -static-libstdc++ -Wl,--kill-at
+set LFLAGS=-m32 -shared -static -static-libgcc -static-libstdc++ -fno-exceptions -fno-rtti -Wl,--kill-at
 
 echo Building test_1 (minimal C++) ...
 g++ %LFLAGS% -DBUILD_TEST1 -o test_1.dll pxi_tests.c veh_stubs.o

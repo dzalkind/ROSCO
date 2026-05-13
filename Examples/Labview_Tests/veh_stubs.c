@@ -6,9 +6,15 @@
  * RemoveVectoredExceptionHandler. MinGW's DWARF exception handling calls
  * these during DLL init, causing load failure.
  *
- * Providing local stubs makes the linker use these instead of importing
- * from KERNEL32.dll. DWARF C++ exceptions still work within the DLL.
+ * We provide BOTH:
+ *   1. The stdcall function definitions (_AddVectoredExceptionHandler@8)
+ *   2. The __imp__ pointer symbols (__imp__AddVectoredExceptionHandler@8)
+ *
+ * By satisfying both symbols, the linker has no reason to pull in the
+ * archive member from libkernel32.a, so no import table entry is created.
  */
+
+/* --- function stubs --- */
 
 void* __attribute__((stdcall))
 AddVectoredExceptionHandler(unsigned long First, void* Handler)
@@ -24,3 +30,15 @@ RemoveVectoredExceptionHandler(void* Handle)
     (void)Handle;
     return 1;
 }
+
+/* --- __imp__ pointers (satisfies dllimport-style references) --- */
+
+__asm__(
+    ".section .data\n"
+    ".globl __imp__AddVectoredExceptionHandler@8\n"
+    "__imp__AddVectoredExceptionHandler@8:\n"
+    "  .long _AddVectoredExceptionHandler@8\n"
+    ".globl __imp__RemoveVectoredExceptionHandler@4\n"
+    "__imp__RemoveVectoredExceptionHandler@4:\n"
+    "  .long _RemoveVectoredExceptionHandler@4\n"
+);

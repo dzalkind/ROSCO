@@ -2,23 +2,24 @@
  * discon_wrapper.c — LabVIEW-friendly C ABI shim for ROSCO's DISCON controller.
  *
  * This wrapper converts individual scalar inputs/outputs into the Bladed-style
- * avrSWAP float array that DISCON expects.  ROSCO (libdiscon) is statically
- * linked at build time — no runtime DLL loading required.
+ * avrSWAP float array that DISCON expects.  ROSCO's libdiscon DLL is loaded
+ * at runtime via LoadLibraryA/GetProcAddress and unloaded on shutdown to
+ * avoid memory leaks across repeated runs.
  *
  * Exported functions (called from LabVIEW CLFN):
  *   hello_ping     — returns 42; deployment sanity check
- *   init_discon    — open log file, mark ready; call once before run_discon
+ *   init_discon    — load libdiscon, open log file; call once before run_discon
  *   run_discon     — packs scalars into avrSWAP, calls DISCON, unpacks outputs
- *   shutdown_discon— close log file, reset state; call when done
+ *   shutdown_discon— unload libdiscon, close log file; call when done
  *
- * Build (MinGW 32-bit, MSVCRT variant, static linkage):
+ * Build (MinGW 32-bit, MSVCRT variant):
+ *   gcc -m32 -c -o pharlap_compat.o pharlap_compat.c
  *   gcc -m32 -O2 -shared -static -static-libgcc \
- *       -o discon_wrapper.dll discon_wrapper.c \
- *       -L<path-to-libdiscon> -ldiscon \
+ *       -o discon_wrapper.dll discon_wrapper.c pharlap_compat.o \
  *       -Wl,--kill-at
  *
  * Target: Phar Lap ETS 13.1 on NI PXIe-8133, LabVIEW 2019 (32-bit).
- * The resulting DLL must depend only on KERNEL32.dll and msvcrt.dll.
+ * Only KERNEL32.dll and msvcrt.dll APIs are used (Phar Lap safe).
  */
 
 #include <stdio.h>
@@ -26,37 +27,42 @@
 #include <stdarg.h>
 
 #ifdef _WIN32
+  #include <windows.h>
   #define EXPORT __declspec(dllexport)
+  #define OPEN_LIB(name)   LoadLibraryA(name)
+  #define CLOSE_LIB(h)     FreeLibrary(h)
+  #define GET_SYM(h, sym)  GetProcAddress(h, sym)
+  typedef HMODULE lib_handle_t;
 #else
+  #include <dlfcn.h>
   #define EXPORT
+  #define OPEN_LIB(name)   dlopen(name, RTLD_NOW)
+  #define CLOSE_LIB(h)     dlclose(h)
+  #define GET_SYM(h, sym)  dlsym(h, sym)
+  typedef void* lib_handle_t;
 #endif
 
 /* ------------------------------------------------------------------ */
 /*  Configuration — adjust these for your deployment                   */
 /* ------------------------------------------------------------------ */
-#define DISCON_IN  "C:\\ni-rt\\system\\DLL\\USFLOWT_10_DISCON.IN"   /* Controller config file  */
+#define DISCON_IN  "USFLOWT_10_DISCON.IN"   /* Controller config file name  */
 #define SIM_NAME   "rosco_test"             /* Output/log name prefix       */
 #define AVR_SIZE   2048                     /* Bladed swap array length     */
 #define MSG_SIZE   1000                     /* DISCON message buffer size   */
 #define NUM_BL     3                        /* Number of blades             */
-#define LOG_NAME   "C:\\ni-rt\\system\\DLL\\discon_log.txt"  /* Absolute log path  */
+#define LOG_NAME   "discon_log.txt"         /* Log file (written to CWD)    */
+#define LIB_NAME   "libdiscon.dll"          /* ROSCO DLL (same dir or PATH) */
 
 /* ------------------------------------------------------------------ */
 /*  Module state                                                       */
 /* ------------------------------------------------------------------ */
-static FILE* log_file    = NULL;
-static int   initialized = 0;
-static int   call_count  = 0;
+typedef void (*DISCON_fn)(float*, int*, const char*, const char*, char*);
 
-/* ------------------------------------------------------------------ */
-/*  Forward declaration of ROSCO's DISCON entry point                  */
-/*                                                                     */
-/*  Linked statically from libdiscon.a at build time.                  */
-/*  Original Fortran: BIND(C, NAME='DISCON'); now C++ with C linkage.  */
-/* ------------------------------------------------------------------ */
-extern void DISCON(float* avrSWAP, int* aviFAIL,
-                   const char* accINFILE, const char* avcOUTNAME,
-                   char* avcMSG);
+static lib_handle_t discon_lib  = NULL;
+static DISCON_fn    discon_fn   = NULL;
+static FILE*        log_file    = NULL;
+static int          initialized = 0;
+static int          call_count  = 0;
 
 /* ------------------------------------------------------------------ */
 /*  Logging helper                                                     */
@@ -81,28 +87,74 @@ EXPORT int hello_ping(void) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  load_discon — load libdiscon DLL and resolve DISCON symbol         */
+/*  Returns 0 on success, -1 on failure (writes error to avcMSG).     */
+/* ------------------------------------------------------------------ */
+static int load_discon(char* avcMSG) {
+    if (discon_fn) return 0;  /* already loaded */
+
+    discon_lib = OPEN_LIB(LIB_NAME);
+    if (!discon_lib) {
+#ifdef _WIN32
+        snprintf(avcMSG, MSG_SIZE, "Failed to load %s: error %lu",
+                 LIB_NAME, GetLastError());
+#else
+        snprintf(avcMSG, MSG_SIZE, "Failed to load %s: %s",
+                 LIB_NAME, dlerror());
+#endif
+        log_msg("load_discon: %s", avcMSG);
+        return -1;
+    }
+
+    discon_fn = (DISCON_fn)GET_SYM(discon_lib, "DISCON");
+    if (!discon_fn) {
+        snprintf(avcMSG, MSG_SIZE, "DISCON symbol not found in %s", LIB_NAME);
+        log_msg("load_discon: %s", avcMSG);
+        CLOSE_LIB(discon_lib);
+        discon_lib = NULL;
+        return -1;
+    }
+
+    log_msg("load_discon: loaded %s OK", LIB_NAME);
+    return 0;
+}
+
+/* ------------------------------------------------------------------ */
 /*  init_discon — call once from LabVIEW before the control loop       */
-/*  Opens the log file and marks the wrapper as ready.                 */
+/*  Opens the log file, loads libdiscon, and marks the wrapper ready.  */
 /* ------------------------------------------------------------------ */
 EXPORT int init_discon(void) {
     if (initialized) return 0;
     log_file = fopen(LOG_NAME, "a");
     initialized = 1;
-    log_msg("init_discon: wrapper ready (static linkage, AVR_SIZE=%d)", AVR_SIZE);
+    call_count  = 0;
+    log_msg("init_discon: wrapper ready (AVR_SIZE=%d)", AVR_SIZE);
+
+    char err[MSG_SIZE] = {0};
+    if (load_discon(err) != 0) {
+        log_msg("init_discon: FAILED — %s", err);
+        return -1;
+    }
     return 0;
 }
 
 /* ------------------------------------------------------------------ */
 /*  shutdown_discon — call once from LabVIEW after the control loop    */
-/*  Closes the log file and resets state.                              */
+/*  Unloads libdiscon, closes the log file, and resets state.          */
 /* ------------------------------------------------------------------ */
 EXPORT void shutdown_discon(void) {
     log_msg("shutdown_discon: closing");
+    if (discon_lib) {
+        CLOSE_LIB(discon_lib);
+        discon_lib = NULL;
+        discon_fn  = NULL;
+    }
     if (log_file) {
         fclose(log_file);
         log_file = NULL;
     }
     initialized = 0;
+    call_count  = 0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -150,10 +202,17 @@ EXPORT void run_discon(
     if (!initialized) {
         init_discon();
     }
+    if (!discon_fn) {
+        if (load_discon(avcMSG) != 0) {
+            *aviFAIL = -1;
+            return;
+        }
+    }
     call_count++;
 
-    log_msg("run_discon: iStatus=%d t=%.3f dt=%.4f ws=%.1f rpm=%.2f",
-            iStatus, time, dt, wind_speed, rot_speed);
+    log_msg("run_discon: iStatus=%d t=%.3f dt=%.4f ws=%.1f rpm=%.2f pitch=%.4f torque=%.1f",
+            iStatus, time, dt, wind_speed, rot_speed, bld_pitch,
+            gen_torque ? *gen_torque : 0.0f);
 
     /* Build avrSWAP from scalar inputs */
     float avrSWAP[AVR_SIZE] = {0};
@@ -176,15 +235,17 @@ EXPORT void run_discon(
     avrSWAP[49] = (float)strlen(DISCON_IN);
     avrSWAP[50] = (float)strlen(SIM_NAME);
 
-    /* Call ROSCO — statically linked, no runtime loading */
+    /* Call ROSCO — dynamically loaded */
     char msg_buf[MSG_SIZE] = {0};
-    DISCON(avrSWAP, aviFAIL, DISCON_IN, SIM_NAME, msg_buf);
+    discon_fn(avrSWAP, aviFAIL, DISCON_IN, SIM_NAME, msg_buf);
 
     /* Copy message to caller's buffer */
     strncpy(avcMSG, msg_buf, MSG_SIZE - 1);
     avcMSG[MSG_SIZE - 1] = '\0';
 
-    log_msg("run_discon: aviFAIL=%d msg=[%s]", *aviFAIL, msg_buf);
+    if (*aviFAIL != 0) {
+        log_msg("run_discon: aviFAIL=%d msg=%s", *aviFAIL, msg_buf);
+    }
 
     /* Extract outputs from avrSWAP */
     *gen_torque = avrSWAP[46];           /* demanded generator torque */
@@ -192,7 +253,4 @@ EXPORT void run_discon(
     *pitch2     = avrSWAP[42];           /* blade 2 pitch command     */
     *pitch3     = avrSWAP[43];           /* blade 3 pitch command     */
     *yaw_rate   = avrSWAP[47];           /* yaw rate command          */
-
-    log_msg("  outputs: torque=%.1f pitch=[%.4f,%.4f,%.4f] yaw=%.4f",
-            *gen_torque, *pitch1, *pitch2, *pitch3, *yaw_rate);
 }

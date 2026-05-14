@@ -7,7 +7,9 @@
  *
  * Exported functions (called from LabVIEW CLFN):
  *   hello_ping     — returns 42; deployment sanity check
+ *   init_discon    — open log file, mark ready; call once before run_discon
  *   run_discon     — packs scalars into avrSWAP, calls DISCON, unpacks outputs
+ *   shutdown_discon— close log file, reset state; call when done
  *
  * Build (MinGW 32-bit, MSVCRT variant, static linkage):
  *   gcc -m32 -O2 -shared -static -static-libgcc \
@@ -21,6 +23,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 
 #ifdef _WIN32
   #define EXPORT __declspec(dllexport)
@@ -33,9 +36,17 @@
 /* ------------------------------------------------------------------ */
 #define DISCON_IN  "USFLOWT_10_DISCON.IN"   /* Controller config file name  */
 #define SIM_NAME   "rosco_test"             /* Output/log name prefix       */
-#define AVR_SIZE   500                      /* Bladed swap array length     */
+#define AVR_SIZE   2048                     /* Bladed swap array length     */
 #define MSG_SIZE   1000                     /* DISCON message buffer size   */
 #define NUM_BL     3                        /* Number of blades             */
+#define LOG_NAME   "discon_log.txt"         /* Log file (written to CWD)    */
+
+/* ------------------------------------------------------------------ */
+/*  Module state                                                       */
+/* ------------------------------------------------------------------ */
+static FILE* log_file    = NULL;
+static int   initialized = 0;
+static int   call_count  = 0;
 
 /* ------------------------------------------------------------------ */
 /*  Forward declaration of ROSCO's DISCON entry point                  */
@@ -48,11 +59,50 @@ extern void DISCON(float* avrSWAP, int* aviFAIL,
                    char* avcMSG);
 
 /* ------------------------------------------------------------------ */
+/*  Logging helper                                                     */
+/* ------------------------------------------------------------------ */
+static void log_msg(const char* fmt, ...) {
+    if (!log_file) return;
+    fprintf(log_file, "[%06d] ", call_count);
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(log_file, fmt, ap);
+    va_end(ap);
+    fprintf(log_file, "\n");
+    fflush(log_file);
+}
+
+/* ------------------------------------------------------------------ */
 /*  hello_ping — deployment sanity check                               */
 /*  Returns 42.  Use to verify DLL loads before involving ROSCO.       */
 /* ------------------------------------------------------------------ */
 EXPORT int hello_ping(void) {
     return 42;
+}
+
+/* ------------------------------------------------------------------ */
+/*  init_discon — call once from LabVIEW before the control loop       */
+/*  Opens the log file and marks the wrapper as ready.                 */
+/* ------------------------------------------------------------------ */
+EXPORT int init_discon(void) {
+    if (initialized) return 0;
+    log_file = fopen(LOG_NAME, "a");
+    initialized = 1;
+    log_msg("init_discon: wrapper ready (static linkage, AVR_SIZE=%d)", AVR_SIZE);
+    return 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  shutdown_discon — call once from LabVIEW after the control loop    */
+/*  Closes the log file and resets state.                              */
+/* ------------------------------------------------------------------ */
+EXPORT void shutdown_discon(void) {
+    log_msg("shutdown_discon: closing");
+    if (log_file) {
+        fclose(log_file);
+        log_file = NULL;
+    }
+    initialized = 0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -97,6 +147,14 @@ EXPORT void run_discon(
     *aviFAIL = 0;
     avcMSG[0] = '\0';
 
+    if (!initialized) {
+        init_discon();
+    }
+    call_count++;
+
+    log_msg("run_discon: iStatus=%d t=%.3f dt=%.4f ws=%.1f rpm=%.2f",
+            iStatus, time, dt, wind_speed, rot_speed);
+
     /* Build avrSWAP from scalar inputs */
     float avrSWAP[AVR_SIZE] = {0};
 
@@ -125,6 +183,10 @@ EXPORT void run_discon(
     /* Copy message to caller's buffer */
     strncpy(avcMSG, msg_buf, MSG_SIZE - 1);
     avcMSG[MSG_SIZE - 1] = '\0';
+
+    if (*aviFAIL != 0) {
+        log_msg("run_discon: aviFAIL=%d msg=%s", *aviFAIL, msg_buf);
+    }
 
     /* Extract outputs from avrSWAP */
     *gen_torque = avrSWAP[46];           /* demanded generator torque */

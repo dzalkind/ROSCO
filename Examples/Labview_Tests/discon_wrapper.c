@@ -34,12 +34,12 @@
 /* ------------------------------------------------------------------ */
 /*  Configuration — adjust these for your deployment                   */
 /* ------------------------------------------------------------------ */
-#define DISCON_IN  "USFLOWT_10_DISCON.IN"   /* Controller config file name  */
+#define DISCON_IN  "C:\\ni-rt\\system\\DLL\\USFLOWT_10_DISCON.IN"   /* Controller config file  */
 #define SIM_NAME   "rosco_test"             /* Output/log name prefix       */
 #define AVR_SIZE   2048                     /* Bladed swap array length     */
 #define MSG_SIZE   1000                     /* DISCON message buffer size   */
 #define NUM_BL     3                        /* Number of blades             */
-#define LOG_NAME   "discon_log.txt"         /* Log file (written to CWD)    */
+#define LOG_NAME   "C:\\ni-rt\\system\\DLL\\discon_log.txt"  /* Absolute log path  */
 
 /* ------------------------------------------------------------------ */
 /*  Module state                                                       */
@@ -184,9 +184,7 @@ EXPORT void run_discon(
     strncpy(avcMSG, msg_buf, MSG_SIZE - 1);
     avcMSG[MSG_SIZE - 1] = '\0';
 
-    if (*aviFAIL != 0) {
-        log_msg("run_discon: aviFAIL=%d msg=%s", *aviFAIL, msg_buf);
-    }
+    log_msg("run_discon: aviFAIL=%d msg=[%s]", *aviFAIL, msg_buf);
 
     /* Extract outputs from avrSWAP */
     *gen_torque = avrSWAP[46];           /* demanded generator torque */
@@ -194,4 +192,7 @@ EXPORT void run_discon(
     *pitch2     = avrSWAP[42];           /* blade 2 pitch command     */
     *pitch3     = avrSWAP[43];           /* blade 3 pitch command     */
     *yaw_rate   = avrSWAP[47];           /* yaw rate command          */
+
+    log_msg("  outputs: torque=%.1f pitch=[%.4f,%.4f,%.4f] yaw=%.4f",
+            *gen_torque, *pitch1, *pitch2, *pitch3, *yaw_rate);
 }

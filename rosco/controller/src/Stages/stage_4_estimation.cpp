@@ -7,7 +7,7 @@
 #include "../include/vit_translated.h"
 
 void stage_4_estimation(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                        PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL)
+                        PerformanceData& PerfData, ExtControlType& ExtDLL)
 {
-    WindSpeedEstimator(LocalVar, CntrPar, PerfData, DebugVar);
+    WindSpeedEstimator(LocalVar, CntrPar, PerfData);
 }

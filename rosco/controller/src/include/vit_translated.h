@@ -11,31 +11,31 @@
 #include <stdint.h>
 
 // Filters
-void PreFilterMeasuredSignals(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar);
+void PreFilterMeasuredSignals(const ControlParameters& CntrPar, LocalVariables& LocalVar);
 
 // Controllers
 void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar);
-void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar);
-void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar);
+void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar);
+void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar);
 void FlapControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar);
 void CableControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar);
 void StructuralControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar);
 
 // SubControllers
-void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar);
-void ActiveWakeControl(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar);
+void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar);
+void ActiveWakeControl(const ControlParameters& CntrPar, LocalVariables& LocalVar);
 double FloatingFeedback(LocalVariables& LocalVar, const ControlParameters& CntrPar);
 void ForeAftDamping(const ControlParameters& CntrPar, LocalVariables& LocalVar);
 void TorqueStateMachine(const ControlParameters& CntrPar, LocalVariables& LocalVar);
 
 // Estimators
-void WindSpeedEstimator(LocalVariables& LocalVar, const ControlParameters& CntrPar, const PerformanceData& PerfData, debugvariables_t* DebugVar);
+void WindSpeedEstimator(LocalVariables& LocalVar, const ControlParameters& CntrPar, const PerformanceData& PerfData);
 
 // Setpoints
-void PowerControlSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar);
-void SpeedSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar);
-double PitchSaturation(LocalVariables& LocalVar, const ControlParameters& CntrPar, debugvariables_t* DebugVar);
-void RefSpeedExclusion(LocalVariables& LocalVar, const ControlParameters& CntrPar, debugvariables_t* DebugVar);
+void PowerControlSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar);
+void SpeedSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar);
+double PitchSaturation(LocalVariables& LocalVar, const ControlParameters& CntrPar);
+void RefSpeedExclusion(LocalVariables& LocalVar, const ControlParameters& CntrPar);
 void SetpointSmoother(LocalVariables& LocalVar, const ControlParameters& CntrPar);
 
 // Supervisory
@@ -55,7 +55,7 @@ std::string GetRoot(const std::string& filename);
 void ExtController(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, ExtControlType& ExtDLL);
 void WriteRestartFile(LocalVariables& LocalVar, const ControlParameters& CntrPar);
 void ReadRestartFile(float* avrSWAP, LocalVariables& LocalVar, const ControlParameters& CntrPar, const PerformanceData& PerfData);
-void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar, debugvariables_t* DebugVar, float* avrSWAP);
+void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar, float* avrSWAP);
 void UpdateZeroMQ(LocalVariables& LocalVar, const ControlParameters& CntrPar);
 
 #endif // VIT_TRANSLATED_H

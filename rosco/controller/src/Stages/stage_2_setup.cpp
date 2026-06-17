@@ -18,7 +18,7 @@
 static const char* ROSCO_VERSION = "2.10.1";
 
 void stage_2_setup(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                   PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL)
+                   PerformanceData& PerfData, ExtControlType& ExtDLL)
 {
     // Default demanded actuator signals (overwritten by stage_7_actuators)
     avrSWAP[34] = 1.0f;   // Record 35: request generator torque (1 = active)
@@ -44,7 +44,7 @@ void stage_2_setup(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& L
         read_config_files(CntrPar, LocalVar, PerfData);
         ReadAvrSWAP(avrSWAP, LocalVar, CntrPar);
         if (CntrPar.LoggingLevel > 0) {
-            Debug(LocalVar, CntrPar, DebugVar, avrSWAP);
+            Debug(LocalVar, CntrPar, avrSWAP);
         }
     }
 

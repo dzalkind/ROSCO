@@ -35,7 +35,6 @@
 static ControlParameters  CntrPar  = {};  // tuning parameters read from config file
 static LocalVariables     LocalVar = {};  // turbine measurements + derived signals
 static PerformanceData    PerfData = {};  // rotor Cp/Ct/Cq lookup tables
-static debugvariables_t   DebugVar = {};  // quantities written to the log file
 static ExtControlType     ExtDLL   = {};  // external controller DLL swap buffer
 
 // ============================================================
@@ -87,22 +86,22 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         // --------------------------------------------------------
         // Stage pipeline
         // --------------------------------------------------------
-        stage_1_sensing    (avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
-        stage_2_setup      (avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
+        stage_1_sensing    (avrSWAP, CntrPar, LocalVar, PerfData, ExtDLL);
+        stage_2_setup      (avrSWAP, CntrPar, LocalVar, PerfData, ExtDLL);
 
         bool running = (LocalVar.iStatus >= 0) || (LocalVar.iStatus <= -8);
         if (running) {
-            stage_3_filtering  (avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
-            stage_4_estimation (avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
-            stage_5_supervisory(avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
-            stage_6_setpoints  (avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
-            stage_7_actuators  (avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
+            stage_3_filtering  (avrSWAP, CntrPar, LocalVar, PerfData, ExtDLL);
+            stage_4_estimation (avrSWAP, CntrPar, LocalVar, PerfData, ExtDLL);
+            stage_5_supervisory(avrSWAP, CntrPar, LocalVar, PerfData, ExtDLL);
+            stage_6_setpoints  (avrSWAP, CntrPar, LocalVar, PerfData, ExtDLL);
+            stage_7_actuators  (avrSWAP, CntrPar, LocalVar, PerfData, ExtDLL);
         } else if (LocalVar.iStatus == -1 && CntrPar.ZMQ_Mode > 0) {
             // Final call: send last measurement to ZMQ coordinator
             UpdateZeroMQ(LocalVar, CntrPar);
         }
 
-        stage_8_output     (avrSWAP, CntrPar, LocalVar, PerfData, &DebugVar, ExtDLL);
+        stage_8_output     (avrSWAP, CntrPar, LocalVar, PerfData, ExtDLL);
 
         // No error — report success
         *aviFAIL = 0;

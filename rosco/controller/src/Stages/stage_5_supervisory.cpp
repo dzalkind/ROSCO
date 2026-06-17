@@ -14,9 +14,9 @@
 #include "../include/vit_translated.h"
 
 void stage_5_supervisory(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                         PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL)
+                         PerformanceData& PerfData, ExtControlType& ExtDLL)
 {
-    PowerControlSetpoints(CntrPar, LocalVar, DebugVar);
+    PowerControlSetpoints(CntrPar, LocalVar);
 
     if (CntrPar.SD_Mode > 0) Shutdown(LocalVar, CntrPar);
     if (CntrPar.SU_Mode > 0) Startup(LocalVar, CntrPar);

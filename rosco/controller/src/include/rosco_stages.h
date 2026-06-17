@@ -26,35 +26,35 @@
 // Stage 1 — Sensing: unpack avrSWAP into LocalVar. Future sensor models
 // (noise, bias, latency) will be added here.
 void stage_1_sensing(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                     PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL);
+                     PerformanceData& PerfData, ExtControlType& ExtDLL);
 
 // Stage 2 — Setup: default actuator signals, config loading (first call),
 // warm restart, SetParameters (init + OL index), external DLL, ZeroMQ.
 void stage_2_setup(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                   PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL);
+                   PerformanceData& PerfData, ExtControlType& ExtDLL);
 
 // Stage 3 — Filtering: low-pass and notch filtering of measured signals.
 void stage_3_filtering(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                       PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL);
+                       PerformanceData& PerfData, ExtControlType& ExtDLL);
 
 // Stage 4 — Estimation: wind speed estimator (EKF or LPF).
 void stage_4_estimation(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                        PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL);
+                        PerformanceData& PerfData, ExtControlType& ExtDLL);
 
 // Stage 5 — Supervisory: power-reference setpoints, shutdown logic, startup ramp.
 void stage_5_supervisory(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                         PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL);
+                         PerformanceData& PerfData, ExtControlType& ExtDLL);
 
 // Stage 6 — Setpoints: speed setpoints, torque state machine, setpoint smoother.
 void stage_6_setpoints(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                       PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL);
+                       PerformanceData& PerfData, ExtControlType& ExtDLL);
 
 // Stage 7 — Actuators: torque, pitch, yaw, flap, cable, structural control.
 void stage_7_actuators(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                       PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL);
+                       PerformanceData& PerfData, ExtControlType& ExtDLL);
 
 // Stage 8 — Output: debug logging, restart-file checkpointing.
 void stage_8_output(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                    PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL);
+                    PerformanceData& PerfData, ExtControlType& ExtDLL);
 
 #endif // ROSCO_STAGES_H

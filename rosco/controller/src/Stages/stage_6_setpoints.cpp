@@ -8,9 +8,9 @@
 #include "../include/vit_translated.h"
 
 void stage_6_setpoints(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                       PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL)
+                       PerformanceData& PerfData, ExtControlType& ExtDLL)
 {
-    SpeedSetpoints(CntrPar, LocalVar, DebugVar);
+    SpeedSetpoints(CntrPar, LocalVar);
     TorqueStateMachine(CntrPar, LocalVar);
     SetpointSmoother(LocalVar, CntrPar);
 }

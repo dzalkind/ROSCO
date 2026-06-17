@@ -6,8 +6,7 @@
 #include "seclpfilter.hpp"
 #include <cmath>
 
-void PreFilterMeasuredSignals(const ControlParameters& CntrPar, LocalVariables& LocalVar,
-                              debugvariables_t* DebugVar) {
+void PreFilterMeasuredSignals(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     int reset = (LocalVar.restart != 0);
 
     // Filter the HSS (generator) and LSS (rotor) speed measurement:
@@ -140,10 +139,4 @@ void PreFilterMeasuredSignals(const ControlParameters& CntrPar, LocalVariables& 
     if (LocalVar.iStatus == 0) nacVaneSinFilter.init(CntrPar.F_YawErr, LocalVar.DT, NacVane_sin);
     double NacVaneSinF = nacVaneSinFilter.step(NacVane_sin);
     LocalVar.NacVaneF = wrap_180(atan2(NacVaneSinF, NacVaneCosF) * R2D);
-
-    // Debug Variables
-    DebugVar->GenSpeedF = LocalVar.GenSpeedF;
-    DebugVar->RotSpeedF = LocalVar.RotSpeedF;
-    DebugVar->NacIMU_FA_AccF = LocalVar.NACIMU_FA_AccF;
-    DebugVar->FA_AccF = LocalVar.FA_AccF;
 }

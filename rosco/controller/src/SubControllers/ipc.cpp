@@ -2,7 +2,7 @@
 #include <algorithm>
 #include "../ControlElements/picontroller.hpp"
 
-void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar) {
+void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // IPC: Individual Pitch Control for 1P and 2P load reduction
     // Also handles yaw-by-IPC (Y_ControlMode == 2)
 

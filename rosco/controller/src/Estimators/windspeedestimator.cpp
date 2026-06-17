@@ -11,8 +11,7 @@
 #define WE_K(i)    LocalVar.WE.K[(i)-1][0]
 
 void WindSpeedEstimator(LocalVariables& LocalVar, const ControlParameters& CntrPar,
-                        const PerformanceData& PerfData,
-                        debugvariables_t* DebugVar) {
+                        const PerformanceData& PerfData) {
 
     double WE_Inp_Pitch, WE_Inp_Torque, WE_Inp_Speed, Max_Op_Pitch;
     double eps = std::numeric_limits<double>::epsilon();
@@ -76,9 +75,9 @@ void WindSpeedEstimator(LocalVariables& LocalVar, const ControlParameters& CntrP
     LocalVar.HorWindV_F = std::cos(LocalVar.NacVaneF * D2R) * horWindFilter.step(LocalVar.HorWindV);
 
     // Debug inputs
-    DebugVar->WE_b = WE_Inp_Pitch;
-    DebugVar->WE_w = WE_Inp_Speed;
-    DebugVar->WE_t = WE_Inp_Torque;
+    LocalVar.WE_b = WE_Inp_Pitch;
+    LocalVar.WE_w = WE_Inp_Speed;
+    LocalVar.WE_t = WE_Inp_Torque;
 
     // ---- Define wind speed estimate ----
     double Tau_r = 0.0, Cp_op = 0.0, lambda = 0.0;
@@ -256,17 +255,13 @@ void WindSpeedEstimator(LocalVariables& LocalVar, const ControlParameters& CntrP
         #undef QM
 
         // Debug outputs
-        DebugVar->WE_Cp = Cp_op;
-        DebugVar->WE_Vm = LocalVar.WE.v_m;
-        DebugVar->WE_Vt = LocalVar.WE.v_t;
-        DebugVar->WE_lambda = lambda;
+        LocalVar.WE_Cp = Cp_op;
+        LocalVar.WE_lambda = lambda;
 
     } else {
         // Use filtered hub-height wind speed
         LocalVar.WE_Vw = LocalVar.HorWindV_F;
     }
-
-    DebugVar->WE_Vw = LocalVar.WE_Vw;
 }
 
 #undef WE_P

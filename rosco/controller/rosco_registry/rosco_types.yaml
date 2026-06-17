@@ -1606,6 +1606,39 @@ LocalVariables:
     ZMQ_R_Pitch:
       <<: *real
       description: R_Pitch command provided by ZeroMQ
+
+    # Debug variables (promoted from DebugVariables)
+    WE_Cp:
+      <<: *real
+      description: Cp that WSE uses to determine aerodynamic torque [-]
+    WE_b:
+      <<: *real
+      description: Pitch input to WSE [-]
+    WE_w:
+      <<: *real
+      description: Rotor speed input to WSE [-]
+    WE_t:
+      <<: *real
+      description: Torque input to WSE [-]
+    WE_lambda:
+      <<: *real
+      description: TSR in WSE [rad]
+    YawRateCom:
+      <<: *real
+      description: Commanded yaw rate [rad/s]
+    NacHeadingTarget:
+      <<: *real
+      description: Target nacelle heading [deg]
+    NacVaneOffset:
+      <<: *real
+      description: Nacelle vane angle with offset [deg]
+    Yaw_Err:
+      <<: *real
+      description: Yaw error [deg]
+    YawState:
+      <<: *real
+      description: State of yaw controller [-]
+
     WE: 
       <<: *derived_type
       id: WE 
@@ -1681,7 +1714,10 @@ PerformanceData:
     dimension: (:,:)
     description: Torque coefficient surface
 
-DebugVariables:                                       
+DebugVariables:
+  # NOTE: DebugVariables is retained only for the Fortran registry (write_types / write_roscoio).
+  # In C++, all debug outputs are sourced from LocalVariables directly.
+  # The fields below define the default .dbg output columns and their units.
   WE_Cp: 
     <<: *real  
     description: Cp that WSE uses to determine aerodynamic torque [-]
@@ -1741,19 +1777,19 @@ DebugVariables:
     description: Yaw component of coleman transformation, 2P
   YawRateCom:
     <<: *real
-    description: Commanded yaw rate [rad/s].
+    description: Commanded yaw rate [rad/s]
   NacHeadingTarget:
     <<: *real
-    description: Target nacelle heading [deg].
+    description: Target nacelle heading [deg]
   NacVaneOffset:
     <<: *real
-    description: Nacelle vane angle with offset [deg].
+    description: Nacelle vane angle with offset [deg]
   Yaw_Err:
     <<: *real
-    description: Yaw error [deg].
+    description: Yaw error [deg]
   YawState:
     <<: *real
-    description: State of yaw controller
+    description: State of yaw controller [-]
   VS_RefSpd:          
       <<: *real 
       description: Torque control generator speed set point [rad/s]

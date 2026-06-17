@@ -2,14 +2,11 @@
 #include <cmath>
 #include "../include/rosco_constants.h"
 
-void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar) {
+void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // YawRateControl: yaw rate control using yaw drive
     //   Y_ControlMode = 1: active yaw rate control
 
-    // SAVE variables — persist across calls
-    static double NacVaneOffset = 0.0;
-    static int YawState = 0;
-    static double NacHeadingError = 0.0;
+    // SAVE variable — persists across calls (filter index, not debug-relevant)
     static int Tidx = 0;
 
     if (CntrPar.Y_ControlMode == 1) {
@@ -18,19 +15,19 @@ void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVaria
 
         // Initialize
         if (LocalVar.iStatus == 0) {
-            YawState = 0;
+            LocalVar.YawState = 0;
             Tidx = 1;  // Fortran 1-indexed, used as-is in debug output
         }
 
         // Compute/apply offset
         if (CntrPar.ZMQ_Mode == 1) {
-            NacVaneOffset = LocalVar.ZMQ_YawOffset;
+            LocalVar.NacVaneOffset = LocalVar.ZMQ_YawOffset;
         } else {
-            NacVaneOffset = CntrPar.Y_MErrSet;
+            LocalVar.NacVaneOffset = CntrPar.Y_MErrSet;
         }
 
         // Update filtered wind direction
-        double WindDirPlusOffset = wrap_180(LocalVar.WindDir + NacVaneOffset);
+        double WindDirPlusOffset = wrap_180(LocalVar.WindDir + LocalVar.NacVaneOffset);
         double WDpO_cos = cos(WindDirPlusOffset * D2R);
         double WDpO_sin = sin(WindDirPlusOffset * D2R);
 
@@ -42,9 +39,10 @@ void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVaria
         if (LocalVar.iStatus == 0) windDirSinFilter.init(CntrPar.F_YawErr, LocalVar.DT, WDpO_sin);
         double WindDirPlusOffsetSinF = windDirSinFilter.step(WDpO_sin);
         double NacHeadingTarget = wrap_180(atan2(WindDirPlusOffsetSinF, WindDirPlusOffsetCosF) * R2D);
+        LocalVar.NacHeadingTarget = NacHeadingTarget;
 
         // Yaw error
-        NacHeadingError = wrap_180(NacHeadingTarget - LocalVar.NacHeading);
+        LocalVar.Yaw_Err = wrap_180(NacHeadingTarget - LocalVar.NacHeading);
 
         // Check for deadband
         double deadband;
@@ -56,34 +54,37 @@ void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVaria
 
         // Yaw state machine
         double YawRateCom;
-        if (YawState == 1) {
+        int curYawState = (int)LocalVar.YawState;
+        if (curYawState == 1) {
             // Yawing right
-            if (NacHeadingError <= 0.0) {
+            if (LocalVar.Yaw_Err <= 0.0) {
                 YawRateCom = 0.0;
-                YawState = 0;
+                curYawState = 0;
             } else {
                 YawRateCom = CntrPar.Y_Rate;
-                YawState = 1;
+                curYawState = 1;
             }
-        } else if (YawState == -1) {
+        } else if (curYawState == -1) {
             // Yawing left
-            if (NacHeadingError >= 0.0) {
+            if (LocalVar.Yaw_Err >= 0.0) {
                 YawRateCom = 0.0;
-                YawState = 0;
+                curYawState = 0;
             } else {
                 YawRateCom = -CntrPar.Y_Rate;
-                YawState = -1;
+                curYawState = -1;
             }
         } else {
             // Stopped — initiate yaw if outside deadband
-            if (NacHeadingError > deadband) {
-                YawState = 1;
+            if (LocalVar.Yaw_Err > deadband) {
+                curYawState = 1;
             }
-            if (NacHeadingError < -deadband) {
-                YawState = -1;
+            if (LocalVar.Yaw_Err < -deadband) {
+                curYawState = -1;
             }
             YawRateCom = 0.0;
         }
+        LocalVar.YawState = curYawState;
+        LocalVar.YawRateCom = YawRateCom;
 
         // Output yaw rate command in rad/s (Fortran avrSWAP(48) → C [47])
         avrSWAP[47] = YawRateCom * D2R;
@@ -96,12 +97,5 @@ void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVaria
                                        LocalVar.OL_Index);
             }
         }
-
-        // Save for debug
-        DebugVar->YawRateCom = YawRateCom;
-        DebugVar->NacHeadingTarget = NacHeadingTarget;
-        DebugVar->NacVaneOffset = NacVaneOffset;
-        DebugVar->YawState = YawState;
-        DebugVar->Yaw_Err = NacHeadingError;
     }
 }

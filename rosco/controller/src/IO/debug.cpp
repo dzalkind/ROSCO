@@ -69,22 +69,21 @@ static std::ofstream dbg3_file;
 static std::vector<int32_t> avr_indices;
 
 void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
-           debugvariables_t* DebugVar,
            float* avrSWAP) {
 
     const std::string& root = LocalVar.RootName;
 
-    // --- Debug output data (26 fields) ---
+    // --- Debug output data (26 fields, sourced from LocalVar) ---
     const int nDebugOuts = 26;
     double DebugOutData[nDebugOuts] = {
-        DebugVar->WE_Cp, DebugVar->WE_b, DebugVar->WE_w, DebugVar->WE_t,
-        DebugVar->WE_Vm, DebugVar->WE_Vt, DebugVar->WE_Vw, DebugVar->WE_lambda,
-        DebugVar->PC_PICommand, DebugVar->GenSpeedF, DebugVar->RotSpeedF,
-        DebugVar->NacIMU_FA_AccF, DebugVar->FA_AccF, DebugVar->Fl_PitCom,
-        DebugVar->PC_MinPit, DebugVar->axisTilt_1P, DebugVar->axisYaw_1P,
-        DebugVar->axisTilt_2P, DebugVar->axisYaw_2P, DebugVar->YawRateCom,
-        DebugVar->NacHeadingTarget, DebugVar->NacVaneOffset, DebugVar->Yaw_Err,
-        DebugVar->YawState, DebugVar->VS_RefSpd, DebugVar->PC_RefSpd
+        LocalVar.WE_Cp, LocalVar.WE_b, LocalVar.WE_w, LocalVar.WE_t,
+        LocalVar.WE.v_m, LocalVar.WE.v_t, LocalVar.WE_Vw, LocalVar.WE_lambda,
+        LocalVar.PC_PitComT, LocalVar.GenSpeedF, LocalVar.RotSpeedF,
+        LocalVar.NACIMU_FA_AccF, LocalVar.FA_AccF, LocalVar.Fl_PitCom,
+        LocalVar.PC_MinPit, LocalVar.axisTilt_1P, LocalVar.axisYaw_1P,
+        LocalVar.axisTilt_2P, LocalVar.axisYaw_2P, LocalVar.YawRateCom,
+        LocalVar.NacHeadingTarget, LocalVar.NacVaneOffset, LocalVar.Yaw_Err,
+        LocalVar.YawState, LocalVar.VS_RefSpd, LocalVar.PC_RefSpd
     };
     const char* DebugOutStrings[nDebugOuts] = {
         "WE_Cp", "WE_b", "WE_w", "WE_t", "WE_Vm",
@@ -103,9 +102,11 @@ void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
         "[rad/s]"
     };
 
-    // --- LocalVar output data (159 fields) ---
+    // --- LocalVar output data (159 fields, only needed for .dbg2) ---
     const int nLocalVars = 159;
-    double LocalVarOutData[nLocalVars] = {
+    double LocalVarOutData[nLocalVars] = {};
+    if (CntrPar.LoggingLevel > 1) {
+    double LocalVarOutData_init[nLocalVars] = {
         (double)LocalVar.iStatus, (double)LocalVar.AlreadyInitialized,
         (double)LocalVar.RestartWSE, LocalVar.Time, LocalVar.DT,
         (double)LocalVar.n_DT, LocalVar.Time_Last, LocalVar.VS_GenPwr,
@@ -165,6 +166,8 @@ void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
         LocalVar.ZMQ_PitOffset[0], LocalVar.ZMQ_R_Speed,
         LocalVar.ZMQ_R_Torque, LocalVar.ZMQ_R_Pitch
     };
+    std::memcpy(LocalVarOutData, LocalVarOutData_init, sizeof(LocalVarOutData));
+    } // end LoggingLevel > 1 guard for LocalVarOutData population
     const char* LocalVarOutStrings[nLocalVars] = {
         "iStatus", "AlreadyInitialized", "RestartWSE", "Time", "DT",
         "n_DT", "Time_Last", "VS_GenPwr", "GenSpeed", "RotSpeed",
@@ -308,8 +311,10 @@ void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
     for (int i = 0; i < nDebugOuts; i++) {
         DebugOutData[i] = clamp_debug(DebugOutData[i]);
     }
-    for (int i = 0; i < nLocalVars; i++) {
-        LocalVarOutData[i] = clamp_debug(LocalVarOutData[i]);
+    if (CntrPar.LoggingLevel > 1) {
+        for (int i = 0; i < nLocalVars; i++) {
+            LocalVarOutData[i] = clamp_debug(LocalVarOutData[i]);
+        }
     }
 
     // --- Write debug data ---

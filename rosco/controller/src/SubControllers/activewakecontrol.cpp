@@ -5,7 +5,7 @@
 #include "../ControlElements/picontroller.hpp"
 #include "../ControlElements/rescontroller.hpp"
 
-void ActiveWakeControl(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar) {
+void ActiveWakeControl(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // ActiveWakeControl: active wake mixing via individual pitch
     //   AWC_Mode 1: SNL complex-number approach
     //   AWC_Mode 2: Open-loop Coleman transform
@@ -74,12 +74,12 @@ void ActiveWakeControl(const ControlParameters& CntrPar, LocalVariables& LocalVa
         }
 
         // Debug variables
-        DebugVar->axisTilt_2P = AWC_TiltYaw[0];
-        DebugVar->axisYaw_2P = AWC_TiltYaw[1];
+        LocalVar.axisTilt_2P = AWC_TiltYaw[0];
+        LocalVar.axisYaw_2P = AWC_TiltYaw[1];
         ColemanTransform(LocalVar.BlPitch, LocalVar.Azimuth,
                            CntrPar.AWC_harmonic[0], &AWC_TiltYaw[0], &AWC_TiltYaw[1]);
-        DebugVar->axisTilt_1P = AWC_TiltYaw[0];
-        DebugVar->axisYaw_1P = AWC_TiltYaw[1];
+        LocalVar.axisTilt_1P = AWC_TiltYaw[0];
+        LocalVar.axisYaw_1P = AWC_TiltYaw[1];
 
     } else if ((CntrPar.AWC_Mode == 3) || (CntrPar.AWC_Mode == 4)) {
         // Closed-loop PI (mode 3) or PR (mode 4)
@@ -134,12 +134,12 @@ void ActiveWakeControl(const ControlParameters& CntrPar, LocalVariables& LocalVa
         }
 
         // Debug variables
-        DebugVar->axisTilt_1P = AWC_TiltYaw[0];
-        DebugVar->axisYaw_1P = -FixedFrameM[0] + LocalVar.TiltMean / (LocalVar.n_DT + 1);
-        DebugVar->axisTilt_2P = CntrPar.AWC_amp[0] *
+        LocalVar.axisTilt_1P = AWC_TiltYaw[0];
+        LocalVar.axisYaw_1P = -FixedFrameM[0] + LocalVar.TiltMean / (LocalVar.n_DT + 1);
+        LocalVar.axisTilt_2P = CntrPar.AWC_amp[0] *
             sin(LocalVar.Time * 2.0 * PI * CntrPar.AWC_freq[0] +
                 CntrPar.AWC_clockangle[0] * D2R);
-        DebugVar->axisYaw_2P = Error[0];
+        LocalVar.axisYaw_2P = Error[0];
 
     } else if (CntrPar.AWC_Mode == 5) {
         // Strouhal transformation closed-loop
@@ -186,10 +186,10 @@ void ActiveWakeControl(const ControlParameters& CntrPar, LocalVariables& LocalVa
         }
 
         // Debug variables
-        DebugVar->axisTilt_1P = tiltSig;
-        DebugVar->axisYaw_1P = -FixedFrameM[0] + LocalVar.TiltMean / (LocalVar.n_DT + 1);
-        DebugVar->axisTilt_2P = CntrPar.AWC_amp[0] *
+        LocalVar.axisTilt_1P = tiltSig;
+        LocalVar.axisYaw_1P = -FixedFrameM[0] + LocalVar.TiltMean / (LocalVar.n_DT + 1);
+        LocalVar.axisTilt_2P = CntrPar.AWC_amp[0] *
             sin(StrAzimuth + CntrPar.AWC_clockangle[0] * D2R);
-        DebugVar->axisYaw_2P = Error[0];
+        LocalVar.axisYaw_2P = Error[0];
     }
 }

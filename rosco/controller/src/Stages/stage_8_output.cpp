@@ -8,13 +8,13 @@
 #include "../include/vit_translated.h"
 
 void stage_8_output(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                    PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL)
+                    PerformanceData& PerfData, ExtControlType& ExtDLL)
 {
     if (LocalVar.iStatus == -8) {
         WriteRestartFile(LocalVar, CntrPar);
     }
 
     if (CntrPar.LoggingLevel > 0) {
-        Debug(LocalVar, CntrPar, DebugVar, avrSWAP);
+        Debug(LocalVar, CntrPar, avrSWAP);
     }
 }

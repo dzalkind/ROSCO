@@ -6,7 +6,7 @@
 #include "../ControlElements/ratelimiter.hpp"
 #include "../ControlElements/picontroller.hpp"
 
-void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar) {
+void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // PitchControl: master blade pitch controller
     // Orchestrates collective pitch PI, IPC, tower damping, floating feedback,
     // pitch saturation, AWC, shutdown, actuator model, and fault handling.
@@ -40,11 +40,10 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
         LocalVar.PC_PitComT = pcPitComTPI.step(LocalVar.PC_SpdErr, LocalVar.PC_KP, LocalVar.PC_KI,
             LocalVar.PC_MinPit, LocalVar.PC_MaxPit, LocalVar.DT);
     }
-    DebugVar->PC_PICommand = LocalVar.PC_PitComT;
 
     // Individual pitch control
     if ((CntrPar.IPC_ControlMode >= 1) || (CntrPar.Y_ControlMode == 2)) {
-        IPC(CntrPar, LocalVar, DebugVar);
+        IPC(CntrPar, LocalVar);
     } else {
         LocalVar.IPC_PitComF[0] = 0.0;
         LocalVar.IPC_PitComF[1] = 0.0;
@@ -62,17 +61,15 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
 
     // Pitch saturation
     if (CntrPar.PS_Mode > 0) {
-        LocalVar.PC_MinPit = PitchSaturation(LocalVar, CntrPar, DebugVar);
+        LocalVar.PC_MinPit = PitchSaturation(LocalVar, CntrPar);
         LocalVar.PC_MinPit = std::max(LocalVar.PC_MinPit, CntrPar.PC_FinePit);
     } else {
         LocalVar.PC_MinPit = CntrPar.PC_FinePit;
     }
-    DebugVar->PC_MinPit = LocalVar.PC_MinPit;
 
     // Floating feedback
     if (CntrPar.Fl_Mode > 0) {
         LocalVar.Fl_PitCom = FloatingFeedback(LocalVar, CntrPar);
-        DebugVar->Fl_PitCom = LocalVar.Fl_PitCom;
         LocalVar.PC_PitComT += LocalVar.Fl_PitCom;
     }
 
@@ -129,7 +126,7 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
 
     // Active wake control
     if (CntrPar.AWC_Mode > 0) {
-        ActiveWakeControl(CntrPar, LocalVar, DebugVar);
+        ActiveWakeControl(CntrPar, LocalVar);
     }
 
     // Shutdown

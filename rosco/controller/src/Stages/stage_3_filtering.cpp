@@ -8,7 +8,7 @@
 #include "../include/vit_translated.h"
 
 void stage_3_filtering(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                       PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL)
+                       PerformanceData& PerfData, ExtControlType& ExtDLL)
 {
-    PreFilterMeasuredSignals(CntrPar, LocalVar, DebugVar);
+    PreFilterMeasuredSignals(CntrPar, LocalVar);
 }

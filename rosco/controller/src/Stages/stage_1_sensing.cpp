@@ -18,7 +18,7 @@
 #include "../include/vit_translated.h"
 
 void stage_1_sensing(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& LocalVar,
-                     PerformanceData& PerfData, debugvariables_t* DebugVar, ExtControlType& ExtDLL)
+                     PerformanceData& PerfData, ExtControlType& ExtDLL)
 {
     // Unpack turbine measurements from avrSWAP → LocalVar
     ReadAvrSWAP(avrSWAP, LocalVar, CntrPar);

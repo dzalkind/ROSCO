@@ -1,7 +1,7 @@
 #include "../include/vit_translated.h"
 #include "../include/rosco_constants.h"
 
-void PowerControlSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar, debugvariables_t* DebugVar) {
+void PowerControlSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
 
     // Set up power control
     if (CntrPar.PRC_Mode == 2) { // Using power reference control

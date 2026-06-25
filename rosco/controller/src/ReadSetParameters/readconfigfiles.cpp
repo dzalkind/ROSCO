@@ -28,7 +28,8 @@ void read_config_files(ControlParameters& CntrPar, LocalVariables& LocalVar,
     bool is_toml = (fp.extension() == ".toml" || fp.extension() == ".TOML");
 
     if (is_toml) {
-        CntrPar.load_from_toml(filename.c_str());
+        errorvariables_t err = {};
+        CntrPar.load_from_toml(filename.c_str(), &err);
     } else {
         // Directory containing the config file — used to resolve relative paths
         std::string priPath = fp.parent_path().string();

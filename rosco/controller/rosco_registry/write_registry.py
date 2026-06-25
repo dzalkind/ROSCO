@@ -156,8 +156,6 @@ def write_roscoio(yfile):
                 file.write('        READ( Un, IOSTAT=ErrStat) LocalVar%{}({})\n'.format(var, i+1))
         else:
             file.write('        READ( Un, IOSTAT=ErrStat) LocalVar%{}\n'.format(var))
-            if var == 'ACC_INFILE_SIZE':
-                file.write('        ALLOCATE(LocalVar%ACC_INFILE(LocalVar%ACC_INFILE_SIZE))\n')
     for var in reg['ObjectInstances']:
         file.write('        READ( Un, IOSTAT=ErrStat) objInst%{}\n'.format(var))
     file.write('        Close ( Un )\n')
@@ -182,6 +180,15 @@ def write_roscoio(yfile):
     for lv_idx, localvar in enumerate(reg['LocalVariables']):
         if reg['LocalVariables'][localvar]['type'] in ['integer', 'real', 'complex']:
             lv_strings.append(localvar)
+
+    # Get debug fields from LocalVariables (flagged with dbg: true)
+    dbg_fields = []  # list of (field_name, dbg_name, description)
+    for var in reg['LocalVariables']:
+        param = reg['LocalVariables'][var]
+        if param.get('dbg', False):
+            dbg_name = param.get('dbg_name', var)
+            desc = param.get('description', '')
+            dbg_fields.append((var, dbg_name, desc))
 
     n_lv_outputs = len(lv_strings)
     
@@ -216,19 +223,19 @@ def write_roscoio(yfile):
     file.write('    REAL(DbKi), ALLOCATABLE         :: DebugOutData(:)\n \n')
     file.write(f'    CHARACTER(15), DIMENSION({n_lv_outputs})      :: LocalVarOutStrings\n')
     file.write('    REAL(DbKi), ALLOCATABLE         :: LocalVarOutData(:)\n \n')
-    file.write('    nDebugOuts = {}\n'.format(len(reg['DebugVariables'].keys())))
+    file.write('    nDebugOuts = {}\n'.format(len(dbg_fields)))
     file.write('    Allocate(DebugOutData(nDebugOuts))\n')
     file.write('    Allocate(DebugOutStrings(nDebugOuts))\n')
     file.write('    Allocate(DebugOutUnits(nDebugOuts))\n')
     dbg_strings = []
     dbg_units   = []
     
-    # Print Debug variables
-    for dbg_idx, dbgvar in enumerate(reg['DebugVariables']):
-        dbg_strings.append(dbgvar)
-        desc = reg['DebugVariables'][dbgvar]['description']
-        dbg_units.append(desc[desc.find('['):desc.find(']')+1])
-        file.write('    DebugOutData({}) = DebugVar%{}\n'.format(dbg_idx+1,dbgvar))
+    # Print Debug variables (sourced from LocalVar fields with dbg: true)
+    for dbg_idx, (var, dbg_name, desc) in enumerate(dbg_fields):
+        dbg_strings.append(dbg_name)
+        unit = desc[desc.find('['):desc.find(']')+1] if '[' in desc else ''
+        dbg_units.append(unit)
+        file.write('    DebugOutData({}) = LocalVar%{}\n'.format(dbg_idx+1, var))
     file.write('    DebugOutStrings = [CHARACTER(15) :: ')
     counter = 0
     for string in dbg_strings:
@@ -561,10 +568,12 @@ def generate_cpp(yfile):
     Generate C++ files from rosco_types.yaml:
       - src/include/rosco_types.hpp   : ControlParameters struct (std::vector, std::string)
       - src/rosco_types_io.cpp        : TOML loader + populate_view()
+      - src/IO/debug.cpp              : Debug output (dbg, dbg2, dbg3)
       - ../../Examples/DISCON_template.toml : annotated TOML input template
     """
     _write_cpp_header(yfile)
     _write_cpp_io(yfile)
+    _write_cpp_debug(yfile)
     _write_toml_template(yfile)
 
 
@@ -779,6 +788,330 @@ def _write_cpp_io(yfile):
             else:
                 f.write(f'    {name} = v.{name};\n')
 
+        f.write('}\n')
+
+
+def _extract_unit(desc):
+    """Extract unit string from description like 'Some text [rad/s]' → '[rad/s]'."""
+    if not desc or '[' not in desc:
+        return '[N/A]'
+    unit = desc[desc.find('['):desc.find(']') + 1]
+    return unit if unit else '[N/A]'
+
+
+def _cpp_access(name, param):
+    """Return (access_expr, needs_cast) for a LocalVariables field in C++."""
+    ptype = param.get('type', '')
+    size = param.get('size', 0)
+    alloc = param.get('allocatable', False)
+
+    if ptype in ('integer', 'c_integer', 'logical'):
+        if size > 0 or alloc:
+            return f'(double)LocalVar.{name}[0]', False
+        return f'(double)LocalVar.{name}', False
+    elif ptype in ('real', 'float', 'complex'):
+        if size > 0 or alloc:
+            return f'LocalVar.{name}[0]', False
+        return f'LocalVar.{name}', False
+    elif ptype == 'character':
+        if alloc:
+            return f'(double)LocalVar.{name}.size()', False
+        return None, False
+    return None, False
+
+
+def _write_cpp_debug(yfile):
+    """Generate rosco/controller/src/IO/debug.cpp from registry."""
+    reg = load_yaml(yfile)
+    reg.pop('default_types', None)
+    local_vars = reg['LocalVariables']
+
+    src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src')
+    out_path = os.path.join(src_dir, 'IO', 'debug.cpp')
+
+    # Collect .dbg fields (flagged with dbg: true)
+    dbg_fields = []  # (field_name, dbg_name, unit, access_expr)
+    for name, param in local_vars.items():
+        if param.get('dbg', False):
+            dbg_name = param.get('dbg_name', name)
+            unit = _extract_unit(param.get('description', ''))
+            access, _ = _cpp_access(name, param)
+            if access is None:
+                continue
+            dbg_fields.append((name, dbg_name, unit, access))
+
+    # Collect .dbg2 fields (all scalar numeric LocalVariables, excluding cpp: false)
+    lv_fields = []  # (field_name, access_expr)
+    for name, param in local_vars.items():
+        if param.get('cpp', True) is False:
+            continue
+        ptype = param.get('type', '')
+        if ptype in ('integer', 'real', 'complex', 'logical', 'character'):
+            access, _ = _cpp_access(name, param)
+            if access is not None:
+                lv_fields.append((name, access))
+
+    n_dbg = len(dbg_fields)
+    n_lv = len(lv_fields)
+
+    with open(out_path, 'w') as f:
+        f.write('// AUTO-GENERATED from rosco_types.yaml — do not edit manually.\n')
+        f.write('// Regenerate with: python write_registry.py\n')
+        f.write('#include "../include/vit_types.h"\n')
+        f.write('#include "../include/rosco_types.hpp"\n')
+        f.write('#include "../include/rosco_constants.h"\n')
+        f.write('#include <fstream>\n')
+        f.write('#include <cmath>\n')
+        f.write('#include <string>\n')
+        f.write('#include <cstring>\n')
+        f.write('#include <cstdio>\n')
+        f.write('#include <ctime>\n')
+        f.write('#include <vector>\n')
+        f.write('#include <algorithm>\n')
+        f.write('\n')
+        f.write('static const char* ROSCO_VERSION = "2.10.1";\n')
+        f.write('\n')
+        f.write('namespace {\n')
+        f.write('\n')
+        f.write('std::string current_date() {\n')
+        f.write('    time_t now = time(nullptr);\n')
+        f.write('    struct tm* t = localtime(&now);\n')
+        f.write('    char buf[32];\n')
+        f.write('    strftime(buf, sizeof(buf), "%d-%b-%Y", t);\n')
+        f.write('    return std::string(buf);\n')
+        f.write('}\n')
+        f.write('\n')
+        f.write('std::string current_time() {\n')
+        f.write('    time_t now = time(nullptr);\n')
+        f.write('    struct tm* t = localtime(&now);\n')
+        f.write('    char buf[32];\n')
+        f.write('    strftime(buf, sizeof(buf), "%H:%M:%S", t);\n')
+        f.write('    return std::string(buf);\n')
+        f.write('}\n')
+        f.write('\n')
+        f.write('double clamp_debug(double val) {\n')
+        f.write('    if (std::abs(val) < 1E-99) return 0.0;\n')
+        f.write('    if (std::abs(val) > 1E+99) return 1E+99;\n')
+        f.write('    return val;\n')
+        f.write('}\n')
+        f.write('\n')
+        f.write('void write_debug_row(std::ofstream& f, double time_val, const double* data, int n) {\n')
+        f.write('    char buf[32];\n')
+        f.write('    snprintf(buf, sizeof(buf), "%20.5f", time_val);\n')
+        f.write('    f << buf;\n')
+        f.write('    for (int i = 0; i < n; i++) {\n')
+        f.write('        f << "     ";\n')
+        f.write('        snprintf(buf, sizeof(buf), "%20.5E", data[i]);\n')
+        f.write('        f << buf;\n')
+        f.write('    }\n')
+        f.write('    f << "\\n";\n')
+        f.write('}\n')
+        f.write('\n')
+        f.write('} // anonymous namespace\n')
+        f.write('\n')
+        f.write('static std::ofstream dbg_file;\n')
+        f.write('static std::ofstream dbg2_file;\n')
+        f.write('static std::ofstream dbg3_file;\n')
+        f.write('static std::vector<int32_t> avr_indices;\n')
+        f.write('\n')
+        f.write('void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,\n')
+        f.write('           float* avrSWAP) {\n')
+        f.write('\n')
+        f.write('    const std::string& root = LocalVar.RootName;\n')
+        f.write('\n')
+
+        # --- .dbg data array ---
+        f.write(f'    // --- Debug output data ({n_dbg} fields, from dbg: true in registry) ---\n')
+        f.write(f'    const int nDebugOuts = {n_dbg};\n')
+        f.write(f'    double DebugOutData[nDebugOuts] = {{\n')
+        for i, (name, dbg_name, unit, access) in enumerate(dbg_fields):
+            comma = ',' if i < n_dbg - 1 else ''
+            f.write(f'        {access}{comma}\n')
+        f.write('    };\n')
+
+        # --- .dbg column names ---
+        f.write(f'    const char* DebugOutStrings[nDebugOuts] = {{\n')
+        for i, (name, dbg_name, unit, access) in enumerate(dbg_fields):
+            comma = ',' if i < n_dbg - 1 else ''
+            f.write(f'        "{dbg_name}"{comma}\n')
+        f.write('    };\n')
+
+        # --- .dbg units ---
+        f.write(f'    const char* DebugOutUnits[nDebugOuts] = {{\n')
+        for i, (name, dbg_name, unit, access) in enumerate(dbg_fields):
+            comma = ',' if i < n_dbg - 1 else ''
+            f.write(f'        "{unit}"{comma}\n')
+        f.write('    };\n')
+        f.write('\n')
+
+        # --- .dbg2 data (guarded by LoggingLevel > 1) ---
+        f.write(f'    // --- LocalVar output data ({n_lv} fields, only needed for .dbg2) ---\n')
+        f.write(f'    const int nLocalVars = {n_lv};\n')
+        f.write(f'    double LocalVarOutData[nLocalVars] = {{}};\n')
+        f.write(f'    if (CntrPar.LoggingLevel > 1) {{\n')
+        f.write(f'    double LocalVarOutData_init[nLocalVars] = {{\n')
+        for i, (name, access) in enumerate(lv_fields):
+            comma = ',' if i < n_lv - 1 else ''
+            f.write(f'        {access}{comma}\n')
+        f.write('    };\n')
+        f.write('    std::memcpy(LocalVarOutData, LocalVarOutData_init, sizeof(LocalVarOutData));\n')
+        f.write('    } // end LoggingLevel > 1 guard\n')
+
+        # --- .dbg2 column names (always defined for header writing) ---
+        f.write(f'    const char* LocalVarOutStrings[nLocalVars] = {{\n')
+        for i, (name, access) in enumerate(lv_fields):
+            comma = ',' if i < n_lv - 1 else ''
+            f.write(f'        "{name}"{comma}\n')
+        f.write('    };\n')
+        f.write('\n')
+
+        # --- File initialization ---
+        f.write('    // --- Initialize debug files on first call ---\n')
+        f.write('    if (LocalVar.iStatus == 0 || LocalVar.iStatus == -9) {\n')
+
+        # .dbg file init
+        f.write('        if (CntrPar.LoggingLevel > 0) {\n')
+        f.write('            std::string dbg_path = root + ".RO.dbg";\n')
+        f.write('            dbg_file.open(dbg_path);\n')
+        f.write('            dbg_file << " Generated on " << current_date() << " at "\n')
+        f.write('                     << current_time() << " using ROSCO-" << ROSCO_VERSION << "\\n";\n')
+        f.write('            char hdr[32];\n')
+        f.write('            snprintf(hdr, sizeof(hdr), "%20s", "Time");\n')
+        f.write('            dbg_file << hdr;\n')
+        f.write('            for (int i = 0; i < nDebugOuts; i++) {\n')
+        f.write('                snprintf(hdr, sizeof(hdr), "     %20s", DebugOutStrings[i]);\n')
+        f.write('                dbg_file << hdr;\n')
+        f.write('            }\n')
+        f.write('            dbg_file << "\\n";\n')
+        f.write('            snprintf(hdr, sizeof(hdr), "%20s", "(sec)");\n')
+        f.write('            dbg_file << hdr;\n')
+        f.write('            for (int i = 0; i < nDebugOuts; i++) {\n')
+        f.write('                snprintf(hdr, sizeof(hdr), "     %20s", DebugOutUnits[i]);\n')
+        f.write('                dbg_file << hdr;\n')
+        f.write('            }\n')
+        f.write('            dbg_file << "\\n";\n')
+        f.write('        }\n')
+        f.write('\n')
+
+        # .dbg2 file init
+        f.write('        if (CntrPar.LoggingLevel > 1) {\n')
+        f.write('            std::string dbg2_path = root + ".RO.dbg2";\n')
+        f.write('            dbg2_file.open(dbg2_path);\n')
+        f.write('            dbg2_file << " Generated on " << current_date() << " at "\n')
+        f.write('                      << current_time() << " using ROSCO-" << ROSCO_VERSION << "\\n";\n')
+        f.write('            char hdr[32];\n')
+        f.write('            snprintf(hdr, sizeof(hdr), "%20s", "Time");\n')
+        f.write('            dbg2_file << hdr;\n')
+        f.write('            for (int i = 0; i < nLocalVars; i++) {\n')
+        f.write('                snprintf(hdr, sizeof(hdr), "     %20s", LocalVarOutStrings[i]);\n')
+        f.write('                dbg2_file << hdr;\n')
+        f.write('            }\n')
+        f.write('            dbg2_file << "\\n";\n')
+        f.write('            snprintf(hdr, sizeof(hdr), "%20s", "");\n')
+        f.write('            dbg2_file << hdr;\n')
+        f.write('            for (int i = 0; i < nLocalVars; i++) {\n')
+        f.write('                snprintf(hdr, sizeof(hdr), "     %20s", "");\n')
+        f.write('                dbg2_file << hdr;\n')
+        f.write('            }\n')
+        f.write('            dbg2_file << "\\n";\n')
+        f.write('        }\n')
+        f.write('\n')
+
+        # .dbg3 file init
+        f.write('        if (CntrPar.LoggingLevel > 2) {\n')
+        f.write('            avr_indices.clear();\n')
+        f.write('            int avrBaseLength = 85;\n')
+        f.write('            for (int i = 1; i <= avrBaseLength; i++) {\n')
+        f.write('                avr_indices.push_back(i);\n')
+        f.write('            }\n')
+        f.write('            if (CntrPar.CC_Mode > 0) {\n')
+        f.write('                for (int i = 0; i < (int)CntrPar.CC_GroupIndex.size(); i++) {\n')
+        f.write('                    avr_indices.push_back(CntrPar.CC_GroupIndex[i]);\n')
+        f.write('                    avr_indices.push_back(CntrPar.CC_GroupIndex[i] + 1);\n')
+        f.write('                }\n')
+        f.write('            }\n')
+        f.write('            if (CntrPar.StC_Mode > 0) {\n')
+        f.write('                for (int i = 0; i < (int)CntrPar.StC_GroupIndex.size(); i++) {\n')
+        f.write('                    avr_indices.push_back(CntrPar.StC_GroupIndex[i]);\n')
+        f.write('                }\n')
+        f.write('            }\n')
+        f.write('            std::string dbg3_path = root + ".RO.dbg3";\n')
+        f.write('            dbg3_file.open(dbg3_path);\n')
+        f.write('            dbg3_file << "\\n\\n\\n\\n\\n\\n";\n')
+        f.write('            char buf[32];\n')
+        f.write('            snprintf(buf, sizeof(buf), "%21s", "LocalVar%Time ");\n')
+        f.write('            dbg3_file << buf;\n')
+        f.write('            for (size_t i = 0; i < avr_indices.size(); i++) {\n')
+        f.write('                snprintf(buf, sizeof(buf), "            AvrSWAP(%4d)", avr_indices[i]);\n')
+        f.write('                dbg3_file << buf;\n')
+        f.write('            }\n')
+        f.write('            dbg3_file << "\\n";\n')
+        f.write('            snprintf(buf, sizeof(buf), "%21s", "(s)");\n')
+        f.write('            dbg3_file << buf;\n')
+        f.write('            for (size_t i = 0; i < avr_indices.size(); i++) {\n')
+        f.write('                snprintf(buf, sizeof(buf), "%22s", "(-)");\n')
+        f.write('                dbg3_file << buf;\n')
+        f.write('            }\n')
+        f.write('            dbg3_file << "\\n";\n')
+        f.write('        }\n')
+        f.write('    }\n')
+        f.write('\n')
+
+        # --- Console output ---
+        f.write('    // --- Console output every 10 seconds ---\n')
+        f.write('    if (std::fmod(LocalVar.Time, 10.0) == 0.0) {\n')
+        f.write('        printf("Generator speed: %6.1f RPM, Pitch angle: %5.1f deg, Power: %7.1f kW, Est. wind Speed: %5.1f m/s\\n",\n')
+        f.write('               LocalVar.GenSpeedF * RPS2RPM,\n')
+        f.write('               LocalVar.BlPitch[0] * R2D,\n')
+        f.write('               (double)avrSWAP[14] / 1000.0,\n')
+        f.write('               LocalVar.WE_Vw);\n')
+        f.write('    }\n')
+        f.write('\n')
+
+        # --- Clamping ---
+        f.write('    // --- Clamp debug data ---\n')
+        f.write('    for (int i = 0; i < nDebugOuts; i++) {\n')
+        f.write('        DebugOutData[i] = clamp_debug(DebugOutData[i]);\n')
+        f.write('    }\n')
+        f.write('    if (CntrPar.LoggingLevel > 1) {\n')
+        f.write('        for (int i = 0; i < nLocalVars; i++) {\n')
+        f.write('            LocalVarOutData[i] = clamp_debug(LocalVarOutData[i]);\n')
+        f.write('        }\n')
+        f.write('    }\n')
+        f.write('\n')
+
+        # --- Write rows ---
+        f.write('    // --- Write debug data ---\n')
+        f.write('    if (LocalVar.n_DT % CntrPar.n_DT_Out == 0) {\n')
+        f.write('        if (CntrPar.LoggingLevel > 0 && LocalVar.iStatus >= 0) {\n')
+        f.write('            write_debug_row(dbg_file, LocalVar.Time, DebugOutData, nDebugOuts);\n')
+        f.write('        }\n')
+        f.write('        if (CntrPar.LoggingLevel > 1 && LocalVar.iStatus >= 0) {\n')
+        f.write('            write_debug_row(dbg2_file, LocalVar.Time, LocalVarOutData, nLocalVars);\n')
+        f.write('        }\n')
+        f.write('        if (CntrPar.LoggingLevel > 2 && LocalVar.iStatus >= 0) {\n')
+        f.write('            char buf[32];\n')
+        f.write('            snprintf(buf, sizeof(buf), "%20.5f", LocalVar.Time);\n')
+        f.write('            dbg3_file << buf;\n')
+        f.write('            for (size_t i = 0; i < avr_indices.size(); i++) {\n')
+        f.write('                double val = (double)avrSWAP[avr_indices[i] - 1];\n')
+        f.write('                val = clamp_debug(val);\n')
+        f.write('                dbg3_file << "     ";\n')
+        f.write('                snprintf(buf, sizeof(buf), "%20.5E", val);\n')
+        f.write('                dbg3_file << buf;\n')
+        f.write('            }\n')
+        f.write('            dbg3_file << "\\n";\n')
+        f.write('        }\n')
+        f.write('    }\n')
+        f.write('\n')
+
+        # --- Close files ---
+        f.write('    // --- Close files on shutdown ---\n')
+        f.write('    if (LocalVar.iStatus < 0) {\n')
+        f.write('        if (dbg_file.is_open()) dbg_file.close();\n')
+        f.write('        if (dbg2_file.is_open()) dbg2_file.close();\n')
+        f.write('        if (dbg3_file.is_open()) dbg3_file.close();\n')
+        f.write('    }\n')
         f.write('}\n')
 
 

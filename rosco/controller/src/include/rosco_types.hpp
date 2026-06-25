@@ -485,7 +485,7 @@ struct ControlParameters {
     double   VS_MinOMTq = 0.0;
 
     // Load all parameters from a TOML file (replaces DISCON.IN two-pass parser)
-    bool load_from_toml(const std::string& path);
+    bool load_from_toml(const std::string& path, errorvariables_t* err);
 
     // Populate legacy controlparameters_view_t for translated functions
     void populate_view(controlparameters_view_t* v) const;

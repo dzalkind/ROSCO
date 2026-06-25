@@ -610,6 +610,8 @@ typedef struct {
     double WE_b;
     double WE_w;
     double WE_t;
+    double WE_v_m;
+    double WE_v_t;
     double WE_lambda;
     double YawRateCom;
     double NacHeadingTarget;

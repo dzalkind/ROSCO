@@ -1,5 +1,6 @@
+// AUTO-GENERATED from rosco_types.yaml
+// Do not edit manually — run write_registry.py to regenerate.
 #include "include/rosco_types.hpp"
-#include "include/rosco_error.hpp"
 #include <toml++/toml.hpp>
 #include <cstring>
 #include <cstdio>
@@ -11,13 +12,15 @@ static void set_fstr(char* dest, int maxLen, const std::string& src) {
     std::memcpy(dest, src.c_str(), n);
 }
 
-bool ControlParameters::load_from_toml(const std::string& path) {
+bool ControlParameters::load_from_toml(const std::string& path, errorvariables_t* err) {
     toml::table tbl;
     try {
         tbl = toml::parse_file(path);
     } catch (const toml::parse_error& e) {
-        rosco_throw("load_from_toml", "TOML parse error in %s: %s",
-                     path.c_str(), e.description().data());
+        err->aviFAIL = -1;
+        std::snprintf(err->ErrMsg, 1024, "TOML parse error in %s: %s",
+                      path.c_str(), e.description().data());
+        return false;
     }
 
     ZMQ_ID = (int)tbl["ZMQ_ID"].value_or((int64_t)0);
@@ -477,7 +480,7 @@ bool ControlParameters::load_from_toml(const std::string& path) {
     VS_MaxOMTq = tbl["VS_MaxOMTq"].value_or(0.0);
     VS_MinOMTq = tbl["VS_MinOMTq"].value_or(0.0);
 
-    return true;
+    return err->aviFAIL >= 0;
 }
 
 void ControlParameters::populate_view(controlparameters_view_t* v) const {

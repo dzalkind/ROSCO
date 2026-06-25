@@ -1216,6 +1216,7 @@ LocalVariables:
     VS_RefSpd:          
       <<: *real 
       description: Torque control generator speed set point [rad/s]
+      dbg: true
     VS_RefSpd_TSR:          
       <<: *real 
       description: Torque control generator speed set point based on optimal TSR (unfiltered) [rad/s]
@@ -1228,6 +1229,7 @@ LocalVariables:
     PC_RefSpd:
       <<: *real
       description: Generator speed set point of pitch controller [rad/s]
+      dbg: true
     PC_RefSpd_SS:
       <<: *real
       description: Generator speed set point of pitch controller after setpoint smoothing [rad/s]
@@ -1237,9 +1239,11 @@ LocalVariables:
     RotSpeedF:                    
       <<: *real 
       description: Filtered LSS (rotor) speed [rad/s].
+      dbg: true
     GenSpeedF:                    
       <<: *real 
       description: Filtered HSS (generator) speed [rad/s].
+      dbg: true
     GenTq:                        
       <<: *real 
       description: Electrical generator torque, [Nm].
@@ -1280,9 +1284,12 @@ LocalVariables:
     PC_MinPit:                    
       <<: *real 
       description: Minimum pitch setting in pitch controller (variable) [rad].
+      dbg: true
     PC_PitComT:                   
       <<: *real 
       description: Total command pitch based on the sum of the proportional and integral terms [rad].
+      dbg: true
+      dbg_name: PC_PICommand
     PC_PitComT_Last:                   
       <<: *real 
       description: Last total command pitch based on the sum of the proportional and integral terms [rad].
@@ -1314,18 +1321,22 @@ LocalVariables:
     axisTilt_1P:
       <<: *real
       description: Tilt moment, 1P
+      dbg: true
     axisYaw_1P:
       <<: *real
       description: Yaw moment, 1P
+      dbg: true
     axisYawF_1P:
       <<: *real
       description: Filtered yaw moment, 1P
     axisTilt_2P:
       <<: *real
       description: Tilt moment, 2P
+      dbg: true
     axisYaw_2P:
       <<: *real
       description: Yaw moment, 2P
+      dbg: true
     axisYawF_2P:
       <<: *real
       description: Filtered yaw moment, 2P
@@ -1394,6 +1405,7 @@ LocalVariables:
     WE_Vw:                        
       <<: *real 
       description: Estimated wind speed [m/s]
+      dbg: true
     WE_Vw_F:                      
       <<: *real 
       description: Filtered estimated wind speed [m/s]
@@ -1474,12 +1486,17 @@ LocalVariables:
       description: Electrical generator torque command for shutdown, [Nm].
     Fl_PitCom:                           
       <<: *real 
-      description: Shutdown, .FALSE. if inactive, .TRUE. if active
+      description: Floating contribution to the pitch command [rad]
+      dbg: true
     NACIMU_FA_AccF:
       <<: *real 
+      description: Filtered nacelle IMU fore-aft acceleration [m/s^2]
+      dbg: true
+      dbg_name: NacIMU_FA_AccF
     FA_AccF:
       <<: *real 
-      description: Filtered fore-aft acceleration in rotation frame, ready for control
+      description: Filtered fore-aft acceleration in rotation frame, ready for control [m/s^2]
+      dbg: true
     FA_Hist:
       <<: *integer 
       description: Hysteresis state for tower resonance avoidance.
@@ -1563,9 +1580,6 @@ LocalVariables:
       <<: *real 
       description: Last blade root bending moment (Nm)
       size: 3
-    ACC_INFILE_SIZE:
-      <<: *integer
-      description: Length of parameter input filename
     ACC_INFILE:
       <<: *character
       description: Parameter input filename
@@ -1574,9 +1588,13 @@ LocalVariables:
     restart:
       <<: *logical
       description: Restart flag
-    AWC_complexangle:
-      <<: *complex
-      description: Complex angle for each blade, sum of modes?
+    AWC_complexangle_re:
+      <<: *real
+      description: Real part of complex angle for each blade, sum of modes
+      size: 3
+    AWC_complexangle_im:
+      <<: *real
+      description: Imaginary part of complex angle for each blade, sum of modes
       size: 3
     TiltMean:
       <<: *real
@@ -1611,33 +1629,53 @@ LocalVariables:
     WE_Cp:
       <<: *real
       description: Cp that WSE uses to determine aerodynamic torque [-]
+      dbg: true
     WE_b:
       <<: *real
       description: Pitch input to WSE [-]
+      dbg: true
     WE_w:
       <<: *real
       description: Rotor speed input to WSE [-]
+      dbg: true
     WE_t:
       <<: *real
       description: Torque input to WSE [-]
+      dbg: true
+    WE_v_m:
+      <<: *real
+      description: Mean wind speed component in WSE [m/s]
+      dbg: true
+      dbg_name: WE_Vm
+    WE_v_t:
+      <<: *real
+      description: Turbulent wind speed component in WSE [m/s]
+      dbg: true
+      dbg_name: WE_Vt
     WE_lambda:
       <<: *real
       description: TSR in WSE [rad]
+      dbg: true
     YawRateCom:
       <<: *real
       description: Commanded yaw rate [rad/s]
+      dbg: true
     NacHeadingTarget:
       <<: *real
       description: Target nacelle heading [deg]
+      dbg: true
     NacVaneOffset:
       <<: *real
       description: Nacelle vane angle with offset [deg]
+      dbg: true
     Yaw_Err:
       <<: *real
       description: Yaw error [deg]
+      dbg: true
     YawState:
       <<: *real
       description: State of yaw controller [-]
+      dbg: true
 
     WE: 
       <<: *derived_type
@@ -1713,89 +1751,6 @@ PerformanceData:
     allocatable: True
     dimension: (:,:)
     description: Torque coefficient surface
-
-DebugVariables:
-  # NOTE: DebugVariables is retained only for the Fortran registry (write_types / write_roscoio).
-  # In C++, all debug outputs are sourced from LocalVariables directly.
-  # The fields below define the default .dbg output columns and their units.
-  WE_Cp: 
-    <<: *real  
-    description: Cp that WSE uses to determine aerodynamic torque [-]
-  WE_b: 
-    <<: *real  
-    description: Pitch that WSE uses to determine aerodynamic torque [-]
-  WE_w: 
-    <<: *real  
-    description: Rotor Speed that WSE uses to determine aerodynamic torque [-]
-  WE_t: 
-    <<: *real  
-    description: Torque that WSE uses [-]
-  WE_Vm: 
-    <<: *real  
-    description: Mean wind speed component in WSE [m/s]
-  WE_Vt: 
-    <<: *real  
-    description: Turbulent wind speed component in WSE [m/s]
-  WE_Vw: 
-    <<: *real  
-    description: Estimated wind speed in WSE [m/s]
-  WE_lambda: 
-    <<: *real  
-    description: TSR in WSE [rad]
-  PC_PICommand:
-    <<: *real 
-    description: Commanded collective pitch from pitch PI controller [rad]     
-  GenSpeedF:
-    <<: *real
-    description: Filtered generator speed [rad/s]
-  RotSpeedF:
-    <<: *real
-    description: Filtered rotor speed [rad/s]
-  NacIMU_FA_AccF:
-    <<: *real
-    description: Filtered NacIMU_FA_RAcc [rad/s]
-  FA_AccF:
-    <<: *real
-    description: Filtered FA_Acc [m/s]
-  Fl_PitCom:
-    <<: *real
-    description: Floating contribution to the pitch command [rad]
-  PC_MinPit:
-    <<: *real
-    description: Minimum blade pitch angle [rad]
-  axisTilt_1P:
-    <<: *real
-    description: Tilt component of coleman transformation, 1P
-  axisYaw_1P:
-    <<: *real
-    description: Yaw component of coleman transformation, 1P
-  axisTilt_2P:
-    <<: *real
-    description: Tilt component of coleman transformation, 2P
-  axisYaw_2P:
-    <<: *real
-    description: Yaw component of coleman transformation, 2P
-  YawRateCom:
-    <<: *real
-    description: Commanded yaw rate [rad/s]
-  NacHeadingTarget:
-    <<: *real
-    description: Target nacelle heading [deg]
-  NacVaneOffset:
-    <<: *real
-    description: Nacelle vane angle with offset [deg]
-  Yaw_Err:
-    <<: *real
-    description: Yaw error [deg]
-  YawState:
-    <<: *real
-    description: State of yaw controller [-]
-  VS_RefSpd:          
-      <<: *real 
-      description: Torque control generator speed set point [rad/s]
-  PC_RefSpd:
-    <<: *real
-    description: Generator speed set point of pitch controller [rad/s]
 
 ErrorVariables:
   size_avcMSG: 

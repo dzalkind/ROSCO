@@ -257,6 +257,8 @@ void WindSpeedEstimator(LocalVariables& LocalVar, const ControlParameters& CntrP
         // Debug outputs
         LocalVar.WE_Cp = Cp_op;
         LocalVar.WE_lambda = lambda;
+        LocalVar.WE_v_m = LocalVar.WE.v_m;
+        LocalVar.WE_v_t = LocalVar.WE.v_t;
 
     } else {
         // Use filtered hub-height wind speed

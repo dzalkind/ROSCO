@@ -114,3 +114,11 @@ rosco/test/testing
 # OpenFAST outputs
 outputs/
 
+
+# Generated binaries / build artifacts (stop Copilot from tracking these)
+*.h5
+*.dylib
+*.so
+compile_commands.json
+.mscppls/
+rosco/lib_copy/

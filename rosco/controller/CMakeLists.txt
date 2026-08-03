@@ -73,6 +73,7 @@ set(SOURCES
     src/ControlElements/rescontroller.cpp
     src/ControlElements/saturate.cpp
     src/IO/debug.cpp
+    src/IO/text_debug_writer.cpp
     src/IO/extcontroller.cpp
     src/IO/readrestartfile.cpp
     src/IO/updatezeromq.cpp
@@ -84,6 +85,19 @@ set(SOURCES
     src/ReadSetParameters/readconfigfiles.cpp
     src/ReadSetParameters/setparameters.cpp
 )
+
+# HDF5 Library (optional)
+option(ROSCO_HDF5 "Enable HDF5 debug output" ON)
+if(ROSCO_HDF5)
+    find_package(HDF5 COMPONENTS C)
+    if(HDF5_FOUND)
+        message(STATUS "HDF5 found: ${HDF5_VERSION} — HDF5 debug output enabled")
+        add_definitions(-DROSCO_HDF5=1)
+        set(SOURCES ${SOURCES} src/IO/hdf5_debug_writer.cpp)
+    else()
+        message(STATUS "HDF5 not found — text-only debug output")
+    endif()
+endif()
 
 # ZMQ Library
 find_package(PkgConfig)
@@ -106,6 +120,11 @@ if(NOT MSVC)
     target_link_libraries(discon PRIVATE dl)
 endif()
 target_link_libraries(discon PRIVATE tomlplusplus::tomlplusplus)
+
+if(HDF5_FOUND)
+    target_include_directories(discon PRIVATE ${HDF5_INCLUDE_DIRS})
+    target_link_libraries(discon PRIVATE ${HDF5_C_LIBRARIES})
+endif()
 
 if(PC_ZeroMQ_FOUND)
     target_include_directories(discon PUBLIC ${ZeroMQ_INCLUDE_DIR})

@@ -206,6 +206,7 @@ void ReadControlParameterFileSub(
     // ----------------------- Simulation Control --------------------------
     parser.parseInt("Echo",          CntrPar.Echo,          true);
     parser.parseInt("LoggingLevel",  CntrPar.LoggingLevel,  true);
+    parser.parseInt("OutputFormat",  CntrPar.OutputFormat,  true);
     parser.parseDbl("DT_Out",        CntrPar.DT_Out,        true);
     parser.parseInt("Ext_Interface", CntrPar.Ext_Interface,  true);
 

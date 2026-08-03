@@ -22,6 +22,7 @@ typedef struct {
     // --- Scalar and fixed-size fields ---
     int ZMQ_ID;
     int LoggingLevel;
+    int OutputFormat;
     int Echo;
     int Ext_Interface;
     double DT_Out;

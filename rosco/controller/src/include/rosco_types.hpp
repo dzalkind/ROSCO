@@ -11,6 +11,8 @@ struct ControlParameters {
     int      ZMQ_ID = 0;
     // 0 - write no debug files, 1 - write standard output .dbg-file, 2 - write standard output .dbg-file and complete avrSWAP-...
     int      LoggingLevel = 0;
+    // 0 - text output (.dbg files), 1 - HDF5 binary output (.RO.h5)
+    int      OutputFormat = 0;
     // 0 - no Echo, 1 - Echo input data to <RootName>.echo
     int      Echo = 0;
     // 0 - use standard bladed interface, 1 - Use the extened DLL interface introduced in OpenFAST 3.5.0.

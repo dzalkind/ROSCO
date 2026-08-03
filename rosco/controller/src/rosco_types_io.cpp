@@ -25,6 +25,7 @@ bool ControlParameters::load_from_toml(const std::string& path, errorvariables_t
 
     ZMQ_ID = (int)tbl["ZMQ_ID"].value_or((int64_t)0);
     LoggingLevel = (int)tbl["LoggingLevel"].value_or((int64_t)0);
+    OutputFormat = (int)tbl["OutputFormat"].value_or((int64_t)0);
     Echo = (int)tbl["Echo"].value_or((int64_t)0);
     Ext_Interface = (int)tbl["Ext_Interface"].value_or((int64_t)0);
     DT_Out = tbl["DT_Out"].value_or(0.0);
@@ -486,6 +487,7 @@ bool ControlParameters::load_from_toml(const std::string& path, errorvariables_t
 void ControlParameters::populate_view(controlparameters_view_t* v) const {
     v->ZMQ_ID = ZMQ_ID;
     v->LoggingLevel = LoggingLevel;
+    v->OutputFormat = OutputFormat;
     v->Echo = Echo;
     v->Ext_Interface = Ext_Interface;
     v->DT_Out = DT_Out;
@@ -773,6 +775,7 @@ void ControlParameters::populate_view(controlparameters_view_t* v) const {
 void ControlParameters::sync_from_view(const controlparameters_view_t& v) {
     ZMQ_ID = v.ZMQ_ID;
     LoggingLevel = v.LoggingLevel;
+    OutputFormat = v.OutputFormat;
     Echo = v.Echo;
     Ext_Interface = v.Ext_Interface;
     DT_Out = v.DT_Out;

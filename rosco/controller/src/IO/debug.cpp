@@ -3,6 +3,7 @@
 #include "../include/vit_types.h"
 #include "../include/rosco_types.hpp"
 #include "../include/rosco_constants.h"
+#include "debug_writer.hpp"
 #include <fstream>
 #include <cmath>
 #include <string>
@@ -10,27 +11,11 @@
 #include <cstdio>
 #include <ctime>
 #include <vector>
-#include <algorithm>
+#include <memory>
 
 static const char* ROSCO_VERSION = "2.10.1";
 
 namespace {
-
-std::string current_date() {
-    time_t now = time(nullptr);
-    struct tm* t = localtime(&now);
-    char buf[32];
-    strftime(buf, sizeof(buf), "%d-%b-%Y", t);
-    return std::string(buf);
-}
-
-std::string current_time() {
-    time_t now = time(nullptr);
-    struct tm* t = localtime(&now);
-    char buf[32];
-    strftime(buf, sizeof(buf), "%H:%M:%S", t);
-    return std::string(buf);
-}
 
 double clamp_debug(double val) {
     if (std::abs(val) < 1E-99) return 0.0;
@@ -38,22 +23,12 @@ double clamp_debug(double val) {
     return val;
 }
 
-void write_debug_row(std::ofstream& f, double time_val, const double* data, int n) {
-    char buf[32];
-    snprintf(buf, sizeof(buf), "%20.5f", time_val);
-    f << buf;
-    for (int i = 0; i < n; i++) {
-        f << "     ";
-        snprintf(buf, sizeof(buf), "%20.5E", data[i]);
-        f << buf;
-    }
-    f << "\n";
-}
-
 } // anonymous namespace
 
-static std::ofstream dbg_file;
-static std::ofstream dbg2_file;
+// Writers for .dbg and .dbg2 (text or HDF5 based on OutputFormat)
+static std::unique_ptr<DebugWriter> dbg_writer;
+static std::unique_ptr<DebugWriter> dbg2_writer;
+// .dbg3 (avrSWAP) remains text-only for now (Phase 3 adds HDF5)
 static std::ofstream dbg3_file;
 static std::vector<int32_t> avr_indices;
 
@@ -507,51 +482,25 @@ void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
         "Yaw_Err",
         "YawState"
     };
+    const char* LocalVarOutUnits[nLocalVars];
+    for (int i = 0; i < nLocalVars; i++) LocalVarOutUnits[i] = "";
 
-    // --- Initialize debug files on first call ---
+    // --- Initialize debug writers on first call ---
     if (LocalVar.iStatus == 0 || LocalVar.iStatus == -9) {
+        OutputFormat fmt = static_cast<OutputFormat>(CntrPar.OutputFormat);
+
         if (CntrPar.LoggingLevel > 0) {
-            std::string dbg_path = root + ".RO.dbg";
-            dbg_file.open(dbg_path);
-            dbg_file << " Generated on " << current_date() << " at "
-                     << current_time() << " using ROSCO-" << ROSCO_VERSION << "\n";
-            char hdr[32];
-            snprintf(hdr, sizeof(hdr), "%20s", "Time");
-            dbg_file << hdr;
-            for (int i = 0; i < nDebugOuts; i++) {
-                snprintf(hdr, sizeof(hdr), "     %20s", DebugOutStrings[i]);
-                dbg_file << hdr;
-            }
-            dbg_file << "\n";
-            snprintf(hdr, sizeof(hdr), "%20s", "(sec)");
-            dbg_file << hdr;
-            for (int i = 0; i < nDebugOuts; i++) {
-                snprintf(hdr, sizeof(hdr), "     %20s", DebugOutUnits[i]);
-                dbg_file << hdr;
-            }
-            dbg_file << "\n";
+            dbg_writer = DebugWriter::create(fmt);
+            std::string dbg_path = (fmt == OutputFormat::HDF5)
+                ? root + ".RO.h5" : root + ".RO.dbg";
+            dbg_writer->open(dbg_path, DebugOutStrings, DebugOutUnits, nDebugOuts);
         }
 
         if (CntrPar.LoggingLevel > 1) {
-            std::string dbg2_path = root + ".RO.dbg2";
-            dbg2_file.open(dbg2_path);
-            dbg2_file << " Generated on " << current_date() << " at "
-                      << current_time() << " using ROSCO-" << ROSCO_VERSION << "\n";
-            char hdr[32];
-            snprintf(hdr, sizeof(hdr), "%20s", "Time");
-            dbg2_file << hdr;
-            for (int i = 0; i < nLocalVars; i++) {
-                snprintf(hdr, sizeof(hdr), "     %20s", LocalVarOutStrings[i]);
-                dbg2_file << hdr;
-            }
-            dbg2_file << "\n";
-            snprintf(hdr, sizeof(hdr), "%20s", "");
-            dbg2_file << hdr;
-            for (int i = 0; i < nLocalVars; i++) {
-                snprintf(hdr, sizeof(hdr), "     %20s", "");
-                dbg2_file << hdr;
-            }
-            dbg2_file << "\n";
+            dbg2_writer = DebugWriter::create(fmt);
+            std::string dbg2_path = (fmt == OutputFormat::HDF5)
+                ? root + ".RO.dbg2.h5" : root + ".RO.dbg2";
+            dbg2_writer->open(dbg2_path, LocalVarOutStrings, LocalVarOutUnits, nLocalVars);
         }
 
         if (CntrPar.LoggingLevel > 2) {
@@ -613,11 +562,11 @@ void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
 
     // --- Write debug data ---
     if (LocalVar.n_DT % CntrPar.n_DT_Out == 0) {
-        if (CntrPar.LoggingLevel > 0 && LocalVar.iStatus >= 0) {
-            write_debug_row(dbg_file, LocalVar.Time, DebugOutData, nDebugOuts);
+        if (CntrPar.LoggingLevel > 0 && LocalVar.iStatus >= 0 && dbg_writer) {
+            dbg_writer->write_row(LocalVar.Time, DebugOutData, nDebugOuts);
         }
-        if (CntrPar.LoggingLevel > 1 && LocalVar.iStatus >= 0) {
-            write_debug_row(dbg2_file, LocalVar.Time, LocalVarOutData, nLocalVars);
+        if (CntrPar.LoggingLevel > 1 && LocalVar.iStatus >= 0 && dbg2_writer) {
+            dbg2_writer->write_row(LocalVar.Time, LocalVarOutData, nLocalVars);
         }
         if (CntrPar.LoggingLevel > 2 && LocalVar.iStatus >= 0) {
             char buf[32];
@@ -634,10 +583,10 @@ void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
         }
     }
 
-    // --- Close files on shutdown ---
+    // --- Close writers on shutdown ---
     if (LocalVar.iStatus < 0) {
-        if (dbg_file.is_open()) dbg_file.close();
-        if (dbg2_file.is_open()) dbg2_file.close();
+        if (dbg_writer) { dbg_writer->close(); dbg_writer.reset(); }
+        if (dbg2_writer) { dbg2_writer->close(); dbg2_writer.reset(); }
         if (dbg3_file.is_open()) dbg3_file.close();
     }
 }

@@ -68,8 +68,18 @@ private:
     std::ofstream file_;
 };
 
+OutputFormat DebugWriter::effective_format(OutputFormat fmt) {
+    if (fmt == OutputFormat::HDF5) {
+#ifndef ROSCO_HDF5
+        return OutputFormat::Text;
+#endif
+    }
+    return fmt;
+}
+
 // Factory implementation
 std::unique_ptr<DebugWriter> DebugWriter::create(OutputFormat fmt) {
+    fmt = effective_format(fmt);
     switch (fmt) {
         case OutputFormat::HDF5:
 #ifdef ROSCO_HDF5
@@ -77,7 +87,6 @@ std::unique_ptr<DebugWriter> DebugWriter::create(OutputFormat fmt) {
             extern std::unique_ptr<DebugWriter> create_hdf5_writer();
             return create_hdf5_writer();
 #else
-            // Fall back to text if HDF5 not compiled in
             return std::make_unique<TextDebugWriter>();
 #endif
         case OutputFormat::Text:

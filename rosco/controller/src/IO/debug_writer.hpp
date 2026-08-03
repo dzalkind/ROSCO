@@ -41,6 +41,9 @@ public:
 
     // Factory: create the appropriate writer based on format.
     static std::unique_ptr<DebugWriter> create(OutputFormat fmt);
+
+    // Resolve a requested format to one provided by this build.
+    static OutputFormat effective_format(OutputFormat fmt);
 };
 
 #endif // ROSCO_DEBUG_WRITER_HPP

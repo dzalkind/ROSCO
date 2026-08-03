@@ -951,7 +951,11 @@ def _write_cpp_debug(yfile):
         f.write('            if (dbg2_writer) { dbg2_writer->close(); dbg2_writer.reset(); }\n')
         f.write('            if (dbg3_file.is_open()) dbg3_file.close();\n')
         f.write('        }\n')
-        f.write('        OutputFormat fmt = static_cast<OutputFormat>(CntrPar.OutputFormat);\n')
+        f.write('        OutputFormat requested_fmt = static_cast<OutputFormat>(CntrPar.OutputFormat);\n')
+        f.write('        OutputFormat fmt = DebugWriter::effective_format(requested_fmt);\n')
+        f.write('        if (requested_fmt == OutputFormat::HDF5 && fmt != OutputFormat::HDF5) {\n')
+        f.write('            fprintf(stderr, "ROSCO WARNING: HDF5 output requested but this build has no HDF5 support; writing text debug files.\\n");\n')
+        f.write('        }\n')
         f.write('\n')
 
         # .dbg writer init

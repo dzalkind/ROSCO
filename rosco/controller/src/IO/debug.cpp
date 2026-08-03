@@ -492,7 +492,11 @@ void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
             if (dbg2_writer) { dbg2_writer->close(); dbg2_writer.reset(); }
             if (dbg3_file.is_open()) dbg3_file.close();
         }
-        OutputFormat fmt = static_cast<OutputFormat>(CntrPar.OutputFormat);
+        OutputFormat requested_fmt = static_cast<OutputFormat>(CntrPar.OutputFormat);
+        OutputFormat fmt = DebugWriter::effective_format(requested_fmt);
+        if (requested_fmt == OutputFormat::HDF5 && fmt != OutputFormat::HDF5) {
+            fprintf(stderr, "ROSCO WARNING: HDF5 output requested but this build has no HDF5 support; writing text debug files.\n");
+        }
 
         if (CntrPar.LoggingLevel > 0) {
             dbg_writer = DebugWriter::create(fmt);

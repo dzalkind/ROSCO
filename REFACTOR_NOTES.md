@@ -353,28 +353,30 @@ Three commits addressed cross-platform build compatibility for Windows (Visual S
 
 ---
 
-## Planned: Output File Modernization (HDF5)
+## Completed: Output File Modernization (HDF5)
 
-Replace the text-based `.RO.dbg` files with a compact HDF5 binary format (text remains available as opt-in). The registry (`rosco_types.yaml`) remains the single source of truth for all output fields.
+Replaced the text-based `.RO.dbg` files with a compact HDF5 binary format (text remains available as opt-in). The registry (`rosco_types.yaml`) remains the single source of truth for all output fields.
 
 **Design decisions:**
-- HDF5 is the new default format — self-describing, excellent numpy/pandas support, widely used in wind energy
+- HDF5 is the new **default** format (`OutputFormat` defaults to `1`) — self-describing, excellent numpy/pandas support, widely used in wind energy
 - Text output available via `OutputFormat = 0`; HDF5 via `OutputFormat = 1`
-- `.dbg` (primary) remains configurable via `dbg: true` fields; `.dbg2` (all LocalVars) stays automatic; `.dbg3` (avrSWAP) becomes a dataset in the same `.RO.h5` file
+- `.dbg` (primary) remains configurable via `dbg: true` fields; `.dbg2` (all LocalVars) stays automatic; `.dbg3` (avrSWAP) is written as a `/avrSWAP` dataset in the same `.RO.h5` file when `OutputFormat=1`, otherwise text as before
 - Chunked + gzip level 1–4 for ~5–10× size reduction vs text
 
-**Implementation phases:**
+**Implementation phases (all DONE):**
 
 | Phase | Description | Key changes |
 |-------|-------------|-------------|
-| 1 | HDF5 build infrastructure | `find_package(HDF5)` in CMakeLists, `DebugWriter` abstraction (`debug_writer.hpp`), `HDF5DebugWriter` + `TextDebugWriter` backends, `OutputFormat` parameter |
+| 1 | HDF5 build infrastructure | `find_package(HDF5)` in CMakeLists, `DebugWriter` abstraction (`debug_writer.hpp`), `HDF5DebugWriter` + `TextDebugWriter` backends, `OutputFormat` parameter (now defaults to HDF5) |
 | 2 | Refactor debug.cpp | Generated code uses `DebugWriter` abstraction; backend selected by `OutputFormat` |
-| 3 | avrSWAP in HDF5 | Write as `/avrSWAP` dataset in same `.RO.h5` file; text `.dbg3` unchanged |
-| 4 | Python tooling | `rosco.toolbox` readers auto-detect format; `verify_cpp.py` supports HDF5 comparison |
+| 3 | avrSWAP in HDF5 | `/avrSWAP` dataset wired into the same `.RO.h5` file via `open_avrswap()`/`write_avrswap_row()`; text `.dbg3` unchanged |
+| 4 | Python tooling | `load_hdf5_output()` auto-detects and reads `/avrSWAP` + labels; `verify_cpp.py --hdf5` compares HDF5 vs text with exact channel-set + avrSWAP equality |
 
-**Verification plan:** After Phase 2 with `OutputFormat=0`, all 27 text scenarios remain byte-identical. With `OutputFormat=1`, HDF5 values compared against text baselines via Python.
+**Also removed along the way:** the Fortran registry generation (`ROSCO_Types.f90`, `ROSCO_IO.f90`) was dead code in this pure-C++ controller and has been deleted — `write_registry.py` now only emits C++ artifacts.
 
-See `.github/prompts/plan-outputFileModernization.prompt.md` for full plan details.
+**Verification:** `python scripts/verify_cpp.py --hdf5 --rebuild` — 27/27 scenarios byte-identical (text and HDF5), HDF5 channel set matches text exactly, avrSWAP (39998, 85) identical row-for-row.
+
+See `.github/prompts/plan-outputFileModernization.prompt.md` for full plan details and follow-up issue history.
 
 ---
 

@@ -101,15 +101,18 @@ class output_processing():
         verbose = input['verbose']
 
         assert os.path.isfile(filename), "File, %s, does not exists" % filename
-        with open(filename, 'r') as f:
-            if verbose:
-                print('Loading data from {}'.format(filename))
-            try:
-                f.readline()
-            except UnicodeDecodeError:
-                data, info = load_binary_output(filename)
-            else:
-                data, info = load_ascii_output(filename)
+        if verbose:
+            print('Loading data from {}'.format(filename))
+        if filename.lower().endswith(('.h5', '.hdf5')):
+            data, info = load_hdf5_output(filename)
+        else:
+            with open(filename, 'r') as f:
+                try:
+                    f.readline()
+                except UnicodeDecodeError:
+                    data, info = load_binary_output(filename)
+                else:
+                    data, info = load_ascii_output(filename)
 
         # Build dictionary
         fast_data = dict(zip(info['channels'],data.T))
@@ -368,6 +371,43 @@ def load_ascii_output(filename):
         # Data, up to end of file or empty line (potential comment line at the end)
         data = np.array([l.strip().split() for l in takewhile(lambda x: len(x.strip())>0, f.readlines())]).astype(np.float64)
         return data, info
+
+
+def load_hdf5_output(filename):
+    '''
+    Load a ROSCO debug output file written by the HDF5 DebugWriter (.RO.h5).
+
+    Parameters
+    ----------
+    filename : str
+        filename
+
+    Returns
+    -------
+    data : ndarray
+        data values, (n_rows x n_channels), same layout as load_ascii_output
+    info : dict
+        info containing:
+            - name: filename
+            - channels: list of attribute names ('Time' first)
+            - attribute_units: list of attribute units
+    '''
+    import h5py  # ponytail: optional dep, only needed for HDF5 debug files
+    with h5py.File(filename, 'r') as f:
+        channels = ['Time'] + sorted(k for k in f.keys() if k not in ('Time', 'avrSWAP'))
+        units = []
+        for c in channels:
+            u = f[c].attrs.get('units', 'N/A')
+            units.append(u.decode() if isinstance(u, bytes) else u)
+        data = np.column_stack([f[c][:] for c in channels])
+
+    info = {
+        'name': os.path.splitext(os.path.basename(filename))[0],
+        'description': [],
+        'channels': channels,
+        'attribute_units': units,
+    }
+    return data, info
 
 
 def load_binary_output(filename, use_buffer=True):

@@ -146,6 +146,44 @@ def compare_scenario(scenario_num, output_dir):
     return True, f"{sum(len(b[k]) for k in b.files)} values identical"
 
 
+def compare_hdf5_debug():
+    """Compare Scenario 28 (.RO.h5) debug output against Scenario 1 (.RO.dbg)
+    text output — same simulation, two OutputFormat values. Requires both
+    scenarios to have already been run (writes to Examples/, not output_dir).
+    Returns (identical, details)."""
+    text_path = os.path.join(EXAMPLES_DIR, "vit_sim1.RO.dbg")
+    h5_path = os.path.join(EXAMPLES_DIR, "vit_sim28.RO.h5")
+    if not os.path.exists(h5_path):
+        return None, "vit_sim28.RO.h5 not found (HDF5 support may not be compiled in)"
+    if not os.path.exists(text_path):
+        return False, "vit_sim1.RO.dbg not found (run scenario 1 first)"
+
+    sys.path.insert(0, os.path.join(REPO_ROOT, "rosco"))
+    from toolbox.ofTools.fast_io.output_processing import load_ascii_output, load_hdf5_output
+
+    text_data, text_info = load_ascii_output(text_path)
+    h5_data, h5_info = load_hdf5_output(h5_path)
+    text_channels = dict(zip(text_info["channels"], text_data.T))
+    h5_channels = dict(zip(h5_info["channels"], h5_data.T))
+
+    common = set(text_channels) & set(h5_channels)
+    if not common:
+        return False, "no common channels between .RO.dbg and .RO.h5"
+
+    mismatches = []
+    for key in sorted(common):
+        t, h = text_channels[key], h5_channels[key]
+        if len(t) != len(h):
+            mismatches.append(f"{key}: length {len(t)} vs {len(h)}")
+        # text .dbg uses "%20.5E" (6 significant figures); allow for that rounding
+        elif not np.allclose(t, h, rtol=2e-5, atol=1e-9):
+            mismatches.append(f"{key}: max_diff={np.abs(t - h).max():.2e}")
+
+    if mismatches:
+        return False, "; ".join(mismatches)
+    return True, f"{len(common)} channels identical (text vs HDF5)"
+
+
 def main():
     parser = argparse.ArgumentParser(description="Verify C++ controller against frozen baselines")
     parser.add_argument("--scenario", type=int, default=0,
@@ -156,6 +194,9 @@ def main():
                         help="Overwrite baseline_arrays/ with current outputs instead of comparing.")
     parser.add_argument("--preset", type=str, default=None,
                         help="CMake preset name (e.g. 'asan'). Sets build dir to build-{preset}.")
+    parser.add_argument("--hdf5", action="store_true",
+                        help="Also run Scenario 28 (HDF5 OutputFormat) and compare its .RO.h5 "
+                             "debug output against Scenario 1's .RO.dbg text output.")
     args = parser.parse_args()
 
     # Resolve build directory from preset
@@ -239,6 +280,24 @@ def main():
                 if not ok:
                     print(f"  scenario_{s}: {detail}")
             sys.exit(1)
+
+    if args.hdf5:
+        print()
+        print("Running Scenario 28 (HDF5 OutputFormat) for text/HDF5 comparison...")
+        if 1 not in scenarios:
+            run_scenario(1, tempfile.gettempdir())
+        ok28 = run_scenario(28, tempfile.gettempdir())
+        if not ok28:
+            print("  Scenario 28: SUBPROCESS FAILED")
+            sys.exit(1)
+        identical, detail = compare_hdf5_debug()
+        if identical is None:
+            print(f"  SKIPPED: {detail}")
+        else:
+            status = "IDENTICAL" if identical else "MISMATCH"
+            print(f"  {status}  ({detail})")
+            if not identical:
+                sys.exit(1)
 
 
 if __name__ == "__main__":

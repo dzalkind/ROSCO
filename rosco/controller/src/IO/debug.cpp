@@ -28,9 +28,11 @@ double clamp_debug(double val) {
 // Writers for .dbg and .dbg2 (text or HDF5 based on OutputFormat)
 static std::unique_ptr<DebugWriter> dbg_writer;
 static std::unique_ptr<DebugWriter> dbg2_writer;
-// .dbg3 (avrSWAP) remains text-only for now (Phase 3 adds HDF5)
+// .dbg3 (avrSWAP): text file in Text mode, "/avrSWAP" dataset in dbg_writer's
+// HDF5 file (same file as .dbg) in HDF5 mode.
 static std::ofstream dbg3_file;
 static std::vector<int32_t> avr_indices;
+static OutputFormat dbg3_fmt = OutputFormat::Text;
 
 void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
            float* avrSWAP) {
@@ -529,24 +531,36 @@ void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
                     avr_indices.push_back(CntrPar.StC_GroupIndex[i]);
                 }
             }
-            std::string dbg3_path = root + ".RO.dbg3";
-            dbg3_file.open(dbg3_path);
-            dbg3_file << "\n\n\n\n\n\n";
-            char buf[32];
-            snprintf(buf, sizeof(buf), "%21s", "LocalVar%Time ");
-            dbg3_file << buf;
-            for (size_t i = 0; i < avr_indices.size(); i++) {
-                snprintf(buf, sizeof(buf), "            AvrSWAP(%4d)", avr_indices[i]);
+            dbg3_fmt = fmt;
+            if (fmt == OutputFormat::HDF5 && dbg_writer) {
+                std::vector<std::string> avr_labels;
+                std::vector<const char*> avr_label_ptrs;
+                avr_labels.reserve(avr_indices.size());
+                for (size_t i = 0; i < avr_indices.size(); i++) {
+                    avr_labels.push_back("AvrSWAP(" + std::to_string(avr_indices[i]) + ")");
+                }
+                for (auto& s : avr_labels) avr_label_ptrs.push_back(s.c_str());
+                dbg_writer->open_avrswap(avr_label_ptrs.data(), (int)avr_label_ptrs.size());
+            } else {
+                std::string dbg3_path = root + ".RO.dbg3";
+                dbg3_file.open(dbg3_path);
+                dbg3_file << "\n\n\n\n\n\n";
+                char buf[32];
+                snprintf(buf, sizeof(buf), "%21s", "LocalVar%Time ");
                 dbg3_file << buf;
-            }
-            dbg3_file << "\n";
-            snprintf(buf, sizeof(buf), "%21s", "(s)");
-            dbg3_file << buf;
-            for (size_t i = 0; i < avr_indices.size(); i++) {
-                snprintf(buf, sizeof(buf), "%22s", "(-)");
+                for (size_t i = 0; i < avr_indices.size(); i++) {
+                    snprintf(buf, sizeof(buf), "            AvrSWAP(%4d)", avr_indices[i]);
+                    dbg3_file << buf;
+                }
+                dbg3_file << "\n";
+                snprintf(buf, sizeof(buf), "%21s", "(s)");
                 dbg3_file << buf;
+                for (size_t i = 0; i < avr_indices.size(); i++) {
+                    snprintf(buf, sizeof(buf), "%22s", "(-)");
+                    dbg3_file << buf;
+                }
+                dbg3_file << "\n";
             }
-            dbg3_file << "\n";
         }
     }
 
@@ -578,17 +592,26 @@ void Debug(LocalVariables& LocalVar, const ControlParameters& CntrPar,
             dbg2_writer->write_row(LocalVar.Time, LocalVarOutData, nLocalVars);
         }
         if (CntrPar.LoggingLevel > 2 && LocalVar.iStatus >= 0) {
-            char buf[32];
-            snprintf(buf, sizeof(buf), "%20.5f", LocalVar.Time);
-            dbg3_file << buf;
-            for (size_t i = 0; i < avr_indices.size(); i++) {
-                double val = (double)avrSWAP[avr_indices[i] - 1];
-                val = clamp_debug(val);
-                dbg3_file << "     ";
-                snprintf(buf, sizeof(buf), "%20.5E", val);
+            if (dbg3_fmt == OutputFormat::HDF5 && dbg_writer) {
+                std::vector<double> avr_row;
+                avr_row.reserve(avr_indices.size());
+                for (size_t i = 0; i < avr_indices.size(); i++) {
+                    avr_row.push_back(clamp_debug((double)avrSWAP[avr_indices[i] - 1]));
+                }
+                dbg_writer->write_avrswap_row(avr_row.data(), (int)avr_row.size());
+            } else {
+                char buf[32];
+                snprintf(buf, sizeof(buf), "%20.5f", LocalVar.Time);
                 dbg3_file << buf;
+                for (size_t i = 0; i < avr_indices.size(); i++) {
+                    double val = (double)avrSWAP[avr_indices[i] - 1];
+                    val = clamp_debug(val);
+                    dbg3_file << "     ";
+                    snprintf(buf, sizeof(buf), "%20.5E", val);
+                    dbg3_file << buf;
+                }
+                dbg3_file << "\n";
             }
-            dbg3_file << "\n";
         }
     }
 

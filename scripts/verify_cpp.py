@@ -150,7 +150,11 @@ def compare_hdf5_debug():
     """Compare Scenario 28 (.RO.h5) debug output against Scenario 1 (.RO.dbg)
     text output — same simulation, two OutputFormat values. Requires both
     scenarios to have already been run (writes to Examples/, not output_dir).
-    Returns (identical, details)."""
+
+    Also verifies the "/avrSWAP" HDF5 dataset (written only at LoggingLevel=3,
+    which Scenario 28 sets) against the ground-truth avrSWAP values captured
+    directly from the Python sim loop (scenario_28.npz's 'avrSWAP_full').
+    """
     text_path = os.path.join(EXAMPLES_DIR, "vit_sim1.RO.dbg")
     h5_path = os.path.join(EXAMPLES_DIR, "vit_sim28.RO.h5")
     if not os.path.exists(h5_path):
@@ -166,12 +170,13 @@ def compare_hdf5_debug():
     text_channels = dict(zip(text_info["channels"], text_data.T))
     h5_channels = dict(zip(h5_info["channels"], h5_data.T))
 
-    common = set(text_channels) & set(h5_channels)
-    if not common:
-        return False, "no common channels between .RO.dbg and .RO.h5"
+    if set(text_channels) != set(h5_channels):
+        only_text = sorted(set(text_channels) - set(h5_channels))
+        only_h5 = sorted(set(h5_channels) - set(text_channels))
+        return False, f"channel set mismatch: only in text={only_text} only in h5={only_h5}"
 
     mismatches = []
-    for key in sorted(common):
+    for key in sorted(text_channels):
         t, h = text_channels[key], h5_channels[key]
         if len(t) != len(h):
             mismatches.append(f"{key}: length {len(t)} vs {len(h)}")
@@ -181,7 +186,52 @@ def compare_hdf5_debug():
 
     if mismatches:
         return False, "; ".join(mismatches)
-    return True, f"{len(common)} channels identical (text vs HDF5)"
+
+    # --- avrSWAP dataset verification (LoggingLevel=3) ---
+    avr_ok, avr_detail = compare_hdf5_avrswap(h5_path)
+    if not avr_ok:
+        return False, avr_detail
+
+    return True, f"{len(text_channels)} channels identical (text vs HDF5); {avr_detail}"
+
+
+def compare_hdf5_avrswap(h5_path):
+    """Verify the "/avrSWAP" dataset in an .RO.h5 file: presence, column
+    labels, shape, and values against the Python-captured ground truth
+    (scenario_28.npz's 'avrSWAP_full', saved by run_scenario_28)."""
+    npz_path = os.path.join(tempfile.gettempdir(), "scenario_28.npz")
+    if not os.path.exists(npz_path):
+        return False, "scenario_28.npz not found (run scenario 28 first)"
+
+    import h5py
+    with h5py.File(h5_path, "r") as f:
+        if "avrSWAP" not in f:
+            return False, "'/avrSWAP' dataset missing from .RO.h5 (Phase 3 not wired up)"
+        avr_h5 = f["avrSWAP"][:]
+        labels_attr = f["avrSWAP"].attrs.get("column_labels")
+        labels = [l.decode() if isinstance(l, bytes) else l for l in labels_attr] \
+            if labels_attr is not None else []
+
+    expected_labels = [f"AvrSWAP({i + 1})" for i in range(85)]
+    if labels[:85] != expected_labels:
+        return False, f"avrSWAP column_labels mismatch: got {labels[:5]}... expected {expected_labels[:5]}..."
+
+    avr_truth = np.load(npz_path)["avrSWAP_full"]
+    # sim_ws_series `continue`s at i=0 (no controller call there), but the
+    # HDF5 writer's row 0 is the controller's own init call (e.g. MSG/INFILE
+    # length setup) that happens before Python's tracked loop even starts —
+    # it has no Python ground truth. h5 row i (i>=1) otherwise aligns exactly
+    # with avrSWAP_full row i.
+    if avr_h5.shape[0] != avr_truth.shape[0] - 1:
+        return False, f"avrSWAP row count mismatch: h5={avr_h5.shape[0]} truth={avr_truth.shape[0] - 1}"
+    n = avr_h5.shape[0]
+    avr_h5, avr_truth = avr_h5[1:], avr_truth[1:n]
+    if avr_h5.shape != avr_truth.shape:
+        return False, f"avrSWAP shape mismatch: h5={avr_h5.shape} truth={avr_truth.shape}"
+    if not np.allclose(avr_h5, avr_truth, rtol=2e-5, atol=1e-9):
+        return False, f"avrSWAP value mismatch: max_diff={np.abs(avr_h5 - avr_truth).max():.2e}"
+
+    return True, f"avrSWAP {avr_h5.shape} identical (labels + values)"
 
 
 def main():

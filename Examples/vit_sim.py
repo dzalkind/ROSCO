@@ -1897,6 +1897,7 @@ def run_scenario_28(turbine, controller, cp_filename, output_dir=None):
     param_filename = os.path.join(this_dir, 'DISCON_hdf5.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'OutputFormat': 1,
+        'LoggingLevel': 3,  # exercise avrSWAP HDF5 dataset (Phase 3)
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
@@ -1913,8 +1914,17 @@ def run_scenario_28(turbine, controller, cp_filename, output_dir=None):
     for i in range(len(t)):
         ws[i] = ws[i] + t[i] // 100
 
-    sim_28.sim_ws_series(t, ws, rotor_rpm_init=4, make_plots=False, extra_avrswap=EXTRA_AVRSWAP)
-    save_and_print_results(build_save_dict(sim_28), 28, output_dir)
+    # Capture the full avrSWAP(1..85) array each step to verify the HDF5
+    # "/avrSWAP" dataset against ground truth (avrBaseLength in debug.cpp).
+    avr_full_names = [f'avr_{i + 1}' for i in range(85)]
+    extra = dict(EXTRA_AVRSWAP)
+    extra.update({name: i for i, name in enumerate(avr_full_names)})
+
+    sim_28.sim_ws_series(t, ws, rotor_rpm_init=4, make_plots=False, extra_avrswap=extra)
+
+    result = build_save_dict(sim_28)
+    result['avrSWAP_full'] = np.column_stack([getattr(sim_28, name) for name in avr_full_names])
+    save_and_print_results(result, 28, output_dir)
 
     # Verify HDF5 file was created and contains valid data
     h5_path = os.path.join(this_dir, 'vit_sim28.RO.h5')

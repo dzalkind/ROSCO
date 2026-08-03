@@ -118,6 +118,9 @@ class output_processing():
         fast_data = dict(zip(info['channels'],data.T))
         fast_data['meta'] = info
         fast_data['meta']['filename'] = filename
+        if info.get('avrSWAP') is not None:
+            fast_data['avrSWAP'] = info['avrSWAP']
+            fast_data['avrSWAP_channels'] = info['avrSWAP_channels']
         return fast_data
 
     def plot_fast_out(self, fastout=None, cases=None, showplot=True, fignum=None, xlim=None):
@@ -401,11 +404,20 @@ def load_hdf5_output(filename):
             units.append(u.decode() if isinstance(u, bytes) else u)
         data = np.column_stack([f[c][:] for c in channels])
 
+        avr_swap, avr_swap_labels = None, None
+        if 'avrSWAP' in f:
+            avr_swap = f['avrSWAP'][:]
+            labels_attr = f['avrSWAP'].attrs.get('column_labels')
+            if labels_attr is not None:
+                avr_swap_labels = [l.decode() if isinstance(l, bytes) else l for l in labels_attr]
+
     info = {
         'name': os.path.splitext(os.path.basename(filename))[0],
         'description': [],
         'channels': channels,
         'attribute_units': units,
+        'avrSWAP': avr_swap,
+        'avrSWAP_channels': avr_swap_labels,
     }
     return data, info
 

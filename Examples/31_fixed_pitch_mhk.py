@@ -55,8 +55,7 @@ os.makedirs(example_out_dir,exist_ok=True)
 
 def main():
 
-    FULL_TEST = False   # Run a full test locally (True) or a shorter one for CI
-    sim_config = 1      # Choose which simulation configuration (1-6)
+    FULL_TEST = True   # Run a full test locally (True) or a shorter one for CI
 
     # Input yaml and output directory
     parameter_filename = os.path.join(this_dir, 'Tune_Cases/RM1_MHK_FBP.yaml')
@@ -80,78 +79,57 @@ def main():
         )
 
 
+    ### Control configurations: overrides applied to the tuning yaml controller_params
+    control_configs = {
+        'Constant Power Underspeed': {      # should be the default
+            'VS_FBP': 3,                    # Power reference
+            'VS_FBP_speed_mode': 0,
+            'VS_FBP_U': [2.0, 4.0],
+            'VS_FBP_P': [1.0, 1.0],
+            },
+        'Constant Power Overspeed': {
+            'VS_FBP': 2,                    # WSE reference
+            'VS_FBP_speed_mode': 1,
+            'VS_FBP_U': [2.0, 4.0],
+            'VS_FBP_P': [1.0, 1.0],
+            },
+        'Linear Increasing Power': {
+            'VS_FBP_speed_mode': 0,
+            'VS_FBP_U': [2.0, 4.0],
+            'VS_FBP_P': [1.0, 2.0],
+            },
+        'Increasing Leveled Power': {
+            'VS_FBP_U': [2.0, 3.0],
+            'VS_FBP_P': [1.0, 2.0],
+            },
+        'Generic User-Defined': {
+            'VS_FBP': 2,                    # WSE reference
+            'VS_FBP_U': [2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0],
+            'VS_FBP_P': [1.0, 1.3, 1.6, 1.8, 1.9, 2.0, 1.9, 1.8, 1.7, 1.6, 1.5],
+            },
+        'Constant Power Overspeed, Lookup Table': {
+            'VS_FBP': 1,                    # Constant power overspeed
+            'VS_FBP_speed_mode': 1,
+            'VS_FBP_U': [2.0, 4.0],
+            'VS_FBP_P': [1.0, 1.0],
+            'VS_ControlMode': 1,
+            },
+        }
+
     ### Tune controller cases
-    # Constant power underspeed (should be the default)
-    controller_params_1 = controller_params.copy()
-    controller_params_1['VS_FBP'] = 3 # Power reference
-    controller_params_1['VS_FBP_speed_mode'] = 0
-    controller_params_1['VS_FBP_U'] = [2.0, 4.0]
-    controller_params_1['VS_FBP_P'] = [1.0, 1.0]
-    controller_1      = ROSCO_controller.Controller(controller_params_1)
-    controller_1.tune_controller(turbine)
+    controllers = []
+    for overrides in control_configs.values():
+        controller = ROSCO_controller.Controller({**controller_params, **overrides})
+        controller.tune_controller(turbine)
+        controllers.append(controller)
 
-    # Constant power overspeed
-    controller_params_2 = controller_params.copy()
-    controller_params_2['VS_FBP'] = 2 # Switch to WSE reference
-    controller_params_2['VS_FBP_speed_mode'] = 1
-    controller_params_2['VS_FBP_U'] = [2.0, 4.0]
-    controller_params_2['VS_FBP_P'] = [1.0, 1.0]
-    controller_2      = ROSCO_controller.Controller(controller_params_2)
-    controller_2.tune_controller(turbine)
-
-    # Linear increasing power
-    controller_params_3 = controller_params.copy()
-    controller_params_3['VS_FBP_speed_mode'] = 0
-    controller_params_2['VS_FBP_U'] = [2.0, 4.0]
-    controller_params_3['VS_FBP_P'] = [1.0, 2.0]
-    controller_3      = ROSCO_controller.Controller(controller_params_3)
-    controller_3.tune_controller(turbine)
-
-    # Linear increasing power, leveling out
-    controller_params_4 = controller_params.copy()
-    controller_params_4['VS_FBP_U'] = [2.0, 3.0]
-    controller_params_4['VS_FBP_P'] = [1.0, 2.0]
-    controller_4      = ROSCO_controller.Controller(controller_params_4)
-    controller_4.tune_controller(turbine)
-
-    # Generic numeric function
-    controller_params_5 = controller_params.copy()
-    controller_params_5['VS_FBP'] = 2 # WSE reference
-    controller_params_5['VS_FBP_U'] = [2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0]
-    controller_params_5['VS_FBP_P'] = [1.0, 1.3, 1.6, 1.8, 1.9, 2.0, 1.9, 1.8, 1.7, 1.6, 1.5]
-    controller_5      = ROSCO_controller.Controller(controller_params_5)
-    controller_5.tune_controller(turbine)
-
-    # Constant power overspeed, nonlinear lookup table control
-    controller_params_6 = controller_params.copy()
-    controller_params_6['VS_FBP'] = 1 # Constant power overspeed
-    controller_params_6['VS_FBP_speed_mode'] = 1
-    controller_params_6['VS_FBP_U'] = [2.0, 4.0]
-    controller_params_6['VS_FBP_P'] = [1.0, 1.0]
-    controller_params_6['VS_ControlMode'] = 1
-    controller_6      = ROSCO_controller.Controller(controller_params_6)
-    controller_6.tune_controller(turbine)
-
-
-    plot_labels = ['Constant Power Underspeed', 'Constant Power Overspeed', 'Linear Increasing Power', 'Increasing Leveled Power', 'Generic User-Defined']
     fig, axs = plt.subplots(3,1)
-    axs[0].plot(controller_1.v, controller_1.power_op, label=plot_labels[0])
-    axs[0].plot(controller_2.v, controller_2.power_op, label=plot_labels[1], linestyle='--')
-    axs[0].plot(controller_3.v, controller_3.power_op, label=plot_labels[2])
-    axs[0].plot(controller_4.v, controller_4.power_op, label=plot_labels[3])
-    axs[0].plot(controller_5.v, controller_5.power_op, label=plot_labels[4])
+    for (label, cont, line_style) in zip(control_configs, controllers, ['-','--','-','-','-',':']):
+        axs[0].plot(cont.v, cont.power_op, label=label, linestyle=line_style)
+        axs[1].plot(cont.v, cont.omega_gen_op, label=label, linestyle=line_style)
+        axs[2].plot(cont.v, cont.tau_op, label=label, linestyle=line_style)
     axs[0].set_ylabel('Gen Power [W]')
-    axs[1].plot(controller_1.v, controller_1.omega_gen_op, label=plot_labels[0])
-    axs[1].plot(controller_2.v, controller_2.omega_gen_op, label=plot_labels[1], linestyle='--')
-    axs[1].plot(controller_3.v, controller_3.omega_gen_op, label=plot_labels[2])
-    axs[1].plot(controller_4.v, controller_4.omega_gen_op, label=plot_labels[3])
-    axs[1].plot(controller_5.v, controller_5.omega_gen_op, label=plot_labels[4])
     axs[1].set_ylabel('Gen Speed [rad/s]')
-    axs[2].plot(controller_1.v, controller_1.tau_op, label=plot_labels[0])
-    axs[2].plot(controller_2.v, controller_2.tau_op, label=plot_labels[1], linestyle='--')
-    axs[2].plot(controller_3.v, controller_3.tau_op, label=plot_labels[2])
-    axs[2].plot(controller_4.v, controller_4.tau_op, label=plot_labels[3])
-    axs[2].plot(controller_5.v, controller_5.tau_op, label=plot_labels[4])
     axs[2].set_ylabel('Gen Torque [N m]')
     axs[2].set_xlabel('Flow Speed [m/s]')
     axs[0].legend(loc='upper left', bbox_to_anchor=(.2, 2.35))
@@ -163,12 +141,12 @@ def main():
     if False:
         plt.show()
     else:
-        fig_fname = os.path.join(example_out_dir, '30_fixed_pitch_mhk_sched.png')
+        fig_fname = os.path.join(example_out_dir, '31_fixed_pitch_mhk_sched.png')
         print('Saving figure ' + fig_fname)
         plt.savefig(fig_fname,bbox_inches='tight',)
 
-    # Write parameter input file for constant power underspeed controller
-    run_dir = os.path.join(example_out_dir, f'31_MHK/{sim_config}_config')
+    # Simulate all control configurations, in parallel
+    run_dir = os.path.join(example_out_dir, '31_MHK')
     os.makedirs(run_dir,exist_ok=True)
 
     # simulation set up
@@ -176,20 +154,6 @@ def main():
         TMax = 60
     else:
         TMax = 5
-
-    all_controller_params = [
-        controller_params_1,
-        controller_params_2,
-        controller_params_3,
-        controller_params_4,
-        controller_params_5,
-        controller_params_6,
-    ]
-
-    if sim_config in range(1,len(all_controller_params)+1):
-        controller_params = all_controller_params[sim_config-1]
-    else:
-        raise Exception(f'Invalid sim_config of {sim_config}.  Note the 1-indexing.')
 
     r = run_FAST_ROSCO()
     r.tuning_yaml   = parameter_filename
@@ -199,24 +163,31 @@ def main():
         'TMax': TMax,
         }
     r.case_inputs = {}
-    r.controller_params = controller_params
+    r.control_sweep_fcn = cl.sweep_yaml_input
+    r.control_sweep_opts = {'param_sweeps': list(control_configs.values())}
     r.save_dir      = run_dir
     r.rosco_dir     = rosco_dir
+    r.n_cores       = min(len(control_configs), os.cpu_count())
 
     r.run_FAST()
 
     op = output_processing.output_processing()
-    fast_out = op.load_fast_out([os.path.join(run_dir,'RM1_MHK_FBP_0.out')], tmin=0)
+    out_files = [os.path.join(run_dir,f'RM1_MHK_FBP_{i}.out') for i in range(len(control_configs))]
+    fast_out = op.load_fast_out(out_files, tmin=0)
+    assert len(fast_out) == len(control_configs)
+
     fig, axs = plt.subplots(4,1)
-    axs[0].plot(fast_out[0]['Time'], fast_out[0]['Wind1VelX'],             label='Constant Power Underspeed')
+    for label, fo in zip(control_configs, fast_out):
+        axs[0].plot(fo['Time'], fo['Wind1VelX'],             label=label)
+        axs[1].plot(fo['Time'], fo['GenSpeed'] * 2*np.pi/60, label=label)
+        axs[2].plot(fo['Time'], fo['GenTq'] * 1e3,           label=label)
+        axs[3].plot(fo['Time'], fo['GenPwr'] * 1e3,          label=label)
     axs[0].set_ylabel('Flow Speed [m/s]',rotation=0, labelpad=50)
-    axs[1].plot(fast_out[0]['Time'], fast_out[0]['GenSpeed'] * 2*np.pi/60, label='Constant Power Underspeed')
     axs[1].set_ylabel('Gen Speed [rad/s]',rotation=0, labelpad=50)
-    axs[2].plot(fast_out[0]['Time'], fast_out[0]['GenTq'] * 1e3,           label='Constant Power Underspeed')
     axs[2].set_ylabel('Gen Torque [N m]',rotation=0, labelpad=50)
-    axs[3].plot(fast_out[0]['Time'], fast_out[0]['GenPwr'] * 1e3,          label='Constant Power Underspeed')
     axs[3].set_ylabel('Gen Power [W]',rotation=0, labelpad=50)
     axs[3].set_xlabel('Time [s]')
+    axs[0].legend(loc='upper left', bbox_to_anchor=(.2, 1.9))
 
     plt.subplots_adjust(hspace=0.5)
     fig.align_ylabels()
@@ -227,7 +198,7 @@ def main():
     if False:
         plt.show()
     else:
-        fig_fname = os.path.join(example_out_dir, '30_fixed_pitch_mhk_sim.png')
+        fig_fname = os.path.join(example_out_dir, '31_fixed_pitch_mhk_sim.png')
         print('Saving figure ' + fig_fname)
         plt.savefig(fig_fname, bbox_inches='tight')
 

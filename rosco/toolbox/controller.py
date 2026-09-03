@@ -112,11 +112,21 @@ class Controller():
             self.min_pitch = controller_params['min_pitch']
 
         if self.VS_FBP > 0:
-            
-            # Fail if generator torque enabled in Region 3 but pitch control not disabled (may enable these modes to operate together in the future)
-            if self.PC_ControlMode != 0:
-                raise Exception(
-                    'rosco.toolbox:controller: PC_ControlMode must be 0 if VS_FBP > 0')
+
+            # Mode conflicts asserted in ReadSetParameters.f90; ROSCO aborts on these at runtime, so fail here instead of writing a config that cannot run
+            for mode_name in ['PC_ControlMode', 'VS_ConstPower', 'PRC_Mode']:
+                if getattr(self, mode_name) != 0:
+                    raise Exception(
+                        f'rosco.toolbox:controller: {mode_name} must be 0 if VS_FBP > 0')
+
+            # VS_FBP = 1 runs the fixed control law tau = min(P_rated/omega, K*omega^2), so ROSCO ignores the power curve and speed mode.
+            # Generate the schedule it will actually follow: the table still sets the initial generator torque and the tuned gain schedule.
+            if self.VS_FBP == 1:
+                if self.fbp_speed_mode != 1 or self.fbp_power_mode != 0 or np.any(np.atleast_1d(self.fbp_P) != 1.0):
+                    print('WARNING: VS_FBP = 1 always follows a constant rated power, overspeed schedule. Ignoring VS_FBP_speed_mode, VS_FBP_power_mode, and VS_FBP_P.')
+                self.fbp_speed_mode = 1
+                self.fbp_power_mode = 0
+                self.fbp_P = np.ones(len(np.atleast_1d(self.fbp_U)))
 
         if self.Flp_Mode > 0:
             if 'flp_kp_norm' in controller_params and 'flp_tau' in controller_params:
@@ -270,10 +280,6 @@ class Controller():
         # Construct power schedule differently based on pitch control configuration
         if self.VS_FBP > 0: # If using torque control in Region 3
 
-            # Check if constant power control disabled (may be implemented to work concurrently in the future)
-            if self.VS_ConstPower != 0:
-                raise Exception("VS_ConstPower must be 0 when VS_FBP > 0")
-
             # Begin with user-defined power curve from input yaml (default constant rated power)
             f_P_user_defined = interpolate.interp1d(self.fbp_U, self.fbp_P, fill_value=(self.fbp_P[0], self.fbp_P[-1]), bounds_error=False)
             P_user_defined = f_P_user_defined(v)
@@ -384,7 +390,7 @@ class Controller():
         if self.VS_FBP == 3:
             # The simulation will crash if we have a nonmonotonic schedule, so fail to generate the config and alert the user
             if np.any(np.diff(tau_op) <= 0):
-                raise Exception("VS controller reference torque interpolation is selected (VS_FBP_ref_mode == 1), but computed generator torque schedule is not monotonically increasing. Reconfigure power curve, ensure VS_FBP_speed_mode == 0, or switch VS_FBP to 2.")
+                raise Exception("VS_FBP = 3 (torque-lookup reference tracking) is selected, but the computed generator torque schedule is not strictly increasing, so it cannot be inverted. Set VS_FBP_speed_mode = 0 (underspeed) with a nondecreasing power curve, or switch VS_FBP to 2.")
 
 
         # Full Cx surface gradients

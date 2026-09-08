@@ -119,6 +119,13 @@ class Controller():
                     raise Exception(
                         f'rosco.toolbox:controller: {mode_name} must be 0 if VS_FBP > 0')
 
+            # Region 2 and Region 3 use the same actuator, so the torque controllers must hand off consistently
+            recommended_vs_mode = {1: 1, 2: 2, 3: 4}[self.VS_FBP]
+            if self.VS_ControlMode != recommended_vs_mode:
+                print(f'WARNING: VS_ControlMode = {self.VS_ControlMode} is not the recommended Region 2 '
+                      f'mode for VS_FBP = {self.VS_FBP}; use VS_ControlMode = {recommended_vs_mode} so the '
+                      'Region 2 and Region 3 references agree through the transition.')
+
             # VS_FBP = 1 runs the fixed control law tau = min(P_rated/omega, K*omega^2), so ROSCO ignores the power curve and speed mode.
             # Generate the schedule it will actually follow: the table still sets the initial generator torque and the tuned gain schedule.
             if self.VS_FBP == 1:
@@ -242,6 +249,54 @@ class Controller():
                 not len(self.U_pc) == len(self.omega_pc) == len(self.zeta_pc):
             raise Exception(
                 'U_pc, omega_pc, and zeta_pc are all list-like and are not of equal length')
+
+
+    def cavitation_speed_limit(self, turbine, v):
+        """
+        Estimate the rotor speed at which tip cavitation begins, for each inflow speed.
+
+        Cavitation occurs where the local pressure falls below the vapour pressure:
+
+            p_min = p_atm + rho*g*h + Cp_min*(0.5*rho*W^2) < p_vap
+
+        which rearranges to a cavitation number criterion, sigma > -Cp_min, with
+
+            sigma = (p_atm + rho*g*h - p_vap) / (0.5*rho*W^2)
+
+        Depth enters only through the hydrostatic head rho*g*h. The worst case is the
+        blade tip at the top of its rotation, where h is smallest and W is largest.
+        Setting sigma = sigma_v and W^2 = (Omega*R)^2 + v^2 gives Omega directly.
+
+        This is a tip, attached-flow screening estimate. It is accurate in the high-TSR
+        (overspeed) regime where the tip sits near zero lift, and optimistic for
+        deeply-stalled underspeed setpoints, whose higher -Cp_min it does not capture.
+        It also assumes a fixed hub depth; for a floating MHK turbine, heave and tide
+        move the tip shallower and reduce the true limit. Verify a marginal schedule
+        with an AeroDyn CavitCheck run.
+
+        Parameters:
+        -----------
+        turbine : Turbine
+                  Turbine object, must carry MHK cavitation properties.
+        v : array_like
+            Inflow speeds of the operating schedule, m/s.
+
+        Returns:
+        --------
+        omega_cav : ndarray or None
+                    Rotor speed limit at each inflow speed, rad/s. None if the turbine
+                    is not an MHK turbine or the polars carry no Cp_min data.
+        """
+        if not getattr(turbine, 'MHK', 0) or getattr(turbine, 'cavit_sigma_v', None) is None:
+            return None
+
+        # Available pressure budget at the tip's shallowest point
+        dp = turbine.Patm + turbine.rho * 9.80665 * turbine.tip_depth - turbine.Pvap
+        if dp <= 0:
+            return None
+
+        w_max_sq = 2 * dp / (turbine.rho * turbine.cavit_sigma_v)
+        return np.sqrt(np.maximum(w_max_sq - np.asarray(v)**2, 0.0)) / turbine.rotor_radius
 
 
     def tune_controller(self, turbine):
@@ -385,6 +440,18 @@ class Controller():
         if np.max(tau_op) > turbine.max_torque: # turbine.max_torque * 1.2 # DBS: Should we include additional margin? 
             print('WARNING: Torque operating schedule is above maximum generator torque and may not be realizable within saturation limits.')
             # DBS: Future - add input constraints to satisfy maximum torque, speed, and thrust (peak shaving) in addition to power
+
+        # Check the speed schedule against tip cavitation for MHK turbines. Overspeed
+        # schedules reduce torque while raising speed, so the torque check above cannot
+        # catch them.
+        omega_cav = self.cavitation_speed_limit(turbine, v)
+        if omega_cav is not None and np.any(omega_op > omega_cav):
+            i = np.argmax(omega_op - omega_cav)
+            print('WARNING: Rotor speed operating schedule exceeds the estimated tip '
+                  'cavitation limit. Worst point is {:.2f} rad/s at {:.1f} m/s inflow, '
+                  'against a limit of {:.2f} rad/s. Verify with an AeroDyn CavitCheck '
+                  'run; see the MHK documentation on rotor speed limits.'.format(
+                      omega_op[i], v[i], omega_cav[i]))
 
         # Check if options allow a nonmonotonic torque schedule
         if self.VS_FBP == 3:

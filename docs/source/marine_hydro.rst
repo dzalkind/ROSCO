@@ -57,8 +57,11 @@ Over/Underspeed Reference Setpoints
 
 The steady state generator-speed setpoints are determined by the :math:`C_p`
 contours intersecting with the fine-pitch line.
-Overspeed achieves up to 3x rated speed, which has additional consequences for
-blade loads (e.g., cavitation, high thrust).
+For the RM1, overspeed reaches up to 3x rated speed. How far a given rotor can
+actually use that range is limited by cavitation, discussed in
+:ref:`speed_limits_cavitation`; on the RM1 the limit binds well before 3x.
+Rotor speed also has consequences for
+blade loads (high thrust).
 
 .. _cp_wg_sched:
 .. figure:: /images/mhk/03_cp_wg_sched.png
@@ -173,6 +176,11 @@ relative to rated power (equivalently, the generator resizing factor), are:
    * -  Constant power
      -  1x
 
+These multipliers follow from the RM1 :math:`C_p` surface and its
+:math:`v_{rated}` to :math:`v_{cut-out}` range, and are reported here to show the
+relative spread between the curves. They are not general: the same five curve
+definitions applied to another rotor will produce different factors.
+
 .. _ext_P:
 .. figure:: /images/mhk/11_ext_P.png
    :align: center
@@ -224,6 +232,8 @@ Dropping from the MPPT curve to the quadratic curve, a reduction in peak power
 requirement from 8x to 7x rated, moves the overspeed setpoint at cut-out from
 roughly 2.5 to 3.5 rad/s rotor speed in the schedule above (about 130 to 185
 rad/s at the generator): a 12% reduction in power buys a 40% change in speed.
+These values are specific to the RM1; the qualitative sensitivity is general, the
+numbers are not.
 The two branches also look very different in this plane: the underspeed branches
 are nearly vertical (large torque change for small speed change), the overspeed
 branches nearly horizontal (large speed change for small torque change).
@@ -265,6 +275,99 @@ before being selected.
 .. figure:: /images/mhk/20_ext_wg_thrust_sched.png
    :align: center
    :width: 90%
+
+
+.. _speed_limits_cavitation:
+
+Rotor Speed Limits and Cavitation
+----------------------------------
+
+Power and thrust are not the only constraints on an FBP operating schedule. For a
+marine turbine, the rotor speed is also bounded by cavitation, and this bound is
+what usually decides whether the overspeed branch is available at all.
+
+Cavitation occurs where the local pressure on the blade falls below the vapour
+pressure of water. Writing the suction peak in terms of the section's minimum
+pressure coefficient :math:`C_{p,min}`,
+
+.. math::
+
+   p_{min} = p_{atm} + \rho g h + C_{p,min}\left(\tfrac{1}{2}\rho W^2\right) < p_{vap}
+
+which rearranges into the usual cavitation number criterion,
+
+.. math::
+
+   \sigma = \frac{p_{atm} + \rho g h - p_{vap}}{\tfrac{1}{2}\rho W^2} > -C_{p,min}
+
+Two things follow, and both matter for control design.
+
+**Depth enters only as hydrostatic head.** The submergence :math:`h` appears
+nowhere except in :math:`\rho g h`, which sets the pressure budget available to be
+spent on suction. Seawater is dense enough that 10 m of depth adds about 101 kPa,
+roughly one additional atmosphere, so submergence is a strong lever on the
+available margin. Because the relevant depth is the *shallowest* point the blade
+reaches, the binding condition is the blade tip at the top of its rotation.
+
+**The criterion collapses to a rotor speed limit.** Since the relative velocity at
+the tip is dominated by :math:`\Omega R`, substituting
+:math:`W^2 = (\Omega R)^2 + v^2` and solving for :math:`\Omega` gives a maximum
+usable rotor speed:
+
+.. math::
+
+   \Omega_{cav} = \frac{1}{R}\sqrt{\frac{2\left(p_{atm} + \rho g h_{tip} - p_{vap}\right)}{\rho\,\sigma_v} - v^2}
+
+where :math:`\sigma_v = -C_{p,min}` for the outboard blade sections and
+:math:`h_{tip}` is the tip depth at the top of its rotation. Note that neither the
+power curve nor the choice of over/underspeed branch appears in this expression:
+**cavitation constrains rotor speed directly**, and any operating schedule that
+exceeds :math:`\Omega_{cav}` is affected regardless of how it was generated.
+
+The ROSCO toolbox evaluates this limit and warns if the generated speed schedule
+violates it (see :ref:`the toolbox schedule checks <cavitation_warning>`).
+
+Selecting Over- vs Underspeed
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Comparing :math:`\Omega_{cav}` against the speed schedule a given power curve
+requires is the practical way to decide whether overspeed is usable for a
+particular rotor:
+
+* If the overspeed schedule stays below :math:`\Omega_{cav}` across Region 3,
+  overspeed is available, and the thrust and drivetrain-speed considerations
+  discussed above govern the choice.
+* If it does not, the overspeed branch is unavailable for that rotor at that
+  submergence, and the underspeed branch should be selected
+  (:code:`VS_FBP_speed_mode = 0`).
+
+Because :math:`\Omega_{cav}` scales with :math:`\sqrt{\rho g h_{tip}}`, machines
+that are deeply submerged, or that use low design tip speeds, retain more of the
+overspeed range than shallow, high-tip-speed rotors.
+
+For the RM1 at its nominal 24 m hub depth, :math:`\Omega_{cav}` is approximately
+2.26 rad/s, or about 1.9x rated rotor speed, whereas the constant-power overspeed
+schedule requires roughly 5.7x rated speed at cut-out. Overspeed is therefore not
+available for this rotor, and the underspeed configurations (Examples 2 and 3) are
+the applicable ones. This is a property of the RM1 and its submergence, not a
+general result.
+
+.. note::
+   For a floating MHK turbine (:code:`MHK = 2`), the hub depth is not constant:
+   platform heave and tidal range move the rotor vertically and change
+   :math:`h_{tip}` directly. A speed limit computed at nominal depth will be
+   optimistic at the shallow end of that excursion, so the limit should be
+   evaluated at the shallowest expected submergence rather than the mean.
+
+The expression above is a tip, attached-flow estimate. It is well suited to the
+high-TSR overspeed regime, where the outboard sections operate near zero lift and
+:math:`-C_{p,min}` is close to its minimum value. It is optimistic for deeply
+stalled underspeed setpoints, whose larger :math:`-C_{p,min}` it does not capture,
+though those setpoints have much lower relative velocity and correspondingly large
+margin. A schedule that is marginal against this estimate should be verified with
+an AeroDyn cavitation check (:code:`CavitCheck = True`), which evaluates the full
+criterion at every blade node using the angle-of-attack-dependent
+:math:`C_{p,min}` from the polars.
 
 
 Toolbox Implementation
@@ -332,6 +435,29 @@ The following constraints apply when FBP control is enabled:
   on both counts. Overspeed generally is not sufficient: generator speed rises
   with flow speed, so the torque falls unless the power curve rises faster than
   the speed, which in practice only holds near the MPPT curve.
+
+.. _cavitation_warning:
+
+The toolbox also screens the generated schedule against two limits that it warns
+about rather than enforces, since both depend on hardware choices outside the
+controller:
+
+* If the generator torque schedule exceeds :code:`max_torque_factor` times rated
+  torque, the toolbox warns that the schedule may not be realizable within
+  saturation limits.
+* For MHK turbines (:code:`MHK > 0`), if the rotor speed schedule exceeds the
+  estimated tip cavitation limit :math:`\Omega_{cav}` from
+  :ref:`speed_limits_cavitation`, the toolbox warns and reports the worst
+  offending operating point. The limit is computed from the water density,
+  atmospheric and vapour pressures, and hub submergence in the OpenFAST model,
+  together with :math:`-C_{p,min}` taken from the outboard AeroDyn polars. The
+  check is skipped if the polars carry no :math:`C_{p,min}` column
+  (:code:`InCol_Cpmin = 0`).
+
+Note that the torque check alone will not catch an overspeed schedule: overspeed
+*reduces* generator torque while raising speed, so an overspeed configuration can
+sit far above the cavitation limit while the torque schedule stays well within
+bounds. The two checks are complementary.
 
 The Region-2 torque control mode should be chosen to match the Region-3 FBP mode,
 so that the two controllers hand off consistently through the transition region:
@@ -444,6 +570,14 @@ controller (:code:`VS_ControlMode = 1`).
 It is easy to design and requires no tuning, but is rigid and inflexible, and its
 overspeed operating points carry high tip speed and blade thrust.
 
+.. note::
+   Because this mode is inherently overspeed, it should be screened against the
+   cavitation speed limit of :ref:`speed_limits_cavitation` before selection. For
+   the RM1 the required speeds exceed that limit, so this example is included to
+   demonstrate and verify the control law rather than as a recommended
+   configuration for this rotor. It remains appropriate for rotors whose
+   overspeed schedule stays within :math:`\Omega_{cav}`.
+
 .. _case1_P_wg_tg_ss:
 .. figure:: /images/mhk/22_case1_P_wg_tg_ss.png
    :align: center
@@ -471,6 +605,20 @@ reference and a semi-arbitrary power curve:
 This configuration is highly general, but requires an aggressive torque controller
 to stabilize the open-loop-unstable underspeed setpoints, and therefore requires a
 high maximum torque signal (see :code:`max_torque_factor` in the tuning yaml).
+
+.. warning::
+   Sizing the torque limit is a safety consideration, not only a tracking one.
+   Every underspeed setpoint sits where hydrodynamic torque *increases* with rotor
+   speed, so if the commanded torque saturates below what the inflow demands, the
+   rotor accelerates rather than settling. Because the aerodynamic torque curve
+   only turns over past :math:`TSR_{opt}`, the nearest stable equilibrium is on
+   the *overspeed* side of the :math:`C_p` peak. Insufficient torque authority on
+   an underspeed schedule therefore does not stall the rotor to a stop: it
+   accelerates through the :math:`C_p` peak and settles at high speed, in the
+   high-thrust and cavitation-prone regime that the underspeed schedule was chosen
+   to avoid. The same applies to any fault that removes generator torque. Size
+   :code:`max_torque_factor` above the peak hydrodynamic torque over the operating
+   range, and ensure the shutdown path can arrest the rotor without it.
 
 .. _case2_P_wg_tg_ss:
 .. figure:: /images/mhk/23_case2_P_wg_tg_ss.png

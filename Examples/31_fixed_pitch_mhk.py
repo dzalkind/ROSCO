@@ -82,13 +82,14 @@ def main():
     ### Control configurations: overrides applied to the tuning yaml controller_params
     control_configs = {
         'Constant Power Underspeed': {      # should be the default
-            'VS_FBP': 3,                    # Power reference
+            'VS_FBP': 3,                    # Torque-lookup reference
             'VS_FBP_speed_mode': 0,
             'VS_FBP_U': [2.0, 4.0],
             'VS_FBP_P': [1.0, 1.0],
             },
         'Constant Power Overspeed': {
             'VS_FBP': 2,                    # WSE reference
+            'VS_ControlMode': 2,            # Region 2 mode paired with VS_FBP = 2
             'VS_FBP_speed_mode': 1,
             'VS_FBP_U': [2.0, 4.0],
             'VS_FBP_P': [1.0, 1.0],
@@ -104,15 +105,16 @@ def main():
             },
         'Generic User-Defined': {
             'VS_FBP': 2,                    # WSE reference
+            'VS_ControlMode': 2,            # Region 2 mode paired with VS_FBP = 2
             'VS_FBP_U': [2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0],
             'VS_FBP_P': [1.0, 1.3, 1.6, 1.8, 1.9, 2.0, 1.9, 1.8, 1.7, 1.6, 1.5],
             },
         'Constant Power Overspeed, Lookup Table': {
             'VS_FBP': 1,                    # Constant power overspeed
+            'VS_ControlMode': 1,            # Region 2 mode paired with VS_FBP = 1
             'VS_FBP_speed_mode': 1,
             'VS_FBP_U': [2.0, 4.0],
             'VS_FBP_P': [1.0, 1.0],
-            'VS_ControlMode': 1,
             },
         }
 

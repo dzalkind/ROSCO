@@ -477,9 +477,11 @@ so that the two controllers hand off consistently through the transition region:
 
 Note that the ROSCO input schema (:ref:`rt_tuning_yaml`) contains the latest input definitions.
 
-A worked example of all six configurations is provided in
+The three case studies verified below are provided as worked examples in
 :code:`Examples/31_fixed_pitch_mhk.py`, which tunes against the RM1 marine turbine
-tuning case :code:`Examples/Tune_Cases/RM1_MHK_FBP.yaml`.
+tuning case :code:`Examples/Tune_Cases/RM1_MHK_FBP.yaml`. That script also ships three
+experimental configurations covering the rest of the input space; see
+:ref:`fbp_experimental_configs`.
 
 
 ROSCO Implementation
@@ -668,6 +670,33 @@ aggressive controller and high torque headroom.
 .. figure:: /images/mhk/28_case3_P_wg_tg_turb.png
    :align: center
    :width: 90%
+
+
+.. _fbp_experimental_configs:
+
+Additional Configurations
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:code:`Examples/31_fixed_pitch_mhk.py` ships three further configurations beyond the
+three examples above:
+
+* Constant power underspeed: the Example 2 configuration
+  (:code:`VS_FBP = 3`, :code:`VS_ControlMode = 4`) with the power curve held flat at
+  rated rather than increasing.
+* Constant power overspeed via reference tracking: the Example 1 operating schedule
+  reached through the WSE lookup (:code:`VS_FBP = 2`, :code:`VS_ControlMode = 2`)
+  instead of the fixed control law.
+* Linear increasing power, leveling out: the Example 2 power curve reaching 2x rated
+  below cut-out and flat thereafter.
+
+These are experimental. They are included to demonstrate the range of power curves and
+mode pairings the toolbox accepts, and have not been through the steady and turbulent
+verification campaign that Examples 1 through 3 have. Treat their operating schedules as
+illustrative rather than validated.
+
+The cavitation caveat attached to Example 1 applies to the overspeed reference-tracking
+configuration as well: for the RM1 rotor, both exceed the tip cavitation limit of
+:ref:`speed_limits_cavitation`, and the toolbox warns accordingly when they are tuned.
 
 
 Recommendations

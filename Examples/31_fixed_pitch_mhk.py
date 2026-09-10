@@ -5,14 +5,19 @@
 This example demonstrates the fixed-pitch control of a marine hydrodkinetic (MHK) turbine.
 
 There are several ways to control the power output of a turbine in above-rated conditions.  
-In this example we demonstrate the following control configurations:
+The first three configurations demonstrated here are the case studies verified against
+simulation in :ref:`marine_hydro`:
 
-#. Constant power underspeed (should be the default)
-#. Constant power overspeed
-#. Linear increasing power
-#. Linear increasing power, leveling out
-#. Generic numeric function
-#. Constant power overspeed, nonlinear lookup table control
+#. Example 1: Constant power overspeed, nonlinear control law
+#. Example 2: Linear increasing power, underspeed with torque-lookup reference
+#. Example 3: Generic user-defined power curve, underspeed with WSE-lookup reference
+
+The remaining three are experimental. They exercise the rest of the fixed-pitch input
+space and are not part of that verification campaign:
+
+* Constant power underspeed
+* Constant power overspeed, via WSE-lookup reference tracking
+* Linear increasing power, leveling out below cut-out
 
 More details about the controller methods can be found in :ref:`marine_hydro`.
 
@@ -20,8 +25,8 @@ The desired power curves of each configuration are as follows:
 
 .. image:: ../images/examples/31_fixed_pitch_mhk_sched.png
 
-In the first case, the reference generator speed is decreased (underspeed) to maintain a constant rated power above rated.
-To slow down the generator, a higher torque must be used:
+In the first case, the reference generator speed is increased (overspeed) to maintain a constant
+rated power above rated, following the fixed control law tau = min(P_rated/omega, K*omega^2):
 
 .. image:: ../images/examples/31_fixed_pitch_mhk_sim.png
 
@@ -30,8 +35,8 @@ To slow down the generator, a higher torque must be used:
 '''
 
 # Copying images, from docs/:
-# cp ../Examples/examples_out/30_fixed_pitch_mhk_sched.png images/
-# cp ../Examples/examples_out/30_fixed_pitch_mhk_sim.png images/
+# cp ../Examples/examples_out/31_fixed_pitch_mhk_sched.png images/examples/
+# cp ../Examples/examples_out/31_fixed_pitch_mhk_sim.png images/examples/
 
 import os
 from rosco.toolbox.ofTools.case_gen.run_FAST import run_FAST_ROSCO
@@ -80,41 +85,52 @@ def main():
 
 
     ### Control configurations: overrides applied to the tuning yaml controller_params
+    # The first three are the verified case studies of :ref:`marine_hydro`; the rest
+    # demonstrate the rest of the FBP input space and are not part of that campaign.
+    # Each config states VS_FBP and its paired VS_ControlMode explicitly, rather than
+    # inheriting either from the tuning yaml.
     control_configs = {
-        'Constant Power Underspeed': {      # should be the default
-            'VS_FBP': 3,                    # Torque-lookup reference
-            'VS_FBP_speed_mode': 0,
-            'VS_FBP_U': [2.0, 4.0],
-            'VS_FBP_P': [1.0, 1.0],
-            },
-        'Constant Power Overspeed': {
-            'VS_FBP': 2,                    # WSE reference
-            'VS_ControlMode': 2,            # Region 2 mode paired with VS_FBP = 2
-            'VS_FBP_speed_mode': 1,
-            'VS_FBP_U': [2.0, 4.0],
-            'VS_FBP_P': [1.0, 1.0],
-            },
-        'Linear Increasing Power': {
-            'VS_FBP_speed_mode': 0,
-            'VS_FBP_U': [2.0, 4.0],
-            'VS_FBP_P': [1.0, 2.0],
-            },
-        'Increasing Leveled Power': {
-            'VS_FBP_U': [2.0, 3.0],
-            'VS_FBP_P': [1.0, 2.0],
-            },
-        'Generic User-Defined': {
-            'VS_FBP': 2,                    # WSE reference
-            'VS_ControlMode': 2,            # Region 2 mode paired with VS_FBP = 2
-            'VS_FBP_U': [2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0],
-            'VS_FBP_P': [1.0, 1.3, 1.6, 1.8, 1.9, 2.0, 1.9, 1.8, 1.7, 1.6, 1.5],
-            },
-        'Constant Power Overspeed, Lookup Table': {
-            'VS_FBP': 1,                    # Constant power overspeed
+        'Example 1: Constant Power Overspeed': {    # marine_hydro Example 1
+            'VS_FBP': 1,                    # Constant power overspeed, nonlinear control law
             'VS_ControlMode': 1,            # Region 2 mode paired with VS_FBP = 1
             'VS_FBP_speed_mode': 1,
             'VS_FBP_U': [2.0, 4.0],
             'VS_FBP_P': [1.0, 1.0],
+            },
+        'Example 2: Linear Increasing Power': {     # marine_hydro Example 2
+            'VS_FBP': 3,                    # Torque-lookup reference
+            'VS_ControlMode': 4,            # Region 2 mode paired with VS_FBP = 3
+            'VS_FBP_speed_mode': 0,
+            'VS_FBP_U': [2.0, 4.0],
+            'VS_FBP_P': [1.0, 2.0],
+            },
+        'Example 3: Generic User-Defined': {        # marine_hydro Example 3
+            'VS_FBP': 2,                    # WSE-lookup reference
+            'VS_ControlMode': 2,            # Region 2 mode paired with VS_FBP = 2
+            'VS_FBP_speed_mode': 0,
+            'VS_FBP_U': [2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0],
+            'VS_FBP_P': [1.0, 1.3, 1.6, 1.8, 1.9, 2.0, 1.9, 1.8, 1.7, 1.6, 1.5],
+            },
+        'Experimental: Constant Power Underspeed': {    # Example 2 held at rated power
+            'VS_FBP': 3,                    # Torque-lookup reference
+            'VS_ControlMode': 4,            # Region 2 mode paired with VS_FBP = 3
+            'VS_FBP_speed_mode': 0,
+            'VS_FBP_U': [2.0, 4.0],
+            'VS_FBP_P': [1.0, 1.0],
+            },
+        'Experimental: Constant Power Overspeed (WSE)': {   # Example 1 schedule via reference tracking
+            'VS_FBP': 2,                    # WSE-lookup reference
+            'VS_ControlMode': 2,            # Region 2 mode paired with VS_FBP = 2
+            'VS_FBP_speed_mode': 1,         # Overspeed: check against the cavitation limit, exceeded for the RM1
+            'VS_FBP_U': [2.0, 4.0],
+            'VS_FBP_P': [1.0, 1.0],
+            },
+        'Experimental: Increasing Leveled Power': {     # Example 2 leveling out below cut-out
+            'VS_FBP': 3,                    # Torque-lookup reference
+            'VS_ControlMode': 4,            # Region 2 mode paired with VS_FBP = 3
+            'VS_FBP_speed_mode': 0,
+            'VS_FBP_U': [2.0, 3.0],
+            'VS_FBP_P': [1.0, 2.0],
             },
         }
 
@@ -125,8 +141,12 @@ def main():
         controller.tune_controller(turbine)
         controllers.append(controller)
 
+    # The WSE overspeed config tracks the same schedule as Example 1, so dash it to keep both visible
+    line_styles = {'Experimental: Constant Power Overspeed (WSE)': '--'}
+
     fig, axs = plt.subplots(3,1)
-    for (label, cont, line_style) in zip(control_configs, controllers, ['-','--','-','-','-',':']):
+    for label, cont in zip(control_configs, controllers):
+        line_style = line_styles.get(label, '-')
         axs[0].plot(cont.v, cont.power_op, label=label, linestyle=line_style)
         axs[1].plot(cont.v, cont.omega_gen_op, label=label, linestyle=line_style)
         axs[2].plot(cont.v, cont.tau_op, label=label, linestyle=line_style)

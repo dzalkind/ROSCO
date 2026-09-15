@@ -114,10 +114,15 @@ class Controller():
         if self.VS_FBP > 0:
 
             # Mode conflicts asserted in ReadSetParameters.f90; ROSCO aborts on these at runtime, so fail here instead of writing a config that cannot run
-            for mode_name in ['PC_ControlMode', 'VS_ConstPower', 'PRC_Mode']:
+            for mode_name in ['PC_ControlMode', 'VS_ConstPower']:
                 if getattr(self, mode_name) != 0:
                     raise Exception(
                         f'rosco.toolbox:controller: {mode_name} must be 0 if VS_FBP > 0')
+
+            # PRC_Mode = 1 overrides the FBP speed reference with its own lookup; PRC_Mode = 2 only de-rates and is allowed
+            if self.PRC_Mode == 1:
+                raise Exception(
+                    'rosco.toolbox:controller: PRC_Mode must not be 1 if VS_FBP > 0')
 
             # Region 2 and Region 3 use the same actuator, so the torque controllers must hand off consistently
             recommended_vs_mode = {1: 1, 2: 2, 3: 4}[self.VS_FBP]

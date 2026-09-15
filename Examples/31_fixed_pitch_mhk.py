@@ -30,6 +30,10 @@ rated power above rated, following the fixed control law tau = min(P_rated/omega
 
 .. image:: ../images/examples/31_fixed_pitch_mhk_sim.png
 
+All configurations are started softly: an open loop input ramps the torque rating
+(``R_Torque``) from ``SOFT_START_R0`` to 1.0 with a sigma function over ``SOFT_START_DUR``
+seconds, de-rating the generator torque limit while the turbine spins up.
+
 
 
 '''
@@ -57,6 +61,10 @@ this_dir            = os.path.dirname(os.path.abspath(__file__))
 rosco_dir           = os.path.dirname(this_dir)
 example_out_dir     = os.path.join(this_dir, 'examples_out')
 os.makedirs(example_out_dir,exist_ok=True)
+
+# Soft start up: R_Torque is ramped from SOFT_START_R0 to 1.0 over SOFT_START_DUR seconds
+SOFT_START_R0   = 0.5
+SOFT_START_DUR  = 100.
 
 def main():
 
@@ -168,17 +176,30 @@ def main():
         plt.savefig(fig_fname,bbox_inches='tight',)
 
     # Simulate all control configurations, in parallel
-    run_dir = os.path.join(example_out_dir, '31_MHK')
+    run_dir = os.path.join(example_out_dir, '31_MHK_2_reorder')
     os.makedirs(run_dir,exist_ok=True)
 
     # simulation set up
     if FULL_TEST:
-        TMax = 60
+        TMax = SOFT_START_DUR + 100
     else:
         TMax = 5
 
+    # Soft start up: phase in the torque rating with an open loop input
+    olc = ROSCO_controller.OpenLoopControl(t_max=SOFT_START_DUR)
+    olc.interp_series('R_torque', [0, SOFT_START_DUR], [SOFT_START_R0, 1.0], 'sigma')
+    ol_dict = olc.write_input(os.path.join(run_dir, '31_OL_Input.dat'))
+
     r = run_FAST_ROSCO()
     r.tuning_yaml   = parameter_filename
+    r.controller_params = {
+        'PRC_Mode': 2,          # power reference control
+        'OL_Mode': 1,
+        'open_loop': ol_dict,
+        'DISCON': {
+            'PRC_Comm': 1,      # open loop inputs
+            },
+        }
     r.wind_case_fcn = cl.power_curve
     r.wind_case_opts    = {
         'U': [3.0],

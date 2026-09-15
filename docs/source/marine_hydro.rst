@@ -413,11 +413,16 @@ will generate DISCON inputs to ROSCO.
 
 The following constraints apply when FBP control is enabled:
 
-* :code:`PC_ControlMode`, :code:`VS_ConstPower`, and :code:`PRC_Mode` must all be
-  0 whenever :code:`VS_FBP > 0`: blade pitch is fixed to fine pitch, and neither
-  constant-power torque control nor power reference control may run concurrently.
+* :code:`PC_ControlMode` and :code:`VS_ConstPower` must both be 0 whenever
+  :code:`VS_FBP > 0`: blade pitch is fixed to fine pitch, so constant-power
+  torque control may not run concurrently. :code:`PRC_Mode` must not be 1, since
+  its speed setpoint lookup would override the FBP speed reference.
   ROSCO aborts on any of these at runtime, and the toolbox raises an exception
   rather than write a configuration that cannot run.
+* :code:`PRC_Mode = 2` is allowed with FBP control: :code:`R_Torque` de-rates the
+  generator torque limit (:code:`VS_MaxTq`) and the Region 3 constant-power
+  torque, which is how :code:`Examples/31_fixed_pitch_mhk.py` ramps the rating in
+  for a soft start up. :code:`R_Pitch` has no effect, since the blade pitch is fixed.
 * :code:`VS_FBP = 1` is the fixed control law
   :math:`\tau = \min(P_{rated}/\Omega_g,\ K\Omega_g^2)`, which is inherently
   constant-power and inherently overspeed. ROSCO ignores

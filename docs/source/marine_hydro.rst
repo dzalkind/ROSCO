@@ -21,8 +21,9 @@ maximum tip speed ratio (TSR) and pitch angle, as it is for wind turbines
 
 The ROSCO baseline for marine turbines is adapted from the variable-pitch wind
 turbine controller [Abbas2022]_.
-Many marine turbine designs, however, lack pitch actuators: the cost, complexity,
-and reliability burden of a submerged pitch system is often prohibitive.
+Many marine turbine designs, however, do not have pitch actuators, because the
+cost, complexity, and reliability burden of a submerged pitch system is often
+prohibitive.
 Assuming a fixed (optimal) blade pitch, we instead redefine the operating schedule
 of TSR to find the equilibrium between hydrodynamic and generator torque.
 This trades pitch actuation for trade-offs in blade loads, rotor speed, generator
@@ -35,8 +36,8 @@ schemes similar to those used by wind turbines, which reduce the :math:`C_p`
 surface by increasing the pitch angle and decreasing TSR (black).
 For MHK turbines without pitch actuation, we provide a few control methods for
 controlling the power of the turbine using only torque control.
-Any such controller is constrained by the requirement that steady-state operating
-points be in equilibrium with the inflow torque.
+Any such controller is constrained by the requirement that the steady state
+operating points be in equilibrium with the inflow torque.
 Overspeed control increases the TSR along the fixed pitch line on the :math:`C_p`
 surface below (blue circle) by decreasing the generator torque.
 Underspeed control decreases the TSR (red circle) by increasing the torque.
@@ -256,17 +257,17 @@ Over/Underspeed Dynamics
 ..    :width: 90%
 
 At each operating point, the sensitivity is computed using the gradients of the
-:math:`C_p` surface, in the same manner as the Region-2 controller.
+:math:`C_p` surface, in the same manner as the Region 2 controller.
 The first-order system decay rate is represented by a single pole on the real axis: more negative means more rapidly stable (positive means unstable).
 Underspeed set points are open-loop unstable at high flow speeds.
-The sign follows from what each set point is asking the rotor to do.
+The sign follows from what each set point asks the rotor to do.
 Underspeed set points sit below :math:`TSR_{opt}`, where hydrodynamic torque still
-grows with speed, and generator torque is the only thing holding the speed down; a
-small speed perturbation grows rather than decays, so losing torque control lets
+grows with speed and generator torque is the only thing holding the speed down.
+A small speed perturbation grows rather than decays, so losing torque control lets
 the rotor run away.
-Overspeed set points are already past :math:`TSR_{opt}`, where hydrodynamic torque
-falls off with speed, so the rotor is let out to a self-limiting operating point by
-design and any speed perturbation decays on its own.
+Overspeed set points are past :math:`TSR_{opt}`, where hydrodynamic torque falls
+off with speed, so the operating point is self-limiting and any speed perturbation
+decays on its own.
 
 .. _cp_Agen_sched_annotated:
 .. figure:: /images/mhk/07_cp_Agen_sched_annotated.png
@@ -280,8 +281,9 @@ design and any speed perturbation decays on its own.
 
 The same result can be viewed in the flow-speed/generator-speed plane.
 Contours of constant hydrodynamic rotor torque intersect the constant-power
-generator torque schedule at the equilibrium operating points; the overspeed and
-underspeed branches are the two intersections available at each flow speed.
+generator torque schedule at the equilibrium operating points.
+The overspeed and underspeed branches are the two intersections available at each
+flow speed.
 The local slope of the torque surface across each intersection determines whether
 that equilibrium is open-loop stable.
 
@@ -311,11 +313,11 @@ Alternate Region 3 Operating Schedules
 
 Using the ROSCO toolbox, we enable the user to determine their own operational power curve, besides a constant rated power.
 Throughout this section, the *power requirement* is the generator power that the
-selected Region-3 power curve demands at a given flow speed, i.e. the
+selected Region 3 power curve demands at a given flow speed, that is, the
 :code:`VS_FBP_P` input evaluated at that speed.
-It is an upper bound on what is asked of the machine, not on what is available:
-the toolbox clips it to the power the inflow can actually supply at fine pitch,
-so the MPPT curve is the ceiling and no request can exceed it.
+It is an upper bound on what is asked of the machine, not on what is available.
+The toolbox clips it to the power the inflow can supply at fine pitch, so the MPPT
+curve is the ceiling and no request can exceed it.
 Relaxing the constant-power constraint in Region 3 raises the peak of the power
 requirement, and with it the sustained power the generator must be sized for.
 The five power curves studied, with their peak power requirement at cut-out
@@ -339,9 +341,10 @@ relative to rated power (equivalently, the generator resizing factor), are:
      -  1x
 
 These multipliers follow from the RM1 :math:`C_p` surface and its
-:math:`v_{rated}` to :math:`v_{cut-out}` range, and are reported here to show the
-relative spread between the curves. They are not general: the same five curve
-definitions applied to another rotor will produce different factors.
+:math:`v_{rated}` to :math:`v_{cut-out}` range, and are reported to show the
+relative spread between the curves.
+They are not general: the same five curve definitions applied to another rotor
+will produce different factors.
 
 .. _ext_P:
 .. figure:: /images/mhk/11_ext_P.png
@@ -356,11 +359,12 @@ Speed setpoints always lie within the envelope bounded by the over- and
 underspeed constant-power trajectories.
 Constant power has the lowest power requirement of the five, so it departs
 furthest from :math:`TSR_{opt}` and produces the widest speed excursion in either
-direction; the MPPT curve has the highest requirement and does not depart at all,
-tracking :math:`\Omega \propto v` straight through rated.
-The constant-power schedule is therefore the bounding case for rotor overspeed
-and cavitation margin on the overspeed branch, and for generator torque headroom
-on the underspeed branch.
+direction.
+The MPPT curve has the highest requirement and does not depart at all, tracking
+:math:`\Omega \propto v` straight through rated.
+The constant-power schedule is therefore the bounding case for rotor overspeed and
+cavitation margin on the overspeed branch, and for generator torque headroom on
+the underspeed branch.
 
 .. _ext_wg_sched_annotated:
 .. figure:: /images/mhk/16_ext_wg_sched_annotated.png
@@ -390,12 +394,12 @@ Note that the schedule above is plotted against rotor speed :math:`\Omega`, whil
 the torque/speed plane below is plotted against generator speed
 :math:`\Omega_g = N_g \Omega`; for the RM1 the gearbox ratio is
 :math:`N_g = 53`, so the two speed axes differ by that factor.
-Dropping from the MPPT curve to the quadratic curve, a reduction in peak power
-requirement from 8x to 7x rated, moves the overspeed setpoint at cut-out from
-roughly 2.5 to 3.5 rad/s rotor speed in the schedule above (about 130 to 185
-rad/s at the generator): a 12% reduction in power buys a 40% change in speed.
-These values are specific to the RM1; the qualitative sensitivity is general, the
-numbers are not.
+Dropping from the MPPT curve to the quadratic curve reduces the peak power
+requirement from 8x to 7x rated, and moves the overspeed setpoint at cut-out from
+roughly 2.5 to 3.5 rad/s rotor speed in the schedule above (about 130 to 185 rad/s
+at the generator).
+A 12% reduction in power buys a 40% change in speed.
+These values are specific to the RM1.
 The two branches also look very different in this plane: the underspeed branches
 are nearly vertical (large torque change for small speed change), the overspeed
 branches nearly horizontal (large speed change for small torque change).
@@ -423,8 +427,8 @@ torque controller.
 
 The power curve selection also impacts the rotor thrust (F).
 Underspeed control and lower power generally result in lower thrust.
-Conversely, overspeed trajectories approach substantially higher rotor thrust; the
-overspeed MPPT trajectory in particular reaches thrust levels that are likely
+Overspeed trajectories approach substantially higher rotor thrust.
+The overspeed MPPT trajectory in particular reaches thrust levels that are likely
 unacceptable for the structure, and should be checked against the design loads
 before being selected.
 
@@ -444,13 +448,14 @@ before being selected.
 Rotor Speed Limits and Cavitation
 ----------------------------------
 
-Power and thrust are not the only constraints on an FBP operating schedule. For a
-marine turbine, the rotor speed is also bounded by cavitation, and this bound is
-what usually decides whether the overspeed branch is available at all.
+Power and thrust are not the only constraints on an FBP operating schedule.
+For a marine turbine, the rotor speed is also bounded by cavitation, and this
+bound usually decides whether the overspeed branch is available at all.
 
 Cavitation occurs where the local pressure on the blade falls below the vapour
-pressure of water. Writing the suction peak in terms of the section's minimum
-pressure coefficient :math:`C_{p,min}`,
+pressure of water.
+Writing the suction peak in terms of the section's minimum pressure coefficient
+:math:`C_{p,min}`,
 
 .. math::
 
@@ -462,17 +467,18 @@ which rearranges into the usual cavitation number criterion,
 
    \sigma = \frac{p_{atm} + \rho g h - p_{vap}}{\tfrac{1}{2}\rho W^2} > -C_{p,min}
 
-Two things follow, and both matter for control design.
+Two results follow for control design.
 
-**Depth enters only as hydrostatic head.** The submergence :math:`h` appears
-nowhere except in :math:`\rho g h`, which sets the pressure budget available to be
-spent on suction. Seawater is dense enough that 10 m of depth adds about 101 kPa,
-roughly one additional atmosphere, so submergence is a strong lever on the
-available margin. Because the relevant depth is the *shallowest* point the blade
-reaches, the binding condition is the blade tip at the top of its rotation.
+Depth enters only as hydrostatic head.
+The submergence :math:`h` appears nowhere except in :math:`\rho g h`, which sets
+the pressure budget available to be spent on suction.
+Seawater is dense enough that 10 m of depth adds about 101 kPa, roughly one
+additional atmosphere, so submergence is a strong lever on the available margin.
+The relevant depth is the *shallowest* point the blade reaches, so the binding
+condition is the blade tip at the top of its rotation.
 
-**The criterion collapses to a rotor speed limit.** Since the relative velocity at
-the tip is dominated by :math:`\Omega R`, substituting
+The criterion also collapses to a rotor speed limit.
+The relative velocity at the tip is dominated by :math:`\Omega R`, so substituting
 :math:`W^2 = (\Omega R)^2 + v^2` and solving for :math:`\Omega` gives a maximum
 usable rotor speed:
 
@@ -481,9 +487,10 @@ usable rotor speed:
    \Omega_{cav} = \frac{1}{R}\sqrt{\frac{2\left(p_{atm} + \rho g h_{tip} - p_{vap}\right)}{\rho\,\sigma_v} - v^2}
 
 where :math:`\sigma_v = -C_{p,min}` for the outboard blade sections and
-:math:`h_{tip}` is the tip depth at the top of its rotation. Note that neither the
-power curve nor the choice of over/underspeed branch appears in this expression:
-**cavitation constrains rotor speed directly**, and any operating schedule that
+:math:`h_{tip}` is the tip depth at the top of its rotation.
+Neither the power curve nor the choice of over/underspeed branch appears in this
+expression.
+Cavitation constrains rotor speed directly, and any operating schedule that
 exceeds :math:`\Omega_{cav}` is affected regardless of how it was generated.
 
 The ROSCO toolbox evaluates this limit and warns if the generated speed schedule
@@ -509,10 +516,10 @@ overspeed range than shallow, high-tip-speed rotors.
 
 For the RM1 at its nominal 24 m hub depth, :math:`\Omega_{cav}` is approximately
 2.26 rad/s, or about 1.9x rated rotor speed, whereas the constant-power overspeed
-schedule requires roughly 5.7x rated speed at cut-out. Overspeed is therefore not
-available for this rotor, and the underspeed configurations (Examples 2 and 3) are
-the applicable ones. This is a property of the RM1 and its submergence, not a
-general result.
+schedule requires roughly 5.7x rated speed at cut-out.
+Overspeed is therefore not available for this rotor, and the underspeed
+configurations (Examples 2 and 3) are the applicable ones.
+This is a property of the RM1 and its submergence, not a general result.
 
 .. note::
    For a floating MHK turbine (:code:`MHK = 2`), the hub depth is not constant:
@@ -521,13 +528,14 @@ general result.
    optimistic at the shallow end of that excursion, so the limit should be
    evaluated at the shallowest expected submergence rather than the mean.
 
-The expression above is a tip, attached-flow estimate. It is well suited to the
-high-TSR overspeed regime, where the outboard sections operate near zero lift and
-:math:`-C_{p,min}` is close to its minimum value. It is optimistic for deeply
-stalled underspeed setpoints, whose larger :math:`-C_{p,min}` it does not capture,
-though those setpoints have much lower relative velocity and correspondingly large
-margin. A schedule that is marginal against this estimate should be verified with
-an AeroDyn cavitation check (:code:`CavitCheck = True`), which evaluates the full
+The expression above is a tip, attached-flow estimate.
+It suits the high-TSR overspeed regime, where the outboard sections operate near
+zero lift and :math:`-C_{p,min}` is close to its minimum value.
+It is optimistic for deeply stalled underspeed setpoints, whose larger
+:math:`-C_{p,min}` it does not capture, though those setpoints have much lower
+relative velocity and correspondingly large margin.
+A schedule that is marginal against this estimate should be verified with an
+AeroDyn cavitation check (:code:`CavitCheck = True`), which evaluates the full
 criterion at every blade node using the angle-of-attack-dependent
 :math:`C_{p,min}` from the polars.
 
@@ -576,32 +584,38 @@ will generate DISCON inputs to ROSCO.
 The following constraints apply when FBP control is enabled:
 
 * :code:`PC_ControlMode` and :code:`VS_ConstPower` must both be 0 whenever
-  :code:`VS_FBP > 0`: blade pitch is fixed to fine pitch, so constant-power
-  torque control may not run concurrently. :code:`PRC_Mode` must not be 1, since
-  its speed setpoint lookup would override the FBP speed reference.
+  :code:`VS_FBP > 0`.
+  Blade pitch is fixed to fine pitch, so constant-power torque control may not run
+  concurrently.
+  :code:`PRC_Mode` must not be 1, since its speed setpoint lookup would override
+  the FBP speed reference.
   ROSCO aborts on any of these at runtime, and the toolbox raises an exception
   rather than write a configuration that cannot run.
-* :code:`PRC_Mode = 2` is allowed with FBP control: :code:`R_Torque` de-rates the
-  generator torque limit (:code:`VS_MaxTq`) and the Region 3 constant-power
-  torque, which is how :code:`Examples/31_fixed_pitch_mhk.py` ramps the rating in
-  for a soft start up. :code:`R_Pitch` has no effect, since the blade pitch is fixed.
+* :code:`PRC_Mode = 2` is allowed with FBP control.
+  :code:`R_Torque` de-rates the generator torque limit (:code:`VS_MaxTq`) and the
+  Region 3 constant-power torque, which is how
+  :code:`Examples/31_fixed_pitch_mhk.py` ramps the rating in for a soft start up.
+  :code:`R_Pitch` has no effect, since the blade pitch is fixed.
 * :code:`VS_FBP = 1` is the fixed control law
   :math:`\tau = \min(P_{rated}/\Omega_g,\ K\Omega_g^2)`, which is inherently
-  constant-power and inherently overspeed. ROSCO ignores
-  :code:`VS_FBP_speed_mode`, :code:`VS_FBP_power_mode`, and :code:`VS_FBP_P` in
-  this mode, so the toolbox overrides them to the constant-power overspeed
-  schedule and warns if they were set otherwise. The generated operating
-  schedule is still used, both to seed the initial generator torque and to tune
-  the torque gains, so it must match the law ROSCO will actually run.
+  constant-power and inherently overspeed.
+  ROSCO ignores :code:`VS_FBP_speed_mode`, :code:`VS_FBP_power_mode`, and
+  :code:`VS_FBP_P` in this mode, so the toolbox overrides them to the
+  constant-power overspeed schedule and warns if they were set otherwise.
+  The generated operating schedule is still used, both to seed the initial
+  generator torque and to tune the torque gains, so it must match the law ROSCO
+  will actually run.
 * For :code:`VS_FBP = 3` (torque-lookup reference tracking), the generator torque
   schedule must be strictly increasing, since ROSCO inverts it to look up the
-  speed reference. The toolbox checks the computed schedule and raises an
-  exception otherwise. A nondecreasing power curve on the *underspeed* branch
+  speed reference.
+  The toolbox checks the computed schedule and raises an exception otherwise.
+  A nondecreasing power curve on the *underspeed* branch
   (:code:`VS_FBP_speed_mode = 0`) is sufficient to guarantee this, because
   generator speed falls with flow speed there, so :math:`\tau = P/\Omega_g` rises
-  on both counts. Overspeed generally is not sufficient: generator speed rises
-  with flow speed, so the torque falls unless the power curve rises faster than
-  the speed, which in practice only holds near the MPPT curve.
+  on both counts.
+  Overspeed generally is not sufficient: generator speed rises with flow speed, so
+  the torque falls unless the power curve rises faster than the speed, which in
+  practice only holds near the MPPT curve.
 
 .. _cavitation_warning:
 
@@ -615,18 +629,20 @@ controller:
 * For MHK turbines (:code:`MHK > 0`), if the rotor speed schedule exceeds the
   estimated tip cavitation limit :math:`\Omega_{cav}` from
   :ref:`speed_limits_cavitation`, the toolbox warns and reports the worst
-  offending operating point. The limit is computed from the water density,
-  atmospheric and vapour pressures, and hub submergence in the OpenFAST model,
-  together with :math:`-C_{p,min}` taken from the outboard AeroDyn polars. The
-  check is skipped if the polars carry no :math:`C_{p,min}` column
+  offending operating point.
+  The limit is computed from the water density, atmospheric and vapour pressures,
+  and hub submergence in the OpenFAST model, together with :math:`-C_{p,min}`
+  taken from the outboard AeroDyn polars.
+  The check is skipped if the polars carry no :math:`C_{p,min}` column
   (:code:`InCol_Cpmin = 0`).
 
-Note that the torque check alone will not catch an overspeed schedule: overspeed
-*reduces* generator torque while raising speed, so an overspeed configuration can
-sit far above the cavitation limit while the torque schedule stays well within
-bounds. The two checks are complementary.
+The torque check alone will not catch an overspeed schedule.
+Overspeed *reduces* generator torque while raising speed, so an overspeed
+configuration can sit far above the cavitation limit while the torque schedule
+stays well within bounds.
+The two checks are complementary.
 
-The Region-2 torque control mode should be chosen to match the Region-3 FBP mode,
+The Region 2 torque control mode should be chosen to match the Region 3 FBP mode,
 so that the two controllers hand off consistently through the transition region:
 
 .. list-table::
@@ -646,9 +662,9 @@ Note that the ROSCO input schema (:ref:`rt_tuning_yaml`) contains the latest inp
 
 The three case studies verified below are provided as worked examples in
 :code:`Examples/31_fixed_pitch_mhk.py`, which tunes against the RM1 marine turbine
-tuning case :code:`Examples/Tune_Cases/RM1_MHK_FBP.yaml`. That script also ships three
-experimental configurations covering the rest of the input space; see
-:ref:`fbp_experimental_configs`.
+tuning case :code:`Examples/Tune_Cases/RM1_MHK_FBP.yaml`.
+That script also ships three experimental configurations covering the rest of the
+input space; see :ref:`fbp_experimental_configs`.
 
 
 ROSCO Implementation
@@ -703,10 +719,11 @@ test case are shown in the following figure.
    :align: center
    :width: 90%
 
-Each example controller is then simulated with the RM1 marine turbine model
-using OpenFAST in both steady and turbulent inflow. The steady-state performance
-of each controller is compared to the operating schedules generated by the ROSCO
-toolbox. The turbulent inflow uses the intensity shown in the following figure.
+Each example controller is then simulated with the RM1 marine turbine model using
+OpenFAST in both steady and turbulent inflow.
+The steady state performance of each controller is compared to the operating
+schedules generated by the ROSCO toolbox.
+The turbulent inflow uses the intensity shown in the following figure.
 
 .. _turb_intensity:
 .. figure:: /images/mhk/25_turb_intensity.png
@@ -714,14 +731,15 @@ toolbox. The turbulent inflow uses the intensity shown in the following figure.
    :width: 90%
 
 Tidal flow design load cases differ from their wind counterparts in ways that
-matter for controller verification. Turbulence characteristics are not those
-typically encountered in atmospheric flow, the mean probability distribution is
-more closely isolated by environmental condition, and turbulence intensity varies
-heavily with site conditions, with the better tidal sites generally lower in
-turbulence intensity than wind sites [Milne2013]_. The turbulence intensity and
-wave statistics used here were varied to mimic buoy data collected in the Orkney
-Islands, Scotland. Design requirements for tidal current converters are given in
-[IEC62600-2]_.
+matter for controller verification.
+Turbulence characteristics are not those typically encountered in atmospheric
+flow, the mean probability distribution is more closely isolated by environmental
+condition, and turbulence intensity varies heavily with site conditions.
+The better tidal sites are generally lower in turbulence intensity than wind sites
+[Milne2013]_.
+The turbulence intensity and wave statistics used here were varied to mimic buoy
+data collected in the Orkney Islands, Scotland.
+Design requirements for tidal current converters are given in [IEC62600-2]_.
 
 .. TODO(DS): please supply the citation or dataset identifier for the Orkney buoy
    data so it can be referenced properly.
@@ -731,10 +749,12 @@ Example 1
 ^^^^^^^^^
 
 The first example test case uses the naturally stable nonlinear feedback control
-law. This controller is confined to operating in the constant power, overspeed
-configuration. The explicit (non-reference-tracking) control law is analogous to
-the :math:`k\Omega^2` control law sometimes used in Region 2 for wind and marine
-turbines [Johnson2006]_, and is best paired with a :math:`k\Omega^2` Region-2
+law.
+This controller is confined to operating in the constant power, overspeed
+configuration.
+The explicit (non-reference-tracking) control law is analogous to the
+:math:`k\Omega^2` control law sometimes used in Region 2 for wind and marine
+turbines [Johnson2006]_, and is best paired with a :math:`k\Omega^2` Region 2
 controller (:code:`VS_ControlMode = 1`).
 It is easy to design and requires no tuning, but is rigid and inflexible, and its
 overspeed operating points carry high tip speed and blade thrust.
@@ -779,10 +799,10 @@ high maximum torque signal (see :code:`max_torque_factor` in the tuning yaml).
    Sizing the torque limit is a safety consideration, not only a tracking one.
    Every underspeed setpoint sits where hydrodynamic torque *increases* with rotor
    speed, so if the commanded torque saturates below what the inflow demands, the
-   rotor accelerates rather than settling. Because the aerodynamic torque curve
-   only turns over past :math:`TSR_{opt}`, the nearest stable equilibrium is on
-   the *overspeed* side of the :math:`C_p` peak. Insufficient torque authority on
-   an underspeed schedule therefore does not stall the rotor to a stop: it
+   rotor accelerates rather than settling. The aerodynamic torque curve only turns
+   over past :math:`TSR_{opt}`, so the nearest stable equilibrium is on the
+   *overspeed* side of the :math:`C_p` peak. Insufficient torque authority on an
+   underspeed schedule therefore does not stall the rotor to a stop: the rotor
    accelerates through the :math:`C_p` peak and settles at high speed, in the
    high-thrust and cavitation-prone regime that the underspeed schedule was chosen
    to avoid. The same applies to any fault that removes generator torque. Size
@@ -817,10 +837,10 @@ The third example test case uses underspeed operation with a wind speed estimato
 * Region-3 FBP mode: 	reference tracking with WSE lookup (:code:`VS_FBP = 2`)
 * The power curve can be completely arbitrarily specified
 
-This is the most general configuration and the easiest to combine with a Region-2
-controller or with alternate references, but it is less robust to errors in the
-tuning model than the torque lookup, and shares the torque lookup's need for an
-aggressive controller and high torque headroom.
+This is the most general configuration and the easiest to combine with a Region 2
+controller or with alternate references.
+It is less robust to errors in the tuning model than the torque lookup, and shares
+the torque lookup's need for an aggressive controller and high torque headroom.
 
 .. _case3_P_wg_tg_ss:
 .. figure:: /images/mhk/24_case3_P_wg_tg_ss.png
@@ -844,8 +864,8 @@ aggressive controller and high torque headroom.
 Additional Configurations
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-:code:`Examples/31_fixed_pitch_mhk.py` ships three further configurations beyond the
-three examples above:
+:code:`Examples/31_fixed_pitch_mhk.py` ships three further configurations beyond
+the three examples above:
 
 * Constant power underspeed: the Example 2 configuration
   (:code:`VS_FBP = 3`, :code:`VS_ControlMode = 4`) with the power curve held flat at
@@ -856,14 +876,17 @@ three examples above:
 * Linear increasing power, leveling out: the Example 2 power curve reaching 2x rated
   below cut-out and flat thereafter.
 
-These are experimental. They are included to demonstrate the range of power curves and
-mode pairings the toolbox accepts, and have not been through the steady and turbulent
-verification campaign that Examples 1 through 3 have. Treat their operating schedules as
-illustrative rather than validated.
+These are experimental.
+They demonstrate the range of power curves and mode pairings the toolbox accepts,
+and have not been through the steady and turbulent verification campaign that
+Examples 1 through 3 have.
+Their operating schedules should be treated as illustrative rather than validated.
 
-The cavitation caveat attached to Example 1 applies to the overspeed reference-tracking
-configuration as well: for the RM1 rotor, both exceed the tip cavitation limit of
-:ref:`speed_limits_cavitation`, and the toolbox warns accordingly when they are tuned.
+The cavitation caveat attached to Example 1 applies to the overspeed
+reference-tracking configuration as well.
+For the RM1 rotor, both exceed the tip cavitation limit of
+:ref:`speed_limits_cavitation`, and the toolbox warns accordingly when they are
+tuned.
 
 
 Recommendations
@@ -874,24 +897,24 @@ In certain applications, the ability to follow a generic power curve with a
 limited actuation capability is more advantageous than using variable-blade-pitch
 (VBP) control.
 VBP control allows constant-power operation in Region 3 matched with constant
-speed and torque for a flat operating schedule. Pitch-actuated turbines also
-experience smaller blade loads in Region 3. The FBP approach satisfies
-applications in which the cost and complexity of the actuators themselves are
-prohibitive.
+speed and torque for a flat operating schedule, and pitch-actuated turbines also
+experience smaller blade loads in Region 3.
+The FBP approach satisfies applications in which the cost and complexity of the
+actuators themselves are prohibitive.
 
 Generic user input allows flexibility for variety of applications.
 
 FBP controller implementation in ROSCO with auto-tuning and automatic generation of operating schedule to follow power curve.
 
-Because the Region-2 and Region-3 controllers utilize the same actuator, the
+Because the Region 2 and Region 3 controllers utilize the same actuator, the
 transition region is markedly different than what is required for a VBP
-Region-3 controller.
+Region 3 controller.
 
 
 Future Work
 -----------------------
 
-* Enhanced multi-constraint configuration, including constraining Region-3 rotor
+* Enhanced multi-constraint configuration, including constraining Region 3 rotor
   thrust to a constant level rather than only constraining power.
 * Explicit power reference tracking.
 

@@ -52,16 +52,178 @@ schedule, a configurable control approach for realizing that operating schedule,
 and automatically tuned feedback gains.
 
 
-Over/Underspeed Reference Setpoints
------------------------------------
+.. _variable_pitch_mhk:
+
+Variable-Pitch MHK Control
+---------------------------
+
+Nothing in the ROSCO controller changes for an MHK turbine that does have pitch
+actuators.
+The same collective pitch PI controller, gain scheduling, peak shaving, and
+setpoint smoothing are used as for a wind turbine.
+Only the tuning inputs change, and a few of them change enough to be worth noting.
+A worked example is provided in :code:`Examples/26_marine_hydro.py`, tuned from
+:code:`Examples/Tune_Cases/RM1_MHK.yaml`.
+The comparisons below are against the NREL 2.8 MW land-based reference turbine
+(:code:`Examples/Tune_Cases/NREL2p8.yaml`).
+
+Fluid Density
+^^^^^^^^^^^^^^
+
+Density selection is the only MHK-specific branch in the tuning toolbox.
+When the OpenFAST model sets :code:`MHK > 0`, the toolbox uses the water density
+:code:`WtrDens` in place of :code:`AirDens`.
+The sensitivities used for gain scheduling
+(:math:`\partial\tau/\partial\beta`, :math:`\partial\tau/\partial\lambda`) and the
+thrust used for peak shaving all scale linearly with :math:`\rho`, so the rotor
+performance tables and the density must describe the same fluid.
+Otherwise the gains are wrong by nearly three orders of magnitude.
+In the generated DISCON file this value appears as :code:`WE_RhoAir`, which is
+1025 kg/m³ for the RM1, despite the parameter name.
+
+A Compressed Region 3
+^^^^^^^^^^^^^^^^^^^^^^
+
+Tidal flow speeds span a much narrower range than wind speeds, which compresses
+everything the above-rated controller has to work with.
+
+.. list-table::
+   :header-rows: 1
+   :widths: auto
+
+   * -
+     -  NREL 2.8 MW (wind)
+     -  RM1 (MHK)
+   * -  Cut-in / rated / cut-out
+     -  3 / 11.4 / 25 m/s
+     -  0.5 / 2.0 / 4.0 m/s
+   * -  Cut-out / rated ratio
+     -  2.2
+     -  2.0
+   * -  Gain-schedule pitch range
+     -  4.4° to 25.6°
+     -  1.7° to 14.3°
+   * -  Rotor performance table
+     -  30 x 30, TSR 2–12
+     -  36 x 49, TSR 0.5–24.5
+
+The entire above-rated pitch travel is roughly 12°, so the pitch resolution of the
+:math:`C_p` table limits the quality of the gain schedule in a way it does not for
+a wind turbine.
+The RM1 table is generated at 1° pitch resolution for this reason.
+The pitch rate limit :code:`PC_MaxRat` is rarely the binding constraint: the RM1
+keeps the wind default of 0.1745 rad/s (10°/s), which traverses the full Region 3
+range in about a second.
+
+Pitch Bandwidth and Filtering
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The RM1 is tuned at :code:`omega_pc` = 0.35 rad/s with :code:`zeta_pc` = 1.0,
+against 0.137 rad/s and 2.0 for the 2.8 MW wind turbine, so the pitch loop is
+roughly 2.5x faster.
+Rated rotor speed is nearly the same for both machines (1.20 versus 1.27 rad/s).
+The separation between the pitch control bandwidth and 1P therefore falls from
+about a factor of nine to about a factor of three.
+The RM1 is also a two-bladed rotor, so 1P and 2P both appear directly in the
+generator speed measurement, without the averaging a three-bladed rotor provides.
+
+The MHK tuning case therefore enables filtering that the wind cases leave off.
+Two notch filters are placed at 1.0 and 2.42 rad/s (1P and 2P) and applied to both
+the generator speed and the tower-top measurements:
+
+.. code-block:: yaml
+
+   DISCON:
+     F_NumNotchFilts:   2
+     F_NotchFreqs:      [1.0, 2.42]   # 1P, 2P
+     F_NotchBetaNum:    [0.0, 0.0]
+     F_NotchBetaDen:    [0.25, 0.25]
+     F_GenSpdNotch_N:   2
+     F_GenSpdNotch_Ind: [1, 2]
+     F_TwrTopNotch_N:   2
+     F_TwrTopNotch_Ind: [1, 2]
+
+The low-pass corner frequency moves the other way.
+:code:`F_LPFCornerFreq` is derived from the blade edgewise frequency, and
+hydrokinetic blades are short and stiff: 60.3 rad/s for the RM1 against 8.3 rad/s
+for the 2.8 MW rotor.
+The resulting corner frequency is 15.1 rad/s rather than 2.07 rad/s, well above
+the control bandwidth, so the notch filters, rather than the low-pass filter,
+limit the achievable bandwidth.
+
+Setpoint smoothing is also more aggressive on the pitch side,
+:code:`SS_PCGain` = 0.05 against 0.001, because the Region 2.5 transition is
+compressed into a narrow band of flow speed.
+
+Minimum Pitch and Peak Shaving
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The RM1 uses :code:`PC_MinPit` = 0, whereas the wind cases allow pitch to go
+negative (-10° for the 2.8 MW) to recover a small amount of :math:`C_p` below
+rated.
+Peak shaving is enabled with :code:`ps_percent` = 0.8, which produces a minimum
+pitch schedule that peaks near 11°, compared with about 20° for the wind turbine
+over its much wider speed range.
+
+Peak shaving limits rotor thrust in the same way it does for a wind turbine.
+Whether it also provides useful margin against cavitation depends on the rotor.
+As shown in :ref:`speed_limits_cavitation`, the cavitation criterion is driven by
+rotor speed and blade section :math:`-C_{p,min}`, and a pitch schedule is not a
+substitute for evaluating it.
+ROSCO performs no cavitation check at runtime, so a marginal variable-pitch MHK
+schedule should be verified with an AeroDyn cavitation check
+(:code:`CavitCheck = True`), which evaluates the full criterion at every blade node.
+
+.. TODO(DS): the RM1 tuning case sets ``PC_MinPit = 0`` rather than a negative
+   fine pitch. Please confirm whether this is a deliberate constraint (cavitation
+   or load-driven) or simply the default, so this can be stated rather than
+   described.
+
+Torque Control and Wind Speed Estimation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Above rated, the RM1 case uses constant power (:code:`VS_ConstPower` = 1) rather
+than the constant torque used by the wind cases, with
+:code:`max_torque_factor` = 1.5 sizing the torque saturation limit above rated
+torque.
+Individual pitch control is disabled, as the rotor has two blades.
+
+Note that :code:`VS_ControlMode` selects the *below*-rated torque control
+strategy; :code:`VS_ConstPower` selects constant-torque versus constant-power
+behavior above rated.
+The RM1 case uses :code:`VS_ControlMode` = 3 (power-based TSR tracking) below
+rated.
+
+The wind speed estimator is used as it is for wind turbines
+(:code:`WE_Mode` = 2, the extended Kalman filter).
+The estimate drives gain scheduling, the peak shaving minimum pitch lookup, and
+setpoint smoothing, so degrading it to the filtered measurement
+(:code:`WE_Mode` = 0) affects all three.
+
+Floating MHK
+^^^^^^^^^^^^^
+
+For a floating MHK turbine (:code:`MHK = 2`), the platform feedback term behaves
+as it does for floating wind, but with much less frequency separation to work
+with.
+The RM1 floating case has a platform frequency of 0.4 rad/s against a pitch
+control bandwidth of 0.35 rad/s, roughly a factor of 1.15.
+The negative damping problem therefore cannot be avoided by detuning the pitch
+controller, and is instead handled by the floating feedback term
+(:code:`Fl_Mode` = 1, :code:`Kp_float` = -0.4).
+Restoring stiffness comes from the mooring system rather than from waterplane
+area, and wave excitation is attenuated with depth but not eliminated.
+
+
+Over/Underspeed Reference Setpoints for Fixed-Pitch Control
+-----------------------------------------------------------
 
 The steady state generator-speed setpoints are determined by the :math:`C_p`
 contours intersecting with the fine-pitch line.
-For the RM1, overspeed reaches up to 3x rated speed. How far a given rotor can
-actually use that range is limited by cavitation, discussed in
-:ref:`speed_limits_cavitation`; on the RM1 the limit binds well before 3x.
-Rotor speed also has consequences for
-blade loads (high thrust).
+For the RM1, overspeed reaches up to 3x rated speed.
+How much of that range a given rotor can use is limited by cavitation, discussed
+in :ref:`speed_limits_cavitation`; on the RM1 the limit binds well before 3x.
+Rotor speed also has consequences for blade loads (high thrust).
 
 .. _cp_wg_sched:
 .. figure:: /images/mhk/03_cp_wg_sched.png

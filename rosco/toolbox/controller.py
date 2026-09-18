@@ -353,8 +353,6 @@ class Controller():
             P_op = np.min([P_user_defined, P_max], axis=0)
             # Operation along Cp surface (with fixed pitch)
             Cp_op = (P_op / P_max) * Cp_operational
-            Cp_op_br = Cp_op[:len(v_below_rated)]
-            Cp_op_ar = Cp_op[len(v_below_rated):]
 
             # Identify TSR matching the Cp values (similar to variable pitch angle interpolation below)
             Cp_FBP = np.ndarray.flatten(turbine.Cp.interp_surface(self.min_pitch, turbine.TSR_initial))     # all Cp values for fine blade pitch
@@ -370,7 +368,16 @@ class Controller():
                 f_cp_TSR = interpolate.interp1d(Cp_FBP[:Cp_maxidx+1], turbine.TSR_initial[:Cp_maxidx+1])             # interpolate function for Cp(tsr) values
             TSR_op = f_cp_TSR(Cp_op)
             # Defer to operational TSR for below rated, even if other optimum (should keep Cp the same, but may lead to discontinuities in operating schedule if min_pitch is not optimal)
-            TSR_op[v < turbine.v_rated] = turbine.TSR_operational
+            below_rated = v < turbine.v_rated
+            TSR_op[below_rated] = turbine.TSR_operational
+            # FBP only engages once the Region 2 speed reference exceeds rated, so below rated the
+            # turbine tracks TSR_operational regardless of what the power curve asks for. Hold Cp on
+            # the surface at that TSR: otherwise the (Cp, TSR) pair is not an equilibrium and the
+            # resulting speed and torque setpoints are not reachable.
+            if np.any(P_user_defined[below_rated] < P_max[below_rated] * (1 - 1e-6)):
+                print('WARNING: FBP control cannot curtail below rated. The power curve is ignored '
+                      'below v_rated, where the turbine tracks TSR_operational.')
+            Cp_op[below_rated] = Cp_operational
             TSR_below_rated = TSR_op[:len(v_below_rated)] # Should be constant at TSR_operational
             TSR_above_rated = TSR_op[len(v_below_rated):]
 

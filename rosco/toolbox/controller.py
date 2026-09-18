@@ -328,6 +328,13 @@ class Controller():
             self.min_pitch = turbine.Cp.pitch_opt
         turbine.min_pitch = self.min_pitch
 
+        # minimum rotor speed saturation limits, set before the operating schedule saturates against them
+        if self.vs_minspd:
+            self.vs_minspd = np.maximum(self.vs_minspd, (turbine.TSR_operational * turbine.v_min / turbine.rotor_radius))
+        else: 
+            self.vs_minspd = (turbine.TSR_operational * turbine.v_min / turbine.rotor_radius)
+        self.pc_minspd = self.vs_minspd
+
         # -------------Define Operation Points ------------- #
         TSR_rated = rated_rotor_speed*R/turbine.v_rated  # TSR at rated
 
@@ -544,13 +551,6 @@ class Controller():
         self.vs_refspd = min(turbine.TSR_operational * turbine.v_rated/R, turbine.rated_rotor_speed) * Ng
 
         # -- Define some setpoints --
-        # minimum rotor speed saturation limits
-        if self.vs_minspd:
-            self.vs_minspd = np.maximum(self.vs_minspd, (turbine.TSR_operational * turbine.v_min / turbine.rotor_radius))
-        else: 
-            self.vs_minspd = (turbine.TSR_operational * turbine.v_min / turbine.rotor_radius)
-        self.pc_minspd = self.vs_minspd
-
         # Set IPC ramp inputs if not already defined
         if max(self.IPC_Vramp) == 0.0:
             self.IPC_Vramp = [turbine.v_rated*0.8, turbine.v_rated]

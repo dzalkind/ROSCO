@@ -122,27 +122,69 @@ Pitch Bandwidth and Filtering
 The RM1 is tuned at :code:`omega_pc` = 0.35 rad/s with :code:`zeta_pc` = 1.0,
 against 0.137 rad/s and 2.0 for the 2.8 MW wind turbine, so the pitch loop is
 roughly 2.5x faster.
-Rated rotor speed is nearly the same for both machines (1.20 versus 1.27 rad/s).
-The separation between the pitch control bandwidth and 1P therefore falls from
-about a factor of nine to about a factor of three.
-The RM1 is also a two-bladed rotor, so 1P and 2P both appear directly in the
-generator speed measurement, without the averaging a three-bladed rotor provides.
+Rated rotor speed is nearly the same for both machines (1.20 versus 1.27 rad/s),
+so the faster loop sits closer to the rotor-periodic disturbances. How much
+closer depends on the blade count.
 
-The MHK tuning case therefore enables filtering that the wind cases leave off.
-Two notch filters are placed at 1.0 and 2.42 rad/s (1P and 2P) and applied to both
-the generator speed and the tower-top measurements:
+Summing the per-blade loads of a :math:`B`-bladed rotor cancels every harmonic
+except multiples of :math:`B\Omega`, so only those reach rotor torque and, in
+turn, the generator speed the pitch controller acts on. A three-bladed rotor
+passes 3P, 6P, ...; a two-bladed rotor passes 2P, 4P, .... Both rotors average,
+but a two-bladed rotor begins averaging one harmonic lower, and 1P survives on
+neither except through blade-to-blade imbalance. The relevant comparison is each
+machine's lowest surviving harmonic:
+
+.. list-table::
+   :header-rows: 1
+   :widths: auto
+
+   * -
+     -  NREL 2.8 MW (wind)
+     -  RM1 (MHK)
+   * -  Blades
+     -  3
+     -  2
+   * -  Lowest surviving harmonic
+     -  3P = 3.80 rad/s
+     -  2P = 2.41 rad/s
+   * -  Separation from :code:`omega_pc`
+     -  28x
+     -  7x
+
+The margin is roughly four times tighter, from the combination of a faster loop
+and a lower first harmonic. This advantage belongs to the blade count only at a
+given rotor speed: a three-bladed rotor of the same diameter typically runs
+slower, which moves 3P back down.
+
+Two blades carry a second penalty. The in-plane inertia of a three-bladed rotor is
+isotropic about the hub, while a two-bladed rotor's varies with azimuth, so even a
+perfectly balanced two-bladed rotor couples to the support structure at 2P through
+rotor anisotropy alone.
+
+The MHK tuning case therefore enables filtering that the wind cases leave off:
 
 .. code-block:: yaml
 
    DISCON:
      F_NumNotchFilts:   2
-     F_NotchFreqs:      [1.0, 2.42]   # 1P, 2P
+     F_NotchFreqs:      [1.0, 2.42]   # 2.42 rad/s is 2P
      F_NotchBetaNum:    [0.0, 0.0]
      F_NotchBetaDen:    [0.25, 0.25]
      F_GenSpdNotch_N:   2
      F_GenSpdNotch_Ind: [1, 2]
      F_TwrTopNotch_N:   2
      F_TwrTopNotch_Ind: [1, 2]
+
+Both notches are applied twice: :code:`F_GenSpdNotch_Ind` filters the generator
+speed used by the pitch and torque loops, and :code:`F_TwrTopNotch_Ind` filters
+the nacelle fore-aft IMU acceleration used by the floating feedback term.
+
+.. TODO(DS): the second notch at 2.42 rad/s matches 2P at rated speed
+   (2 x 1.204 = 2.408). The first, at 1.0 rad/s, does not correspond to 1P
+   (1.204 rad/s), the platform frequency (0.4 rad/s), or the tower frequency
+   (3.34 rad/s), and with ``F_NotchBetaDen`` = 0.25 the notch is narrow enough
+   that the 17% offset from 1P is unlikely to be incidental. Please confirm what
+   this notch targets so it can be documented.
 
 The low-pass corner frequency moves the other way.
 :code:`F_LPFCornerFreq` is derived from the blade edgewise frequency, and

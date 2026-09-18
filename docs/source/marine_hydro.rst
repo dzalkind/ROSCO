@@ -263,15 +263,77 @@ Over/Underspeed Reference Setpoints for Fixed-Pitch Control
 
 The steady state generator-speed setpoints are determined by the :math:`C_p`
 contours intersecting with the fine-pitch line.
-For the RM1, overspeed reaches up to 3x rated speed.
+For the RM1, the constant-power overspeed schedule reaches roughly 5.7x rated
+rotor speed at cut-out.
 How much of that range a given rotor can use is limited by cavitation, discussed
-in :ref:`speed_limits_cavitation`; on the RM1 the limit binds well before 3x.
+in :ref:`speed_limits_cavitation`; on the RM1 the limit binds at about 1.9x, well
+before the schedule gets there.
 Rotor speed also has consequences for blade loads (high thrust).
 
 .. _cp_wg_sched:
 .. figure:: /images/mhk/03_cp_wg_sched.png
    :align: center
    :width: 90%
+
+.. _fbp_rated_speed_overshoot:
+
+Rotor Speed Through the Rated Transition
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Fixed-pitch control has no rated-speed saturation.
+A variable-pitch controller holds the rotor at :math:`\Omega_{rated}` through
+Region 2.5, letting the TSR slide below :math:`TSR_{operational}` as the flow
+speed rises to rated; with the blade pitch fixed there is no second actuator to
+do this, so the schedule stays on the :math:`TSR_{operational}` line until the
+Region 3 power curve binds.
+
+Whenever the rotor reaches rated speed before the power curve binds, the schedule
+therefore overshoots rated rotor speed in the band between the two.
+For the RM1, the rotor reaches its rated 1.204 rad/s (11.5 rpm) at 1.72 m/s while
+running at :math:`TSR_{operational} = 7`, but MPPT does not reach the 500 kW
+rating until 2.0 m/s.
+Across that band the schedule continues along the TSR line and peaks at
+1.364 rad/s, or 13.0 rpm, about 1.13x rated, before the constant-power curve pulls
+it back down.
+
+This is a deliberate trade in the shipped RM1 configuration, not an oversight:
+
+* The overshoot is well inside the cavitation limit of 2.26 rad/s
+  (:ref:`speed_limits_cavitation`), and generator torque within that band peaks at
+  about 6.8 kNm against a rated 8.3 kNm, so it is purely a question of drivetrain
+  and generator speed rating.
+  Verify that the machine tolerates a 13% speed excursion near rated before
+  reusing this configuration.
+* The alternative is to set :code:`TSR_operational` to the design TSR rather than
+  the :math:`C_p`-maximizing one.
+  The RM1 rates at :math:`TSR = 6.02` (1.204 rad/s at 2.0 m/s), and pinning
+  :code:`TSR_operational` there removes the overshoot entirely, at the cost of
+  about 2.5% in below-rated :math:`C_p` (0.4358 against 0.4471).
+  The variable-pitch RM1 case reaches this same operating point on its own,
+  through rated-speed saturation.
+
+Note that :code:`v_rated` means different things to the two control paths, so the
+two RM1 tuning cases set it differently.
+For variable pitch it is the rated *power* speed, which is where pitch regulation
+and the pitch gain schedule begin, and
+:code:`Examples/Tune_Cases/RM1_MHK.yaml` sets 2.0 m/s.
+For fixed pitch, power regulation is set by :code:`VS_FBP_U` and
+:code:`VS_FBP_P` instead, so :code:`v_rated` is the rated *speed* point: the flow
+speed at which the rotor reaches :code:`rated_rotor_speed` while tracking
+:code:`TSR_operational`.
+:code:`Examples/Tune_Cases/RM1_MHK_FBP.yaml` sets 1.72 m/s, which makes it agree
+with :code:`VS_RefSpd`, the speed at which ROSCO begins using the FBP lookup
+table.
+
+Setting :code:`v_rated` here does not cap the rotor speed, which is the easy
+misreading.
+It is where the toolbox stops holding the TSR at :code:`TSR_operational` and
+begins solving for it from the :math:`C_p` inversion, and where ROSCO switches to
+the lookup table.
+Until the power curve binds, that solved TSR is still :code:`TSR_operational`, so
+the schedule continues up the same line and the rotor keeps accelerating past
+rated speed.
+The lookup table contains that overshoot, and ROSCO tracks it deliberately.
 
 Torque setpoints (:math:`\bar{\tau}`) determined by constant-power relationship :math:`\bar{\tau} = \frac{P_{rated}}{{\bar{\omega}}}`, where :math:`P_{rated}` is the rated power and :math:`\bar{\omega}` is the steady state generator speed.
 

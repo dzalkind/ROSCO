@@ -15,7 +15,9 @@ turbine_params:
   rotor_inertia:      92169               # Rotor inertia [kg m^2], {Available in Elastodyn .sum file}
   rated_rotor_speed:  1.204   # 11.5 rpm               # Rated rotor speed [rad/s]
   v_min:              0.5                   # Cut-in wind speed [m/s] 
-  v_rated:            2.0                  # Rated wind speed [m/s]
+  # Rated SPEED point, not rated power: rotor hits 1.204 rad/s at TSR 7, and ROSCO starts the
+  # FBP lookup here. Does not cap speed; see the MHK docs on the rated transition.
+  v_rated:            1.72
   v_max:              4.0                  # Cut-out wind speed [m/s], -- Does not need to be exact (JUST ASSUME FOR NOW)
   max_pitch_rate:     0.1745                # Maximum blade pitch rate [rad/s]
   max_torque_rate:    1500000.              # Maximum torque rate [Nm/s], {~1/4 VS_RtTq/s}

@@ -15,7 +15,22 @@ deliberate `--update-baseline` commit with justification.
 
 ## Current Status
 All of P0 and P1 is committed: task 1 in `66e0e9da`, tasks 2–6 in `e08c79f1`, tasks 7/8a/9 in
-`4523559c`. Remaining: P2, P3 and 8c, then 3b, then input modernization with 8b folded in.
+`4523559c`. Task 11 in `88fbd114`, 13 + 8c in `e87dad3c`, 12 in `193af959`, 14 + 15 in
+`ffb1d605` (2026-09-21, local, not pushed). **Remaining: 10 (gcovr) and 3b (C++ rename)** —
+both touch C++ build files the parallel CI work is editing, so both wait on Daniel — then
+input modernization with 8b folded in.
+
+**Hard gate as of `ffb1d605`:** `run_regression.py` → `ALL IDENTICAL — 6,660,000 total float64
+values` (28 scenarios; 5,772,000 controller outputs + recorded t/ws); `pytest test/regression`
+→ 62 passed.
+
+**Open decisions for Daniel, surfaced by this round:**
+- Scenarios 2 and 27 test less than intended (task 13 finding). Fixing them moves two
+  baselines.
+- No scenario runs `VS_ControlMode=3` / `VS_ConstPower=0`, the IEA-15/NREL-2.8 configuration
+  (task 11). A new scenario needs a new baseline.
+- Two `checkinputs.cpp` defects: `PS_Mode` range vs message, and the unreachable
+  `TRA_Mode > 1` block (task 11).
 
 **Resequenced 2026-09-21:** 8b is deferred to the input-modernization plan (its new
 Phase 0). A useful input-parsing test needs design decisions that plan owns — which
@@ -729,12 +744,10 @@ which 5,772,000 are controller outputs.
    one with real design content and the only one that touches baselines.
 *Steps 1–3 are done. Remaining order, resequenced 2026-09-21:*
 
-4. **Task 11** — mode-coverage table. No C++, no baseline risk, and it shows which gaps a
-   new scenario could fill before tasks 12–13 reshape `scenarios.py`.
-5. **Task 13, then 8c** — scenarios as a table; 8c follows directly because it needs the
-   table. The largest remaining step.
-6. **Task 12** — scenario 28 gets a baseline, before the format change.
-7. **Tasks 14 + 15** — one baseline-format commit (`t`/`ws` keys + compression).
+4. ~~**Task 11**~~ — DONE `88fbd114`.
+5. ~~**Task 13, then 8c**~~ — DONE `e87dad3c`.
+6. ~~**Task 12**~~ — DONE `193af959` (shared baseline, no new file).
+7. ~~**Tasks 14 + 15**~~ — DONE `ffb1d605`.
 8. **Task 10** — gcovr, once the CI edits to `CMakeLists.txt` have landed. Local only.
 9. **Task 3b** — the C++ vocabulary rename, after all of the above but *before* input
    modernization, which edits the same generator and parser files.

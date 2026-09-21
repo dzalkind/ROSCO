@@ -53,9 +53,9 @@ _build
 *.ech
 *.dbg
 *.dbg2
+*.dbg3
 *.out
 *.outb
-*.dbg
 *.vtp
 
 # ROSCO files
@@ -70,28 +70,8 @@ _build
 *.dll.*
 *.bts
 
-# VIT — kernel build artifacts (golden state data is tracked)
-kernel/**/*.o
-kernel/**/*.exe
-kernel/**/*.csv
-kernel/**/*.cpp
-kernel/**/*.hpp
-kernel/**/rosco_constants.h
-kernel/**/vit_types.h
-
-# VIT — extraction intermediates
-state/
-model.ini
-include.ini
-kgen.log
-elapsedtime/
-model/
-baseline_output.txt
-integrated_output.txt
-
-# VIT — integration test arrays
-baseline_final/
-integrated_final/
+# VIT translation scaffolding — removed from the working tree, preserved under the
+# annotated tag archive/vit-translation. See REFACTOR_NOTES.md.
 
 # Other
 .pytest_cache

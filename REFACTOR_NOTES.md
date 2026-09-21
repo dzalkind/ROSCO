@@ -4,6 +4,40 @@
 
 This branch (`c++`) contains a modernized pure C++ version of ROSCO, translated from Fortran by the VIT tool and subsequently refactored. The Fortran source has been removed entirely. This is intended for a future v3.0 release; `master` is unchanged for existing users.
 
+### Archived translation scaffolding
+
+The machinery used to perform the Fortran→C++ translation has been removed from the working
+tree. It is preserved under the annotated tag **`archive/vit-translation`** (pushed to
+`origin`), which points at the last commit that contained it:
+
+| Removed | What it was |
+|---------|-------------|
+| `kernel/` | Golden KGen fixtures used to verify each translated function in isolation |
+| `translations/` | The original per-function C++ translations, before integration |
+| `upstream_arrays/` | Simulation output from the **unmodified upstream Fortran** build — the other half of the translation proof (see below) |
+| `vit.yaml` | VIT tool configuration — the function-by-function translation manifest |
+| `TRANSLATION_TIPS.md` | Lessons-learned file that `vit translate` injected into its prompt |
+| `INTEGRATION_TEST.md` | Procedure for integrating C++ translations into the Fortran build |
+| `scripts/*.sh` | Docker-era extract/integrate/verify drivers for the translation loop |
+
+To recover any of it:
+
+```bash
+git checkout archive/vit-translation -- kernel/
+```
+
+None of it is needed to build, run, test, or contribute to the controller. New contributors
+should ignore it entirely; it is kept only as the record of how the port was done.
+
+**Chain of custody for the "byte-identical to Fortran" claim.** `upstream_arrays/` held the
+same scenarios run against the *unmodified upstream Fortran* controller, and
+`baseline_arrays/` held them run against the translated build. The two were verified equal
+at the time — commit `e491c935` (2026-04-03) records "4.73M values, upstream == modified ==
+C++". `baseline_arrays/` therefore still carries that provenance forward: every regression
+run since is transitively comparing against original Fortran behaviour. The upstream half is
+no longer regenerable on this branch (the Fortran is gone), but it is recoverable from the
+archive tag, and `master` still has the Fortran source if it ever needs to be re-derived.
+
 ---
 
 ## What Changed from the VIT Translation

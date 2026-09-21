@@ -159,9 +159,11 @@ To regenerate after an intentional tuner change:
 python test/regression/scenarios.py --write-fixtures
 ```
 
-That re-runs the tuner, re-applies each scenario's `patches=`, and rewrites the
-paths. It must still produce 27/27 identical — a fixture change that moves a
-baseline is a finding, not a baseline to update.
+That re-runs the tuner once, writes `scenario_01.IN`, and builds every other
+fixture from it by applying the scenario's `patches` from the table in
+`scenarios.py`. It does not run the scenarios: follow it with
+`run_regression.py`, which must still be `ALL IDENTICAL` — a fixture change that
+moves a baseline is a finding, not a baseline to update.
 
 Regeneration is **idempotent**: running it with an unchanged tuner produces a
 zero-line diff. That is why the version/date stamp `write_DISCON` puts on line 2
@@ -170,14 +172,16 @@ real tuner change would be invisible in the noise. Git already records when a
 fixture changed. A non-empty `git diff fixtures/` therefore means something
 real moved.
 
-**Do not hand-edit a fixture.** A hand-edit that changes behaviour is caught by
-the baselines, but one that does not — touching a parameter inert under the
-scenario's modes — would silently persist. Change `patches=` and regenerate.
+**Do not hand-edit a fixture.** Change the scenario's `patches` and
+regenerate. `test_fixtures.py` checks every committed fixture equals
+`scenario_01.IN` plus its `patches`, so a hand-edit fails there even when it
+touches a parameter inert under the scenario's modes, which the baselines
+would never notice.
 
 | # | Exercises |
 |---|-----------|
 | 1 | Standard step-wind 1-DOF sim; also re-runs to check DLL deallocation |
-| 2 | Yaw-by-IPC, `Y_ControlMode=2` (`wrap_360`) |
+| 2 | Yaw-by-IPC, `Y_ControlMode=2` — with zero yaw error; the intended synthetic vane/heading never reaches the controller (see below) |
 | 3 | Notch filters, cable control, many mode flags at once |
 | 4 | Flap control, `Flp_Mode=2` (`PIIController`) |
 | 5 | Active wake control, `AWC_Mode=4` (`ResController`) |
@@ -202,8 +206,18 @@ scenario's modes — would silently persist. Change `patches=` and regenerate.
 | 24 | Open-loop cable and structural control, `CC_Mode=2` + `StC_Mode=2` |
 | 25 | Dynamic power rating, `PRC_Mode=2` |
 | 26 | `Flp_Mode=3` driven to non-zero flap output |
-| 27 | Stress test: 11 modes active simultaneously |
+| 27 | Stress test: many modes at once — tower damping and floating feedback get zero input (see below) |
 | 28 | HDF5 output format — same sim as 1, `OutputFormat=1`, `LoggingLevel=3` |
+
+**Two scenarios test less than they were written to.**
+`ControllerInterface.call_controller()` writes avrSWAP(24), (37), (53) and (83)
+from its `turbine_state` argument on every call, overwriting anything set
+directly beforehand. Scenario 2 set a synthetic nacelle vane and heading that
+way, and scenario 27 set tower and IMU accelerations that way; all four arrive
+at the controller as 0. Their baselines record that behaviour, so it is kept
+exactly. Making them do what was intended means passing the signals through
+`turbine_state`, which will move both baselines — a deliberate decision, not a
+refactor.
 
 Scenario 28 has no frozen baseline; it is compared against scenario 1's text
 output instead, and is excluded from `ALL_SCENARIOS`.
@@ -241,11 +255,12 @@ in `REFACTOR_NOTES.md` and commit history. Never renumber one.
 
 ## Adding a scenario
 
-1. Write `run_scenario_N()` in `scenarios.py` — copy the closest existing one,
-   change the `discon_fixture(N, patches={...})` modes, and give
-   `ControllerInterface` a unique `sim_name='regression_N'`.
-2. Register it in `scenario_functions` and `scenario_order` in `main()`, and
-   append `N` to `ALL_SCENARIOS` in `run_regression.py`.
+1. Add a `Scenario(N, ...)` entry to `_SCENARIO_LIST` in `scenarios.py`: its
+   `patches` against scenario 1, the wind (`tlen`, `ws0`, `step_wind`), and —
+   only if the toolbox simulation leaves a signal you need at zero — the
+   `synthetic` inputs for the manual loop. Most scenarios need nothing else.
+2. Add `N` to `scenario_order` in `main()`, and append it to `ALL_SCENARIOS`
+   in `run_regression.py`.
 3. Generate its fixture: `python test/regression/scenarios.py --write-fixtures`,
    and commit `fixtures/scenario_NN.IN`. Check the diff against
    `scenario_01.IN` reads as the scenario you meant to write.
@@ -262,9 +277,10 @@ in `REFACTOR_NOTES.md` and commit history. Never renumber one.
 test/regression/
     README.md              this file
     run_regression.py      CLI runner — build, run, compare, report
-    scenarios.py           the 28 scenario definitions
+    scenarios.py           the scenario table and the runners that execute it
     test_regression.py     pytest wrapper: one test per scenario
     test_tuning.py         tuner still reproduces scenario_01.IN
+    test_fixtures.py       each fixture is still scenario_01.IN + its patches
     mode_coverage.py       which mode values the scenarios and Examples configure
     test_mode_coverage.py  keeps mode_coverage.py in step with the registry
     plot_regression.py     failure-diagnosis plots

@@ -51,13 +51,13 @@ same generator and parser files the rename touches. Order: see
 | 6 | Add CI job | P0 | DONE — commit `e08c79f1`; `pytest -v test/regression` step in `build_and_test_conda`, ubuntu only. **Still never observed passing on a real runner** — latest CI run on `c++` is 2026-07-15 and failed, which predates this step. |
 | 7 | Commit DISCON fixtures | P1 | DONE — commit `4523559c`; `fixtures/scenario_01..28.IN`; no separate base file (scenario 1 is unpatched, so its fixture *is* the tuner output); `patches=` kept as the regeneration recipe behind `--write-fixtures`; regeneration is idempotent; suite still 27/27 with the tuner out of the loop |
 | 8a | Tuning test: YAML → DISCON text | P1 | DONE — commit `4523559c`; `test_tuning.py`, 3 s, no DLL; pins `scenario_01.IN`; verified it fails with a readable per-parameter diff |
-| 8c | Assert fixtures still equal scenario_01 + patches | P2 | TODO — right after task 13, which provides the patches table; see 8c |
+| 8c | Assert fixtures still equal scenario_01 + patches | P2 | DONE — `test_fixtures.py`: each fixture == `apply_patches(scenario_01.IN, patches)`, byte for byte; plus one-fixture-per-scenario. Landed with 13 |
 | 8b | Input-parsing test: DISCON → parsed parameters | P1 | DEFERRED to input modernization Phase 0 (decision 2026-09-21). The TOML path skips the `.IN` parser's post-processing, so a dump of parsed state is not a valid input file, and a `.IN`-only test would not have caught the `OutputFormat` bug that motivates it. See 8b. |
 | 9 | Baseline provenance metadata | P1 | DONE — commit `4523559c`; `baselines/PROVENANCE.json`, written by `--update-baseline`, printed in every run header; initial file backfilled honestly from git rather than fabricated |
 | 10 | C++ line/branch coverage (gcovr) | P2 | TODO — after the CI work in `CMakeLists.txt` settles; local only, no CI job from this plan |
 | 11 | Mode-coverage table: regression vs Examples | P2 | DONE — `mode_coverage.py` + `test_mode_coverage.py` (registry sync, no DLL); README "What is *not* covered". Headline: no scenario runs `VS_ControlMode=3` or `VS_ConstPower=0`, the IEA-15/NREL-2.8 configuration. See 11 for findings |
 | 12 | HDF5 scenario symmetry | P3 | TODO — before 14/15, so scenario 28's baseline is created before the format change |
-| 13 | Data-driven scenario definitions | P3 | TODO — also makes input plan step 13 (TOML fixtures) a one-line change |
+| 13 | Data-driven scenario definitions | P3 | DONE — `scenarios.py` 2,080 → 866 lines: a `Scenario` table + four runners. All 27 baselines identical. Found two scenarios whose synthetic inputs never reach the controller; see 13 |
 | 14 | Store `t`/`ws` in baselines, delete `SCENARIO_WIND` | P3 | TODO — land with 15 as one baseline-format commit |
 | 15 | Compress baselines | P3 | TODO — land with 14 |
 
@@ -628,6 +628,47 @@ Two follow-ons depend on the table: 8c (the `patches=` dicts become data that a 
 check against the fixtures), and input-modernization step 13, where pointing every scenario
 at a TOML fixture becomes a one-column change instead of 28 edits. All 27 baselines must
 stay byte-identical.
+
+**DONE 2026-09-21.** `scenarios.py` is now a `_SCENARIO_LIST` of `Scenario(num, title,
+patches, tlen, ws0, step_wind, synthetic, runner)` records plus four runners:
+- `run_sim` — the toolbox `Sim.sim_ws_series`; 22 of 28 scenarios need nothing else;
+- `run_synthetic` — one shared hand-written 1-DOF loop for 2, 7, 8, 26, 27, with the injected
+  signals chosen by `synthetic=('azimuth', 'root_moop', 'tower', 'yaw_rate')`;
+- `run_twice` (1: deallocation re-run) and `run_hdf5` (28: avrSWAP capture + `.RO.h5` check).
+
+`--write-fixtures` now tunes once, writes `scenario_01.IN`, and builds every other fixture
+with `apply_patches(scenario_01.IN, patches)`; it no longer runs the scenarios afterwards.
+That same function is what 8c's `test_fixtures.py` asserts, and it reproduced all 27 patched
+fixtures byte for byte before anything else ran — which also proves the patch dicts were
+transcribed into the table correctly.
+
+Two bit-level quirks had to be preserved, not tidied, because the baselines hold them:
+scenario 2 computes `gen_power` as `τ·ω·(η/100)`, the others as `ω·τ·η/100` — different
+bits (checked against the baselines); kept as `legacy_power=True`. Scenario 2 records the raw
+yaw output as `nac_yaw` (`record_yaw_output=True`); 7 and 27 integrate it.
+
+The gate caught one slip on the first attempt, worth knowing for anyone editing the loop:
+`call_controller()` returns **float32** values (read back from the float32 avrSWAP copy).
+The old code stored the yaw rate into a float64 array before integrating; the first refactor
+multiplied the raw value by `DT`, which NumPy 2 keeps in float32. Scenarios 7 and 27 then
+differed in `nac_yaw` by 7.5e-9 from step 188. Fixed by widening with `float()` first.
+
+**Finding: two scenarios test less than their docstrings claimed.**
+`ControllerInterface.call_controller()` assigns avrSWAP(24) ← `Y_MeasErr`, (37) ←
+`Yaw_fromNorth`, (53) ← `FA_Acc_TT` or 0, (83) ← `NacIMU_FA_RAcc` or 0 on every call, so
+any value written directly to those indices beforehand is lost.
+- *Scenario 2* wrote a synthetic NacVane/NacHeading to (24)/(37) to drive `wrap_360` across
+  all three branches. The controller saw 0 for both, every step.
+- *Scenario 27* wrote tower-top and IMU accelerations to (53)/(83); the controller saw 0, so
+  tower damping and floating feedback contributed nothing to the "six pitch contributions".
+  (Scenario 7 passes the same signals via `turbine_state`, so it *does* exercise them.)
+- The dead writes were dropped in the refactor — output is identical, as the gate confirms —
+  and both scenarios are annotated in the table and the README. **Fixing them is Daniel's
+  call:** routing the signals through `turbine_state` will move both baselines, so it needs a
+  deliberate `--update-baseline` commit with its own justification.
+
+**Also found:** `plot_regression.py`'s `SCENARIO_WIND` had already drifted — it records
+scenarios 7 and 8 as constant wind; both step. Left for task 14, which deletes that table.
 
 ### 14. Store `t`/`ws` in the baselines
 Kills the duplicated `SCENARIO_WIND` table (finding 8). *Changes baseline file contents*

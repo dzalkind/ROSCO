@@ -91,6 +91,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(this_dir))
 EXAMPLES_DIR = os.path.join(REPO_ROOT, 'Examples')
 TUNE_DIR = os.path.join(EXAMPLES_DIR, 'Tune_Cases')
 EXAMPLE_INPUTS_DIR = os.path.join(EXAMPLES_DIR, 'example_inputs')
+FIXTURES_DIR = os.path.join(this_dir, 'fixtures')
 
 # Workaround for scipy FITPACK bispev non-determinism (dev note 202603261512).
 # FITPACK's fpbisp reads an uninitialized stack variable whose value depends on
@@ -127,6 +128,21 @@ if os.path.exists(_scrub_lib_path):
     ROSCO_turbine.RotorPerformance.interp_gradient = _scrubbed_interp_gradient
 
 
+def load_turbine_only():
+    """Load just the turbine (the plant model). No tuning — the DISCON fixtures are
+    committed, so `tune_controller()` is not on the regression's critical path."""
+    inps = load_rosco_yaml(os.path.join(TUNE_DIR, 'NREL5MW.yaml'))
+    path_params = inps['path_params']
+    turbine = ROSCO_turbine.Turbine(inps['turbine_params'])
+    cp_filename = os.path.join(TUNE_DIR, path_params['rotor_performance_filename'])
+    turbine.load_from_fast(
+        path_params['FAST_InputFile'],
+        os.path.join(TUNE_DIR, path_params['FAST_directory']),
+        rot_source='txt', txt_filename=cp_filename
+    )
+    return turbine, cp_filename
+
+
 def load_turbine_and_controller():
     """Load the NREL5MW turbine and tune a ROSCO controller. Returns (turbine, controller)."""
     parameter_filename = os.path.join(TUNE_DIR, 'NREL5MW.yaml')
@@ -149,28 +165,103 @@ def load_turbine_and_controller():
     return turbine, controller, cp_filename
 
 
-def write_discon(turbine, controller, cp_filename, param_filename, patches=None):
-    """Write DISCON.IN and optionally patch parameter values.
+# Parameters whose value is a path. The controller resolves a relative value against
+# the directory of the DISCON file itself (priPath in readcontrolparameterfilesub.cpp),
+# so fixtures store these relative and stay portable across machines and CI.
+PATH_PARAMS = ('PerfFileName', 'OL_Filename')
 
-    Args:
-        patches: dict of {param_name: new_value} to replace in the generated file.
-                 e.g. {'Y_ControlMode': 2}
+# Set by --write-fixtures to (turbine, controller, cp_filename). None in normal runs,
+# which is what keeps the tuner out of the loop.
+_FIXTURE_SOURCE = None
+
+
+# Scenario 1 applies no patches, so its fixture *is* the raw tuner output. That is
+# what test_tuning.py pins, so the tuning check and the controller check share one
+# artifact rather than two copies free to drift apart.
+TUNER_FIXTURE = os.path.join(FIXTURES_DIR, 'scenario_01.IN')
+
+
+def write_tuner_output(turbine, controller, cp_filename, path):
+    """Write the unpatched tuner output to `path`.
+
+    Paths inside the file are always made relative to FIXTURES_DIR, not to `path`,
+    so writing to a temp location still produces a file byte-comparable with the
+    committed fixture.
     """
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    write_DISCON(turbine, controller, param_file=path, txt_filename=cp_filename)
+    with open(path) as f:
+        text = f.read()
+    with open(path, 'w') as f:
+        f.write(_make_portable(text, FIXTURES_DIR))
+    return path
+
+
+def discon_fixture(scenario_num, patches=None):
+    """Return the path to this scenario's committed DISCON fixture.
+
+    Normally the fixture is read as-is and no tuning happens. Under
+    --write-fixtures the file is regenerated: tune, apply `patches`, then rewrite
+    absolute paths as relative. `patches` is therefore both the regeneration recipe
+    and the in-source record of what makes this scenario different from the base.
+    """
+    path = os.path.join(FIXTURES_DIR, f'scenario_{scenario_num:02d}.IN')
+    if _FIXTURE_SOURCE is not None:
+        _write_fixture(path, patches)
+    return path
+
+
+def _write_fixture(param_filename, patches=None):
+    """Generate one fixture: tuner output + patches, with portable paths."""
+    turbine, controller, cp_filename = _FIXTURE_SOURCE
+    os.makedirs(os.path.dirname(param_filename), exist_ok=True)
     write_DISCON(turbine, controller, param_file=param_filename, txt_filename=cp_filename)
 
-    if patches:
-        with open(param_filename, 'r') as f:
-            text = f.read()
-        for param, value in patches.items():
-            # Match lines like "0                   ! Y_ControlMode   - description"
-            # Also handles multi-value lines like "0.0 0.0   ! AWC_CntrGains ..."
-            pattern = rf'^(.+?)(\s+! {param}\b.*)$'
-            replacement = rf'{value}\2'
-            text, count = re.subn(pattern, replacement, text, flags=re.MULTILINE)
-            if count == 0:
-                print(f"WARNING: Could not patch {param} in {param_filename}")
-        with open(param_filename, 'w') as f:
-            f.write(text)
+    with open(param_filename, 'r') as f:
+        text = f.read()
+
+    for param, value in (patches or {}).items():
+        # Match lines like "0                   ! Y_ControlMode   - description"
+        # Also handles multi-value lines like "0.0 0.0   ! AWC_CntrGains ..."
+        pattern = rf'^(.+?)(\s+! {param}\b.*)$'
+        text, count = re.subn(pattern, rf'{value}\2', text, flags=re.MULTILINE)
+        if count == 0:
+            raise ValueError(f"Could not patch {param} in {param_filename}")
+
+    text = _make_portable(text, os.path.dirname(param_filename))
+
+    with open(param_filename, 'w') as f:
+        f.write(text)
+
+
+def _make_portable(text, fixture_dir):
+    """Strip the two things that make tuner output unfit to commit.
+
+    1. `write_DISCON` stamps the toolbox version and *today's date* into line 2.
+       Left in, every regeneration would dirty all 28 fixtures and a real tuner
+       change would be invisible among the noise. Git already records when each
+       fixture changed, so the stamp is redundant as well as harmful.
+    2. Path parameters are written absolute. The controller resolves a relative
+       value against the DISCON file's own directory, so relative is portable.
+    """
+    text = re.sub(
+        r'^!\s+- File written using ROSCO version .*$',
+        '!    - Generated by test/regression/scenarios.py --write-fixtures — do not hand-edit',
+        text, flags=re.MULTILINE)
+
+    for param in PATH_PARAMS:
+        pattern = rf'^(\s*)(\S+?)(\s+! {param}\b.*)$'
+
+        def repl(m):
+            value = m.group(2).strip('"')
+            if not os.path.isabs(value):
+                return m.group(0)
+            rel = os.path.relpath(value, fixture_dir).replace(os.sep, '/')
+            quoted = f'"{rel}"' if m.group(2).startswith('"') else rel
+            return f'{m.group(1)}{quoted}{m.group(3)}'
+
+        text = re.sub(pattern, repl, text, flags=re.MULTILINE)
+    return text
 
 
 # ---------------------------------------------------------------------------
@@ -182,8 +273,7 @@ def run_scenario_1(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 1: Standard step-wind simulation")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON.IN')
-    write_discon(turbine, controller, cp_filename, param_filename)
+    param_filename = discon_fixture(1)
 
     controller_int = ROSCO_ci.ControllerInterface(
         lib_name, param_filename=param_filename, sim_name='regression_1'
@@ -226,8 +316,7 @@ def run_scenario_2(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 2: Yaw-by-IPC simulation (wrap_360)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_yaw.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(2, patches={
         'Y_ControlMode': 2,
     })
 
@@ -340,8 +429,7 @@ def run_scenario_3(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 3: Mode coverage (notch + cable + flap + structural)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_filters.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(3, patches={
         # NotchFilter: 1 notch filter on generator speed
         'F_NumNotchFilts': 1,
         'F_NotchFreqs': '1.0000',
@@ -418,8 +506,7 @@ def run_scenario_4(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 4: Flap control (Flp_Mode=2, PIIController)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_flp.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(4, patches={
         'Flp_Mode': 2,
         'IPC_ControlMode': 0,  # Mutual exclusion with Flp_Mode > 0
         # F_FlpCornerFreq(1) must be > 0 when Flp_Mode > 0
@@ -467,8 +554,7 @@ def run_scenario_5(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 5: Active wake control (AWC_Mode=4, ResController)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_awc.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(5, patches={
         'AWC_Mode': 4,
         # Nonzero gains so ResController produces nontrivial output
         'AWC_CntrGains': '0.0100 0.0050',
@@ -513,8 +599,7 @@ def run_scenario_6(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 6: IPC (IPC_ControlMode=1, NotchFilterSlopes)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_ipc.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(6, patches={
         'IPC_ControlMode': 1,
         'Flp_Mode': 0,       # Mutual exclusion with IPC_ControlMode > 0
         'IPC_KI': '0.0 0.0',
@@ -561,8 +646,7 @@ def run_scenario_7(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 7: Synthetic inputs (yaw, tower, float, struct, cable, flap)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_synth.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(7, patches={
         'Y_ControlMode': 1,
         'TD_Mode': 1,
         'Fl_Mode': 1,
@@ -704,8 +788,7 @@ def run_scenario_8(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 8: IPC + AWC with blade moments")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_ipc_awc.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(8, patches={
         'IPC_ControlMode': 1,
         'IPC_KP': '0.1 0.1',
         'IPC_KI': '0.01 0.01',
@@ -825,8 +908,7 @@ def run_scenario_9(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 9: Startup/Shutdown/TRA (SU_Mode=1, SD_Mode=1, TRA_Mode=1)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_su_sd_tra.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(9, patches={
         'SU_Mode': 1,
         'SU_StartTime': 0,
         'SU_FW_MinDuration': 5,
@@ -889,8 +971,7 @@ def run_scenario_10(turbine, controller, cp_filename, output_dir=None):
     print("=" * 60)
 
     ol_input_path = os.path.join(EXAMPLE_INPUTS_DIR, 'OL_Mode2_Input.dat')
-    param_filename = os.path.abspath('DISCON_ol_mode2.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(10, patches={
         'OL_Mode': 2,
         'OL_Filename': ol_input_path,
         'OL_BP_Mode': 0,
@@ -943,8 +1024,7 @@ def run_scenario_11(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 11: Active wake control (AWC_Mode=1, complex number method)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_awc.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(11, patches={
         'AWC_Mode': 1,
         'AWC_NumModes': 1,
         'AWC_n': '1',
@@ -986,8 +1066,7 @@ def run_scenario_12(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 12: K*Omega^2 torque control (VS_ControlMode=1)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(12, patches={
         'VS_ControlMode': 1,
     })
 
@@ -1026,8 +1105,7 @@ def run_scenario_13(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 13: Power overspeed mode (VS_FBP=1)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(13, patches={
         'VS_FBP': 1,
         'PC_ControlMode': 0,
         'VS_ControlMode': 1,
@@ -1067,8 +1145,7 @@ def run_scenario_14(turbine, controller, cp_filename, output_dir=None):
     print("=" * 60)
 
     ol_input_path = os.path.join(EXAMPLE_INPUTS_DIR, 'OL_Mode1_Input.dat')
-    param_filename = os.path.abspath('DISCON_ol_mode1.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(14, patches={
         'OL_Mode': 1,
         'OL_Filename': ol_input_path,
         'OL_BP_Mode': 0,
@@ -1116,8 +1193,7 @@ def run_scenario_15(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 15: Coleman transform AWC (AWC_Mode=2)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_awc.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(15, patches={
         'AWC_Mode': 2,
         'AWC_NumModes': 1,
         'AWC_harmonic': '1',
@@ -1160,8 +1236,7 @@ def run_scenario_16(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 16: Coleman transform flap control (Flp_Mode=3)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_flp.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(16, patches={
         'Flp_Mode': 3,
         'IPC_ControlMode': 0,
         'Flp_Kp': '-0.001',
@@ -1202,8 +1277,7 @@ def run_scenario_17(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 17: I&I wind speed estimator (WE_Mode=1)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(17, patches={
         'WE_Mode': 1,
     })
 
@@ -1241,8 +1315,7 @@ def run_scenario_18(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 18: 1P+2P individual pitch control (IPC_ControlMode=2)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_ipc.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(18, patches={
         'IPC_ControlMode': 2,
         'IPC_KP': '0.1 0.05',
         'IPC_KI': '0.01 0.005',
@@ -1290,8 +1363,7 @@ def run_scenario_19(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 19: PA_Mode=1 + PF_Mode=1 + VS_ConstPower=1 + Fl_Mode=2")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(19, patches={
         'PA_Mode': 1,
         'PF_Mode': 1,
         'PF_Offsets': '0.01 -0.01 0.005',
@@ -1333,8 +1405,7 @@ def run_scenario_20(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 20: PA_Mode=2 + PF_Mode=2 + PRC_Mode=1")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(20, patches={
         'PA_Mode': 2,
         'PF_Mode': 2,
         'PF_TimeStuck': '200.0 9999.0 9999.0',
@@ -1373,8 +1444,7 @@ def run_scenario_21(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 21: Closed-loop PI AWC (AWC_Mode=3)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_awc.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(21, patches={
         'AWC_Mode': 3,
         'AWC_NumModes': 1,
         'AWC_harmonic': '1',
@@ -1416,8 +1486,7 @@ def run_scenario_22(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 22: Strouhal transform AWC (AWC_Mode=5)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_awc.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(22, patches={
         'AWC_Mode': 5,
         'AWC_NumModes': 1,
         'AWC_harmonic': '1',
@@ -1459,8 +1528,7 @@ def run_scenario_23(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 23: PS_Mode=0 + SS_Mode=0 (disabled paths)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(23, patches={
         'PS_Mode': 0,
         'SS_Mode': 0,
     })
@@ -1499,8 +1567,7 @@ def run_scenario_24(turbine, controller, cp_filename, output_dir=None):
     print("=" * 60)
 
     ol_input_path = os.path.join(EXAMPLE_INPUTS_DIR, 'OL_Mode1_CC_StC_Input.dat')
-    param_filename = os.path.abspath('DISCON_ol_cc_stc.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(24, patches={
         'OL_Mode': 1,
         'OL_Filename': ol_input_path,
         'OL_BP_Mode': 0,
@@ -1554,8 +1621,7 @@ def run_scenario_25(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 25: Dynamic power rating (PRC_Mode=2, PRC_Comm=0)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(25, patches={
         'PRC_Mode': 2,
         'PRC_Comm': 0,
         'PRC_R_Speed': '0.9',
@@ -1600,8 +1666,7 @@ def run_scenario_26(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 26: Flp_Mode=3 with synthetic rootMOOP (non-zero flap output)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_flap26.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(26, patches={
         'Flp_Mode': 3,
         'Flp_Kp': -0.001,
         'Flp_Ki': -0.0005,
@@ -1719,8 +1784,7 @@ def run_scenario_27(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 27: Maximum-coverage stress test (11 modes)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_stress27.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(27, patches={
         'IPC_ControlMode': 1,
         'IPC_KP': '0.1 0.0',
         'IPC_KI': '0.01 0.0',
@@ -1873,8 +1937,7 @@ def run_scenario_28(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 28: HDF5 output format (OutputFormat=1)")
     print("=" * 60)
 
-    param_filename = os.path.abspath('DISCON_hdf5.IN')
-    write_discon(turbine, controller, cp_filename, param_filename, patches={
+    param_filename = discon_fixture(28, patches={
         'OutputFormat': 1,
         'LoggingLevel': 3,  # exercise avrSWAP HDF5 dataset (Phase 3)
     })
@@ -1940,9 +2003,20 @@ def main():
                         help='Run each scenario N times and output timing CSV. No arrays saved.')
     parser.add_argument('--build', type=str, default='unknown',
                         help='Build label for benchmark CSV output (e.g., upstream, modified, cpp).')
+    parser.add_argument('--write-fixtures', action='store_true',
+                        help='Regenerate fixtures/ from the tuner before running. Maintenance '
+                             'operation: the result must still be 27/27 identical.')
     args = parser.parse_args()
 
-    turbine, controller, cp_filename = load_turbine_and_controller()
+    global _FIXTURE_SOURCE
+    if args.write_fixtures:
+        _FIXTURE_SOURCE = load_turbine_and_controller()
+        turbine, controller, cp_filename = _FIXTURE_SOURCE
+    else:
+        # Fixtures are committed, so the tuner is not in the loop. The turbine is
+        # still needed as the plant model for the 1-DOF simulation.
+        turbine, cp_filename = load_turbine_only()
+        controller = None
     od = args.output_dir
 
     # Scenario dispatch table. The order is historical and only matters when

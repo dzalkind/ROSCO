@@ -14,8 +14,9 @@ change a baseline value. Any step that *would* is called out explicitly and requ
 deliberate `--update-baseline` commit with justification.
 
 ## Current Status
-All P0 work is committed as of 2026-09-21: task 1 in `66e0e9da` (pushed), tasks 2–6 in
-`e08c79f1` (local, not yet pushed). Working tree clean. P1 and below are untouched.
+P0 is committed: task 1 in `66e0e9da` (pushed), tasks 2–6 in `e08c79f1` (local, not yet
+pushed). Tasks 7, 8a and 9 are **done but uncommitted** in the working tree. Remaining P1:
+3b (C++ vocabulary) and 8b (needs a parameter dump).
 
 | # | Task | Priority | Status |
 |---|------|----------|--------|
@@ -27,10 +28,11 @@ All P0 work is committed as of 2026-09-21: task 1 in `66e0e9da` (pushed), tasks 
 | 4 | Write `test/regression/README.md` | P0 | DONE — commit `e08c79f1` (unpushed) |
 | 5 | Remove the hidden `01_turbine_model.py` dependency | P0 | DONE — commit `e08c79f1` (unpushed); pickle load replaced with `Turbine(inps['turbine_params'])`; verified 27/27 from a fresh clone with no prior steps |
 | 6 | Add CI job | P0 | DONE — commit `e08c79f1` (unpushed); `pytest -v test/regression` step in `build_and_test_conda`, ubuntu only. Not yet exercised on a real CI runner. |
-| 7 | Commit DISCON fixtures | P1 | TODO |
-| 8a | Layer A test: YAML → DISCON text (tuner) | P1 | TODO |
-| 8b | Layer B test: DISCON → parsed parameters | P1 | TODO — blocked on a parameter dump, *not* on the whole input-modernization plan. `Echo` is parsed but never implemented (no writer exists); a generated `dump_to_toml()` in `rosco_types_io.cpp` unblocks it. See that plan's Further Considerations #0. |
-| 9 | Baseline provenance metadata | P1 | TODO |
+| 7 | Commit DISCON fixtures | P1 | DONE (uncommitted) — `fixtures/scenario_01..28.IN`; no separate base file (scenario 1 is unpatched, so its fixture *is* the tuner output); `patches=` kept as the regeneration recipe behind `--write-fixtures`; regeneration is idempotent; suite still 27/27 with the tuner out of the loop |
+| 8a | Tuning test: YAML → DISCON text | P1 | DONE (uncommitted) — `test_tuning.py`, 3 s, no DLL; pins `scenario_01.IN`; verified it fails with a readable per-parameter diff |
+| 8c | Assert fixtures still equal scenario_01 + patches | P2 | TODO — needs task 13's patches table; see 8c |
+| 8b | Input-parsing test: DISCON → parsed parameters | P1 | TODO — blocked on a parameter dump, *not* on the whole input-modernization plan. `Echo` is parsed but never implemented (no writer exists); a generated `dump_to_toml()` in `rosco_types_io.cpp` unblocks it. See that plan's Further Considerations #0. |
+| 9 | Baseline provenance metadata | P1 | DONE (uncommitted) — `baselines/PROVENANCE.json`, written by `--update-baseline`, printed in every run header; initial file backfilled honestly from git rather than fabricated |
 | 10 | C++ line/branch coverage (gcovr) | P2 | TODO |
 | 11 | Mode-coverage table: regression vs Examples | P2 | TODO |
 | 12 | HDF5 scenario symmetry | P2 | TODO |
@@ -290,7 +292,48 @@ present, skipping rather than failing when absent. Runtime budget ~3 min includi
 
 ## P1 — Make the harness honest
 
-### 7. Commit DISCON fixtures
+### 7. Commit DISCON fixtures — **DONE** (uncommitted)
+
+**Terminology note:** this plan's "layer A/B/C" labels are internal to the plan. They are
+deliberately *not* used in `test/regression/README.md` or in any shipped docstring, where the
+steps are named plainly (tuning / input parsing / control) for readers who have not read this
+document.
+
+**Three blockers the original plan missed, all found by inspecting a generated file.** The
+tuner's output is not portable: it contains absolute paths (`PerfFileName`, `OL_Filename`)
+and a `version + today's date` stamp on line 2. Committing it verbatim would have broken
+every other machine and made task 8a fail daily.
+
+Resolved by:
+- storing path parameters **relative to the fixture file**, which works because the
+  controller resolves a relative value against the DISCON file's own directory
+  (`priPath`, set from `fp.parent_path()` in `readconfigfiles.cpp:35`). Verified: no
+  absolute paths remain in any fixture;
+- normalising away the `version + date` stamp on line 2 entirely, rather than merely
+  excluding it from the comparison. Left in the committed file, every `--write-fixtures`
+  run would dirty all 28 fixtures and a real tuner change would be invisible in the noise.
+  Git already records when each fixture changed. Regeneration is now **idempotent** —
+  verified by regenerating twice and getting a zero-line `git diff`, which is what makes a
+  non-empty fixture diff trustworthy as a signal.
+
+**A third finding, from review:** `base_DISCON.IN` as specified would have been
+byte-identical to `scenario_01.IN` (scenario 1 is the only unpatched scenario), with nothing
+asserting the two stayed equal — a duplicated artifact free to drift. Dropped it; the tuning
+test pins `scenario_01.IN` directly, so the file it guards is the file the controller runs
+on.
+
+**Deviation from the plan, deliberate:** the plan said the `patches=` mechanism "can be
+deleted outright" once fixtures are committed. It is kept, as the argument to
+`discon_fixture(N, patches={...})`. Deleting it would make the fixtures regenerable only by
+hand-editing 28 files; keeping it means `--write-fixtures` can rebuild them all from the
+YAML, and the dict still documents in-source what the scenario changes. It is inert during
+a normal run.
+
+**The question the plan flagged — whether in-place mutation had been masking a bug — is
+answered: no.** Materialising 28 separate fixtures left all 27 baselines byte-identical.
+
+*Original plan text follows.*
+
 Move the generated `DISCON_*.IN` into `test/regression/fixtures/` and commit them.
 `Examples/DISCON*.IN` stays gitignored — the fixtures live under `test/`, so the existing
 ignore rule does not fight them.
@@ -345,7 +388,7 @@ test covers all three at once. When it fails, it reports a float mismatch at
 Committing the fixtures (task 7) pins the boundary between A and B. Each side then gets its
 own cheap check, and a failure names its own layer.
 
-#### 8a. Layer A — tuning regression (lands with task 7)
+#### 8a. Layer A — tuning regression — **DONE** (uncommitted)
 
 **Scope is one file, not 27.** All 29 `write_discon()` calls in `scenarios.py` produce the
 *same* tuner output — `write_DISCON(turbine, controller, ...)` is called identically every
@@ -373,8 +416,8 @@ diff against test/regression/fixtures/base_DISCON.IN
   numerically with a tight tolerance. Do not delete the test — the failure mode it catches
   is exactly the one that currently has no owner.
 
-**The relationship to the scenario fixtures:** each of the 27 committed scenario fixtures is
-`base_DISCON.IN` + that scenario's patches, frozen. Their diff against the base *is* the
+**The relationship to the scenario fixtures:** each of the 27 remaining scenario fixtures is
+`scenario_01.IN` + that scenario's patches, frozen. Their diff against the base *is* the
 scenario definition, in reviewable text. Once committed, the `patches=` mechanism and its
 regex substitution can be deleted outright.
 
@@ -409,7 +452,23 @@ code. Doing it once yields three things:
 schedule 8b as the opening move of the input-modernization plan, where the TOML writer is
 already on the roadmap. Flagged here so the convergence is not missed.
 
-### 9. Baseline provenance metadata
+#### 8c. Remaining gap: fixtures vs. their patches *(new, TODO)*
+Nothing asserts that `scenario_NN.IN` still equals `scenario_01.IN` + that scenario's
+`patches=`. A hand-edit that changes behaviour is caught by the baselines; one that does not
+— touching a parameter inert under that scenario's modes — would persist silently. Closing it
+properly needs the `patches=` dicts hoisted out of the 28 function bodies into a table, which
+is task 13's refactor. Mitigations in place meanwhile: `--write-fixtures` regenerates all 28
+atomically, regeneration is idempotent so `git diff fixtures/` is a clean signal, and the
+README says not to hand-edit.
+
+### 9. Baseline provenance metadata — **DONE** (uncommitted)
+The initial `PROVENANCE.json` was **backfilled from git, not fabricated**: the baselines
+predate the mechanism, so claiming they were "generated now" would have been a lie. It
+records the last commit to change baseline *content* (`e491c935`, 2026-04-03 — the same
+commit `REFACTOR_NOTES.md` cites for the Fortran chain of custody) and marks the environment
+fields `unrecorded`, since they were never captured. The next `--update-baseline` fills them
+in for real.
+
 Make `--update-baseline` write `baselines/PROVENANCE.json`: git SHA, date, platform,
 compiler, numpy/scipy versions, `libdiscon` hash. Today the only way to answer "when were
 these last regenerated and against what?" is `git log` archaeology. Print it in the runner's

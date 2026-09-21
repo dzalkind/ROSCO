@@ -16,10 +16,14 @@ Expected result: ALL IDENTICAL
 """
 
 import argparse
+import hashlib
+import json
 import os
+import platform
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 
 import numpy as np
 
@@ -27,6 +31,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
 SCENARIOS = os.path.join(HERE, "scenarios.py")
 BASELINE_DIR = os.path.join(HERE, "baselines")
+PROVENANCE = os.path.join(BASELINE_DIR, "PROVENANCE.json")
 DEFAULT_BUILD_DIR = os.path.join(REPO_ROOT, "rosco", "controller", "build")
 CONTROLLER_DIR = os.path.join(REPO_ROOT, "rosco", "controller")
 LIB_DIR = os.path.join(REPO_ROOT, "rosco", "lib")
@@ -247,6 +252,52 @@ def compare_hdf5_avrswap(h5_path, npz_dir):
     return True, f"avrSWAP {avr_h5.shape} identical (labels + values)"
 
 
+def _git(*args):
+    try:
+        r = subprocess.run(["git", *args], cwd=REPO_ROOT, capture_output=True, text=True)
+        return r.stdout.strip() if r.returncode == 0 else "unknown"
+    except OSError:
+        return "unknown"
+
+
+def _discon_hash():
+    for name in ("libdiscon.so", "libdiscon.dylib", "libdiscon.dll"):
+        path = os.path.join(LIB_DIR, name)
+        if os.path.exists(path):
+            with open(path, "rb") as f:
+                return f"{name}:sha256:{hashlib.sha256(f.read()).hexdigest()[:16]}"
+    return "unknown"
+
+
+def write_provenance():
+    """Record what the baselines were generated from, so the question is answerable
+    without git archaeology."""
+    import scipy
+    data = {
+        "generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "git_sha": _git("rev-parse", "HEAD"),
+        "git_dirty": bool(_git("status", "--porcelain")),
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+        "python": platform.python_version(),
+        "numpy": np.__version__,
+        "scipy": scipy.__version__,
+        "libdiscon": _discon_hash(),
+    }
+    with open(PROVENANCE, "w") as f:
+        json.dump(data, f, indent=2, sort_keys=True)
+        f.write("\n")
+    return data
+
+
+def read_provenance():
+    try:
+        with open(PROVENANCE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="Verify C++ controller against frozen baselines")
     parser.add_argument("--scenario", type=int, default=0,
@@ -294,6 +345,13 @@ def main():
 
     print(f"Running {len(scenarios)} scenario(s) — each in a separate subprocess")
     print(f"Baseline: {BASELINE_DIR}")
+    prov = read_provenance()
+    if prov:
+        dirty = " (dirty tree)" if prov.get("git_dirty") else ""
+        print(f"  captured {prov['generated_utc']} from {prov['git_sha'][:12]}{dirty}")
+        print(f"  on {prov['platform']} / numpy {prov['numpy']} / scipy {prov['scipy']}")
+    else:
+        print("  (no PROVENANCE.json — origin unknown)")
     print()
 
     if args.update_baseline:
@@ -306,7 +364,9 @@ def main():
                 sys.stdout.flush()
                 ok = run_scenario(s, BASELINE_DIR, work_dir=workdir, asan_env=asan_env)
                 print("saved" if ok else "FAILED")
+        prov = write_provenance()
         print()
+        print(f"Provenance: {prov['git_sha'][:12]} on {prov['platform']}")
         print("Baseline updated. Commit test/regression/baselines/ to lock in the new reference.")
         return
 

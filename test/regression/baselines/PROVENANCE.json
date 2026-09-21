@@ -1,0 +1,12 @@
+{
+  "generated_utc": "2026-04-03T19:33:50Z",
+  "git_dirty": false,
+  "git_sha": "e491c935014da5bbfdbeb6ab329e882d681b53a3",
+  "libdiscon": "unrecorded",
+  "machine": "unrecorded",
+  "note": "Backfilled 2026-09-21. These baselines predate provenance tracking, so this file records what git can prove rather than what was measured: the last commit to change baseline *content* was e491c935 'Expand output array capture from 5 to 13 arrays per scenario' (2026-04-03), which REFACTOR_NOTES.md cites as the chain-of-custody commit ('4.73M values, upstream == modified == C++'). The later commit e08c79f1 only moved the files from baseline_arrays/ to test/regression/baselines/ with no content change. Environment fields were never captured at the time and are honestly marked unrecorded; the next --update-baseline will populate them for real.",
+  "numpy": "unrecorded",
+  "platform": "unrecorded",
+  "python": "unrecorded",
+  "scipy": "unrecorded"
+}

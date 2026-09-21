@@ -18,6 +18,7 @@ python test/regression/run_regression.py            # same check, CLI report
 python test/regression/run_regression.py --scenario 3
 python test/regression/run_regression.py --rebuild  # cmake build first
 python test/regression/run_regression.py --hdf5     # also check HDF5 output
+pytest test/regression/test_tuning.py               # tuning only, ~3 s, no DLL
 ```
 
 Expected: `RESULT: ALL IDENTICAL — 5,252,000 total float64 values compared`.
@@ -64,6 +65,10 @@ python test/regression/run_regression.py --rebuild --update-baseline
 Required discipline when you do:
 
 - **Its own commit**, touching only `baselines/`, separate from the code change.
+- `--update-baseline` rewrites `baselines/PROVENANCE.json` (git SHA, platform,
+  numpy/scipy versions, `libdiscon` hash). Commit it alongside — every run
+  prints it, so "what are we comparing against?" is answerable without
+  `git log` archaeology.
 - **Justify it in the commit message**: which scenarios moved, by how much, and
   the physical reason.
 - **Attach before/after plots** from `plot_regression.py` to the PR.
@@ -102,13 +107,71 @@ Each scenario captures the controller's avrSWAP outputs (`gen_torque`,
 `bld_pitch`, `gen_speed`, `gen_power`, `nac_yaw`, plus per-blade pitch, flap,
 cable and structural-control channels) over a 1000 s, 0.025 s sim.
 
-Every scenario also regenerates its `DISCON_*.IN` from
-`Examples/Tune_Cases/NREL5MW.yaml` through the Python tuner at run time. So the
-suite currently covers the *toolbox tuner and the C++ controller together*: a
-change in `tune_controller()`, or a scipy/wisdem upgrade, moves the
-controller's inputs and fails the regression with a message that points at the
-C++ code. Committing the DISCON files as fixtures — which would split these
-into two honest tests — is planned, not done.
+### What each test covers
+
+Three separate things happen between the tuning YAML and a baseline array. If
+one test covered all three, every failure would look the same — a float
+mismatch in a time series — no matter which part actually broke.
+
+| Step | Transformation | Owned by | Test |
+|---|---|---|---|
+| Tuning | `NREL5MW.yaml` → `scenario_01.IN` | Python toolbox (`tune_controller`) | `test_tuning.py` |
+| Input parsing | `DISCON.IN` → `ControlParameters` | generated C++ parser | *none yet — see below* |
+| Control | `ControlParameters` + plant → time series | C++ controller | `test_regression.py` |
+
+The committed fixtures in `fixtures/` are the boundary between tuning and
+control, so each side fails on its own terms. **The tuner does not run during a
+regression run** — scenarios read their committed fixture, so wisdem and scipy
+cannot break a controller test.
+
+Input parsing — "did the controller read what the file actually said?" — has no
+test yet. It needs the controller to report the values it parsed. `Echo` is
+declared and parsed but never implemented (nothing writes the file), so that
+check is blocked until a parameter dump exists. This is the one step that has
+already produced a silent bug: a generated parser ignored the registry's
+per-field defaults, and no fixture happened to set the affected parameter.
+
+### The fixtures
+
+**Scenario 1 applies no patches, so `fixtures/scenario_01.IN` *is* the raw
+tuner output.** That is deliberate: `test_tuning.py` pins the very file that
+scenario 1 runs on, so the tuning check and the controller check cannot drift
+apart — there is only one file. If scenario 1 ever gains patches,
+`test_tuning.py` will need a fixture of its own.
+
+Every other `fixtures/scenario_NN.IN` is that same tuner output plus the
+scenario's own parameter changes. So a scenario's definition is readable as a
+diff:
+
+```bash
+diff fixtures/scenario_01.IN fixtures/scenario_10.IN
+```
+
+Path parameters (`PerfFileName`, `OL_Filename`) are stored **relative to the
+fixture file**, which is what makes them portable — the controller resolves a
+relative value against the directory of the DISCON file itself. Never write an
+absolute path into a fixture.
+
+To regenerate after an intentional tuner change:
+
+```bash
+python test/regression/scenarios.py --write-fixtures
+```
+
+That re-runs the tuner, re-applies each scenario's `patches=`, and rewrites the
+paths. It must still produce 27/27 identical — a fixture change that moves a
+baseline is a finding, not a baseline to update.
+
+Regeneration is **idempotent**: running it with an unchanged tuner produces a
+zero-line diff. That is why the version/date stamp `write_DISCON` puts on line 2
+is normalised away — left in, every regeneration would dirty all 28 files and a
+real tuner change would be invisible in the noise. Git already records when a
+fixture changed. A non-empty `git diff fixtures/` therefore means something
+real moved.
+
+**Do not hand-edit a fixture.** A hand-edit that changes behaviour is caught by
+the baselines, but one that does not — touching a parameter inert under the
+scenario's modes — would silently persist. Change `patches=` and regenerate.
 
 | # | Exercises |
 |---|-----------|
@@ -150,16 +213,18 @@ in `REFACTOR_NOTES.md` and commit history. Never renumber one.
 ## Adding a scenario
 
 1. Write `run_scenario_N()` in `scenarios.py` — copy the closest existing one,
-   change the `write_discon(..., patches={...})` modes, and give
-   `ControllerInterface` a unique `sim_name='regression_N'`. Write its
-   `DISCON_*.IN` with `os.path.abspath(...)` so it lands in the scratch cwd.
+   change the `discon_fixture(N, patches={...})` modes, and give
+   `ControllerInterface` a unique `sim_name='regression_N'`.
 2. Register it in `scenario_functions` and `scenario_order` in `main()`, and
    append `N` to `ALL_SCENARIOS` in `run_regression.py`.
-3. Confirm it is deterministic: run it 5+ times and check the MD5s printed for
+3. Generate its fixture: `python test/regression/scenarios.py --write-fixtures`,
+   and commit `fixtures/scenario_NN.IN`. Check the diff against
+   `scenario_01.IN` reads as the scenario you meant to write.
+4. Confirm it is deterministic: run it 5+ times and check the MD5s printed for
    each array agree.
-4. Capture the baseline:
+5. Capture the baseline:
    `python test/regression/run_regression.py --scenario N --update-baseline`.
-5. Add a row to the table above, and confirm
+6. Add a row to the table above, and confirm
    `python test/regression/run_regression.py` is still `ALL IDENTICAL`.
 
 ## Layout
@@ -170,8 +235,10 @@ test/regression/
     run_regression.py      CLI runner — build, run, compare, report
     scenarios.py           the 28 scenario definitions
     test_regression.py     pytest wrapper: one test per scenario
+    test_tuning.py         tuner still reproduces scenario_01.IN
     plot_regression.py     failure-diagnosis plots
-    baselines/             27 frozen .npz files (~40 MB)
+    fixtures/              committed DISCON inputs — one per scenario
+    baselines/             27 frozen .npz files (~40 MB) + PROVENANCE.json
 ```
 
 This lives at the repo top level rather than under `rosco/` so the baselines

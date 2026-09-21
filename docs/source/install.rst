@@ -62,12 +62,15 @@ This step compiles the controller shared library (``libdiscon.so`` on Linux, ``l
     pip install -e . --no-deps
 
 On macOS, if importing the toolbox fails with ``AttributeError: partially initialized module 'polars'``,
-the ``polars`` and ``polars-lts-cpu`` packages (the latter pulled in by ``wombat``, a WISDEM dependency)
-are conflicting. Remove the duplicate:
+pip has installed ``polars-lts-cpu`` (pulled in by ``wombat``, a WISDEM dependency) on top of an existing
+``polars`` install; both ship the same ``polars`` package files. Reinstall the one you want, rather than
+uninstalling ``polars-lts-cpu`` (which deletes the shared files and leaves no working ``polars``):
 
 .. code-block:: bash
 
-    pip uninstall -y polars-lts-cpu
+    pip install --force-reinstall --no-deps polars
+
+Installing with ``--no-deps`` into a conda environment, as above, avoids the clash in the first place.
 
 .. _rosco_controller:
 

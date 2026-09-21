@@ -122,7 +122,7 @@ def main():
         if FULL_TEST:
             t_max = 500
         else:   # Shorter for ROSCO CI
-            t_max = 100
+            t_max = 30
 
         run_dir = os.path.join(example_out_dir,'29_PRC_Demo/1_Soft_Start')
         olc = ROSCO_controller.OpenLoopControl(t_max=t_max)
@@ -137,7 +137,7 @@ def main():
         else:
             olc.interp_series(
                 'R_torque', 
-                [0,100], 
+                [0,t_max], 
                 [0,1.0] , 
                 'sigma'
                 )

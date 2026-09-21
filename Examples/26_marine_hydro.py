@@ -29,7 +29,7 @@ def main():
     r.wind_case_fcn = cl.power_curve
     r.wind_case_opts    = {
         'U': [2.5],
-        'TMax': 100.0,
+        'TMax': 30.0,
         }
     r.case_inputs = {}
     # r.fst_vt        = reader.fst_vt

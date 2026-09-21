@@ -23,6 +23,8 @@ from openfast_io.FAST_reader import InputReader_OpenFAST
 from rosco.toolbox.inputs.validation import load_rosco_yaml
 from rosco.toolbox.controller import OpenLoopControl
 
+FULL_TEST = False
+
 def main():
     #directories
     this_dir            = os.path.dirname(os.path.abspath(__file__))
@@ -53,9 +55,14 @@ def main():
         reader.fst_vt['SStC'].append(reader.read_StC(StC_file))
 
     # Set up open loop inputs to ROSCO
-    t_trans = 60
-    t_sigma = 80
-    t_max = 200
+    if FULL_TEST:
+        t_trans = 60
+        t_sigma = 80
+        t_max = 200
+    else:  # shorter for CI
+        t_trans = 5
+        t_sigma = 15
+        t_max = 30
 
     applied_force = [-2e6, 1e6, 1e6]
 

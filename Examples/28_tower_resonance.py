@@ -14,6 +14,8 @@ from rosco.toolbox.inputs.validation import load_rosco_yaml
 
 import numpy as np
 
+FULL_TEST = False
+
 def main():
     rpm2RadSec = 2.0*(np.pi)/60.0
 
@@ -70,6 +72,10 @@ def main():
         't_start': 100,
         't_end': 300
         }
+
+    if not FULL_TEST:  # shorter ramp for CI
+        r.wind_case_opts['t_start'] = 10
+        r.wind_case_opts['t_end'] = 60
 
     # # steady
     # r.wind_case_fcn = cl.power_curve  

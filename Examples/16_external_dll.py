@@ -44,6 +44,8 @@ def main():
     r.wind_case_opts    = {
         'U_start': [10],
         'U_end': [15],
+        'TMax': 20,
+        'TStep': 10,
         'wind_dir': run_dir
         }
     r.controller_params = controller_params

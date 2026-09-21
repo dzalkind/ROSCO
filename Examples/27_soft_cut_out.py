@@ -75,8 +75,8 @@ def main():
         r.wind_case_opts    = {
             'U_start': 25,  # from 10 to 15 m/s
             'U_end': 27,
-            't_start': 50,
-            't_end': 100,
+            't_start': 5,
+            't_end': 30,
             }
     r.save_dir      = run_dir
     r.rosco_dir     = rosco_dir

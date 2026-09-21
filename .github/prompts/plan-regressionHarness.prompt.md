@@ -14,18 +14,22 @@ change a baseline value. Any step that *would* is called out explicitly and requ
 deliberate `--update-baseline` commit with justification.
 
 ## Current Status
+All P0 work is committed as of 2026-09-21: task 1 in `66e0e9da` (pushed), tasks 2–6 in
+`e08c79f1` (local, not yet pushed). Working tree clean. P1 and below are untouched.
+
 | # | Task | Priority | Status |
 |---|------|----------|--------|
-| 1 | Delete dead translation scaffolding | P0 | STAGED, UNCOMMITTED — tag `archive/vit-translation` created + pushed 2026-09-21; deletions staged in index, suite re-verified 27/27 |
-| 2 | Consolidate into `test/regression/` | P0 | STAGED, UNCOMMITTED — 2026-09-21; suite re-verified 27/27 (5,252,000 values) from the new path |
-| 2b | Align build directory + CMake presets | P0 | STAGED, UNCOMMITTED — 2026-09-21; `rosco/controller/build` everywhere, presets dropped to `"version": 1`, `default` preset removed, `--rebuild` now configures an unconfigured build dir |
-| 3 | Rename VIT-era vocabulary | P0 | STAGED, UNCOMMITTED — 2026-09-21; `vit_sim`→`scenarios`, `verify_cpp`→`run_regression`, `baseline_arrays`→`baselines`, sim names→`regression_N` |
-| 4 | Write `test/regression/README.md` | P0 | STAGED, UNCOMMITTED — 2026-09-21 |
-| 5 | Remove the hidden `01_turbine_model.py` dependency | P0 | STAGED, UNCOMMITTED — 2026-09-21; pickle load replaced with `Turbine(inps['turbine_params'])`; verified 27/27 from a fresh clone with no prior steps |
-| 6 | Add CI job | P0 | STAGED, UNCOMMITTED — 2026-09-21; `pytest -v test/regression` step in `build_and_test_conda`, ubuntu only |
+| 1 | Delete dead translation scaffolding | P0 | DONE — commit `66e0e9da`, pushed; tag `archive/vit-translation` created + pushed 2026-09-21 |
+| 2 | Consolidate into `test/regression/` | P0 | DONE — commit `e08c79f1` (unpushed); suite re-verified 27/27 (5,252,000 values) from the new path |
+| 2b | Align build directory + CMake presets | P0 | DONE — commit `e08c79f1` (unpushed); `rosco/controller/build` everywhere, presets dropped to `"version": 1`, `default` preset removed, `--rebuild` now configures an unconfigured build dir |
+| 3 | Rename VIT-era vocabulary | P0 | DONE for the harness — commit `e08c79f1` (unpushed); `vit_sim`→`scenarios`, `verify_cpp`→`run_regression`, `baseline_arrays`→`baselines`, sim names→`regression_N`. C++ source vocabulary split out as task 3b. |
+| 3b | Rename VIT-era vocabulary in the C++ source | P1 | TODO — deferred deliberately; do it once the regression suite is settled, so the rename has a green baseline to verify against |
+| 4 | Write `test/regression/README.md` | P0 | DONE — commit `e08c79f1` (unpushed) |
+| 5 | Remove the hidden `01_turbine_model.py` dependency | P0 | DONE — commit `e08c79f1` (unpushed); pickle load replaced with `Turbine(inps['turbine_params'])`; verified 27/27 from a fresh clone with no prior steps |
+| 6 | Add CI job | P0 | DONE — commit `e08c79f1` (unpushed); `pytest -v test/regression` step in `build_and_test_conda`, ubuntu only. Not yet exercised on a real CI runner. |
 | 7 | Commit DISCON fixtures | P1 | TODO |
 | 8a | Layer A test: YAML → DISCON text (tuner) | P1 | TODO |
-| 8b | Layer B test: DISCON → parsed parameters (`Echo`) | P1 | TODO (converges with input-modernization plan) |
+| 8b | Layer B test: DISCON → parsed parameters | P1 | TODO — blocked on a parameter dump, *not* on the whole input-modernization plan. `Echo` is parsed but never implemented (no writer exists); a generated `dump_to_toml()` in `rosco_types_io.cpp` unblocks it. See that plan's Further Considerations #0. |
 | 9 | Baseline provenance metadata | P1 | TODO |
 | 10 | C++ line/branch coverage (gcovr) | P2 | TODO |
 | 11 | Mode-coverage table: regression vs Examples | P2 | TODO |
@@ -38,7 +42,8 @@ deliberate `--update-baseline` commit with justification.
 
 ## Findings that drive the plan
 
-Measured/verified on 2026-09-21, current `c++` branch:
+Measured/verified on 2026-09-21, **before** the P0 work landed. Findings are kept as the
+original diagnosis; some file links below point at paths that tasks 2-5 have since moved.
 
 1. **It works and it is cheap.** Full suite = 75 s wall clock; scenario 1 alone = 6.4 s.
    No need for tiering, nightly runs, or a "fast subset" — the whole thing fits in every PR.
@@ -121,7 +126,7 @@ Measured/verified on 2026-09-21, current `c++` branch:
 
 These are the ones that decide whether someone else can contribute. All are mechanical.
 
-### 1. Delete dead translation scaffolding — *ship this first, on its own*
+### 1. Delete dead translation scaffolding — **DONE** (`66e0e9da`)
 Confirmed with Daniel 2026-09-21: `kernel/`, `upstream_arrays/`, and `translations/` are
 VIT/KGen translation-era artifacts, untouched since the Fortran→C++ port completed, and a
 newcomer should never open them. Same for the Docker-era
@@ -188,10 +193,10 @@ test/
         test_regression.py        # pytest wrapper -> one test per scenario
         test_tuning.py            # task 8a — layer A
         run_regression.py         # today's verify_cpp.py (CLI entry point)
-        scenarios.py              # today's vit_sim.py
-        plot_regression.py        # today's plot_verification.py
+        scenarios.py              # was Examples/vit_sim.py
+        plot_regression.py        # was scripts/plot_verification.py
         fixtures/                 # task 7 — base_DISCON.IN + scenario_NN.IN
-        baselines/                # today's baseline_arrays/*.npz
+        baselines/                # was baseline_arrays/*.npz
 ```
 Top level, *not* under `rosco/`, so the 40 MB of baselines stays out of the wheel.
 `rosco/test/` keeps the toolbox tests and is untouched.
@@ -226,7 +231,26 @@ or define them once in the README as historical context. Scenario *numbers* stay
 are — they are referenced in `REFACTOR_NOTES.md` and in commit history.
 
 *Careful:* the `sim_name` passed to `ControllerInterface` determines the `.RO.dbg` filename,
-which `compare_hdf5_debug()` hardcodes. Rename both together.
+which `compare_hdf5_debug()` hardcodes. Rename both together. (Done — renamed together.)
+
+The C++ source keeps its VIT-era filenames — split out as task 3b below.
+
+### 3b. Rename VIT-era vocabulary in the C++ source
+Deferred from task 3 by decision 2026-09-21: **do this after the regression suite is set up**,
+not as part of it. The suite is what makes the rename safe, so it should exist and be green
+first.
+
+`rosco/controller/src/include/vit_types.h` and `vit_translated.h` are live headers. 49 files
+reference them, including `write_registry.py` (it emits `#include "vit_types.h"` at lines 128
+and 393), so the generator has to change with them.
+
+Mechanical, but not zero-risk, and it wants its own commit:
+- rename the two headers, update every `#include`, update both `write_registry.py` emit sites;
+- regenerate the registry (`cd rosco/controller/rosco_registry && python write_registry.py`);
+- `python test/regression/run_regression.py --rebuild` must still be 27/27 identical.
+
+Worth doing: after task 3, these headers are the last place a newcomer meets "VIT" with no
+explanation.
 
 ### 4. Write `test/regression/README.md` — **DONE**
 The handoff document. Must cover:
@@ -273,9 +297,14 @@ ignore rule does not fight them.
 
 *Updated after task 2:* the suite now writes its generated DISCON files into a scratch temp
 directory, not `Examples/`, so the run no longer mutates the working tree at all. The four
-tracked `Examples/DISCON_{awc,filters,flp,ipc}.IN` files — force-added against `.gitignore`
-— are now orphans: nothing in the repo reads or writes them. Task 7 should delete them as
-part of introducing `fixtures/`.
+tracked `Examples/DISCON_{awc,filters,flp,ipc}.IN` files — force-added against `.gitignore`,
+referenced by nothing — have been **deleted** (2026-09-21); they were each one arbitrary
+snapshot, since `DISCON_awc.IN` is written by 5 scenarios and `DISCON_{ipc,flp}.IN` by 2
+each. Task 7 therefore starts from a clean slate: generate fresh, one file per distinct
+parameter set.
+
+Note the ignore rule is scoped `Examples/DISCON*.IN`, so `test/regression/fixtures/*.IN`
+needs no force-add and no `.gitignore` change — relocation alone removes the trap.
 
 **Scope is larger than it looks: the fixture files are currently mutated in place.** There
 are 29 `write_discon()` calls across 28 scenarios but only **15 distinct filenames** —
@@ -322,7 +351,7 @@ own cheap check, and a failure names its own layer.
 *same* tuner output — `write_DISCON(turbine, controller, ...)` is called identically every
 time, and the scenario-specific differences are applied *afterwards* by regex text
 substitution in the `patches=` argument
-([vit_sim.py:173](/Users/dzalkind/Tools/ROSCO-C/Examples/vit_sim.py:173)). So layer A has
+([scenarios.py:159](/Users/dzalkind/Tools/ROSCO-C/test/regression/scenarios.py:159)). So layer A has
 exactly one output to pin.
 
 **`test/regression/test_tuning.py`**
@@ -442,13 +471,16 @@ alone, at the end.
    and keeping it out of the reorganisation PR keeps that PR's diff readable.
 2. **Tasks 2–6 as one PR** ("make the regression suite runnable and CI-enforced"). Nothing
    about *what* is verified changes; it is renames, moves, docs, and a workflow entry.
-3. **Tasks 7, 8a, 9 as a third PR** ("decouple controller regression from the tuner"). The
+3. **Task 3b** once the harness is settled — the C++ header rename, verified against the
+   now-green suite. Small and self-contained; slot it wherever convenient after the P0 PR.
+4. **Tasks 7, 8a, 9 as a third PR** ("decouple controller regression from the tuner"). The
    one with real design content and the only one that touches baselines.
-4. **Task 8b with the input-modernization plan**, where the TOML writer it needs is already
-   scheduled.
-5. **Tasks 10–11** — coverage is a reporting layer; it should sit on top of a stable
+5. **Task 8b** once a parameter dump exists. It does *not* have to wait for the
+   input-modernization plan to land — it needs one generated `dump_to_toml()`, which that
+   plan wants anyway (its Further Considerations #0). Whoever gets there first unblocks it.
+6. **Tasks 10–11** — coverage is a reporting layer; it should sit on top of a stable
    harness, not be built into a moving one.
-6. **P3 opportunistically.**
+7. **P3 opportunistically.**
 
 ## Open questions for review
 - ~~Top-level `test/` vs folding into the existing `rosco/test/`?~~ **Decided 2026-09-21:**

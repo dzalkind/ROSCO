@@ -4,7 +4,7 @@
 Replace the slow, large text-based `.RO.dbg` files with a compact binary format (HDF5 primary, text optional), eliminate the `DebugVar` struct by promoting its fields into `LocalVar`, keep avrSWAP logging, and auto-generate all debug I/O from the registry. The registry (`rosco_types.yaml` + `write_registry.py`) becomes the single source of truth -- no `source` field needed since all outputs are `LocalVar.{name}`.
 
 ## Current Status — ALL PHASES COMPLETE
-- **Phase 4 DONE** (commit `72b68f60`): `load_hdf5_output()` in `output_processing.py` auto-detects `.RO.h5` vs `.RO.dbg`; `verify_cpp.py` supports `--hdf5` comparison mode.
+- **Phase 4 DONE** (commit `72b68f60`): `load_hdf5_output()` in `output_processing.py` auto-detects `.RO.h5` vs `.RO.dbg`; the regression runner supports `--hdf5` comparison mode.
 - **Phase 3 DONE** (commit `ce2d701b`): `HDF5DebugWriter::open_avrswap()`/`write_avrswap_row()` wired into `_write_cpp_debug()`; avrSWAP written as `/avrSWAP` dataset in the same `.RO.h5` file when `OutputFormat=1`; text `.dbg3` path unchanged. Scenario 28 verifies avrSWAP (39998, 85) byte-identical.
 - **Phase 2 DONE** (commit `f67137f5`): `DebugWriter` abstraction (`debug_writer.hpp`, `text_debug_writer.cpp`, `hdf5_debug_writer.cpp`); `Debug()` is a thin dispatcher calling `write_row()`; `_write_cpp_debug()` generates `DebugWriter::create(OutputFormat)`. Verified 27/27 scenarios IDENTICAL, text `.dbg` byte-identical to pre-refactor, HDF5 == text (39,999x27).
 - **Phase 1 DONE**: HDF5 optional dep in CMake (`ROSCO_HDF5`, auto-detect via conda prefix); `OutputFormat` param (0=text, 1=HDF5) wired through DISCON -> `ControlParameters`, now **defaults to HDF5** (commit `ce2d701b`).
@@ -47,7 +47,7 @@ Replace the slow, large text-based `.RO.dbg` files with a compact binary format 
 
 ### Phase 4: Python tooling  — DONE
 7. Update `rosco.toolbox` Python readers to auto-detect format (text vs HDF5) when loading `.RO.dbg` / `.RO.h5` files.
-8. Update `verify_cpp.py` to support HDF5 comparison.
+8. Update the regression runner to support HDF5 comparison.
 
 ## Registry YAML Flags (implemented)
 - `dbg: true` — include field in `.dbg` output (LoggingLevel >= 1)
@@ -56,6 +56,11 @@ Replace the slow, large text-based `.RO.dbg` files with a compact binary format 
 - Units extracted from `[unit]` in description string; defaults to `[N/A]`
 
 ## Relevant Files
+*Paths updated 2026-09-21: the verification harness moved from `scripts/verify_cpp.py` to
+`test/regression/run_regression.py`, and the scenarios from `Examples/vit_sim.py` to
+`test/regression/scenarios.py`. Sim names are now `regression_N.RO.dbg` / `.RO.h5`, not
+`vit_simN` — relevant to the HDF5 comparison, which looks those filenames up.*
+
 - `rosco/controller/rosco_registry/rosco_types.yaml` — source of truth for all types and debug flags
 - `rosco/controller/rosco_registry/write_registry.py` — generates debug.cpp, rosco_types.hpp, rosco_types_io.cpp
 - `rosco/controller/src/IO/debug.cpp` — **AUTO-GENERATED**, do not edit manually
@@ -63,10 +68,10 @@ Replace the slow, large text-based `.RO.dbg` files with a compact binary format 
 - `rosco/controller/CMakeLists.txt` — add HDF5 dependency (Phase 1)
 - `src/IO/debug_writer.hpp` (new, Phase 1) — writer abstraction
 - `src/IO/hdf5_debug_writer.cpp` (new, Phase 1) — HDF5 backend
-- `scripts/verify_cpp.py` — verification harness
+- `test/regression/run_regression.py` — verification harness (was `scripts/verify_cpp.py` until 2026-09-21)
 
 ## Verification
-1. Current: `python scripts/verify_cpp.py --rebuild` — 27 scenarios, 5,252,000 float64 values byte-identical
+1. Current: `python test/regression/run_regression.py --rebuild` — 27 scenarios, 5,252,000 float64 values byte-identical
 2. After Phase 2 with `OutputFormat=0`: same 27-scenario text verification
 3. After Phase 2 with `OutputFormat=1`: load HDF5 in Python, compare against text baselines
 4. Inspect HDF5 with `h5dump` / `h5py`: variable names, units, timestamps, avrSWAP dataset
@@ -84,4 +89,4 @@ Replace the slow, large text-based `.RO.dbg` files with a compact binary format 
 3. **Registry regeneration breaks generated Fortran**: Resolved — `write_roscoio()` and the generated `ROSCO_IO.f90` were dead code (no build target consumed them in this pure-C++ controller); removed instead of patched (commit `3084d3f3`). Follow-up (commit `88f3a841`) removed `write_types()`/`ROSCO_Types.f90` generation too, for the same reason — the registry now only generates C++.
 4. **HDF5 default decision is not implemented**: Resolved — added `equals: 1` to `OutputFormat` in `rosco_types.yaml` and fixed `_write_cpp_io()` to honor per-field `equals` defaults in the TOML loader's `value_or(...)` (previously hardcoded to `0` regardless of the registry default). Regenerated; all 27 `.IN`-based verification scenarios remain byte-identical since those fixtures set `OutputFormat` explicitly.
 5. **Toolbox reader drops HDF5 avrSWAP data**: Resolved — `load_hdf5_output()` now reads the `/avrSWAP` dataset and its `column_labels` attribute when present, returning them via `info['avrSWAP']` / `info['avrSWAP_channels']`, and `_load_fast_data()` surfaces them on `fast_data['avrSWAP']` / `fast_data['avrSWAP_channels']` without polluting the main channel matrix.
-6. **HDF5 verification permits missing output**: Resolved — this uncovered that Phase 3 (avrSWAP-in-HDF5) was never wired up: `debug.cpp`'s `.dbg3` path always wrote text regardless of `OutputFormat`, even though `HDF5DebugWriter::open_avrswap()`/`write_avrswap_row()` existed unused. Fixed `_write_cpp_debug()` to route avrSWAP through `dbg_writer->open_avrswap()`/`write_avrswap_row()` (same HDF5 file as `.dbg`) when `OutputFormat=1`, keeping the text `.dbg3` path unchanged otherwise. Scenario 28 now sets `LoggingLevel=3` and captures the full `avrSWAP(1..85)` array from the Python sim loop as ground truth; `compare_hdf5_debug()`/`compare_hdf5_avrswap()` in `verify_cpp.py` now require exact channel-set equality (not just intersection) and verify avrSWAP column labels, shape, and values row-for-row (accounting for the controller's own init-call row, which precedes Python's tracked loop and has no ground truth). `python scripts/verify_cpp.py --hdf5` passes: 27/27 scenarios byte-identical, HDF5 text/channel parity, and avrSWAP (39998, 85) identical.
+6. **HDF5 verification permits missing output**: Resolved — this uncovered that Phase 3 (avrSWAP-in-HDF5) was never wired up: `debug.cpp`'s `.dbg3` path always wrote text regardless of `OutputFormat`, even though `HDF5DebugWriter::open_avrswap()`/`write_avrswap_row()` existed unused. Fixed `_write_cpp_debug()` to route avrSWAP through `dbg_writer->open_avrswap()`/`write_avrswap_row()` (same HDF5 file as `.dbg`) when `OutputFormat=1`, keeping the text `.dbg3` path unchanged otherwise. Scenario 28 now sets `LoggingLevel=3` and captures the full `avrSWAP(1..85)` array from the Python sim loop as ground truth; `compare_hdf5_debug()`/`compare_hdf5_avrswap()` in `run_regression.py` now require exact channel-set equality (not just intersection) and verify avrSWAP column labels, shape, and values row-for-row (accounting for the controller's own init-call row, which precedes Python's tracked loop and has no ground truth). `python test/regression/run_regression.py --hdf5` passes: 27/27 scenarios byte-identical, HDF5 text/channel parity, and avrSWAP (39998, 85) identical.

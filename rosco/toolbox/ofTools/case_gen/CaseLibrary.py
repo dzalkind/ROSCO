@@ -579,7 +579,7 @@ def sweep_yaml_input(start_group, **control_sweep_opts):
     base_params = control_sweep_opts['controller_params']
 
     if 'param_sweeps' in control_sweep_opts:
-        # ponytail: shallow merge, a nested override (e.g. DISCON) replaces the whole sub-dict
+        # NOTE: shallow merge, a nested override (e.g. DISCON) replaces the whole sub-dict
         param_sweeps = [{**base_params, **overrides} for overrides in control_sweep_opts['param_sweeps']]
     else:
         param_sweeps = []

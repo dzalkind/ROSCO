@@ -68,7 +68,7 @@ SOFT_START_DUR  = 100.
 
 def main():
 
-    FULL_TEST = True   # Run a full test locally (True) or a shorter one for CI
+    FULL_TEST = False   # Run a full test locally (True) or a shorter one for CI
 
     # Input yaml and output directory
     parameter_filename = os.path.join(this_dir, 'Tune_Cases/RM1_MHK_FBP.yaml')

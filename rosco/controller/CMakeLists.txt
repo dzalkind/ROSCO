@@ -19,6 +19,16 @@ else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffp-contract=off")
 endif()
 
+# GCC emits STB_GNU_UNIQUE symbols for static data members of templates and
+# static locals in inline functions (toml++ has both). glibc marks any library
+# holding such a symbol NODELETE, so dlclose() never unloads libdiscon and the
+# controller's static state survives into the next load. Callers that reload the
+# library in one process — the Python ControllerInterface, OpenFAST with several
+# turbines — then hit "this ROSCO dynamic library has already been loaded".
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-gnu-unique")
+endif()
+
 # toml++ (single-header, C++17, no external deps)
 include(FetchContent)
 FetchContent_Declare(

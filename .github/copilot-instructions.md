@@ -23,7 +23,7 @@ To add a new field to the `.dbg` output:
 ## Verification
 
 After any code change: `python test/regression/run_regression.py --rebuild`
-All 27 scenarios must pass byte-identical (5,252,000 float64 values).
+All 28 scenarios must pass byte-identical (5,772,000 float64 values).
 `pytest test/regression` runs the same check, one test per scenario.
 See `test/regression/README.md`.
 

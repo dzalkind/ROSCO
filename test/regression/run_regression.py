@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-run_regression.py — Run all 27 scenarios against the frozen baselines.
+run_regression.py — Run all 28 scenarios against the frozen baselines.
 
 Each scenario runs in a separate subprocess, because the controller DLL keeps
 static state that is only reset by unloading the process.
 
 Usage:
-    python3 test/regression/run_regression.py              # all 27 scenarios
+    python3 test/regression/run_regression.py              # all 28 scenarios
     python3 test/regression/run_regression.py --scenario 1 # single scenario
     python3 test/regression/run_regression.py --rebuild    # cmake build first
 
@@ -38,7 +38,19 @@ LIB_DIR = os.path.join(REPO_ROOT, "rosco", "lib")
 SCRUB_SRC = os.path.join(CONTROLLER_DIR, "src", "scrub_stack.c")
 SCRUB_LIB = os.path.join(LIB_DIR, "libscrub.so")
 
-ALL_SCENARIOS = list(range(1, 28))
+ALL_SCENARIOS = list(range(1, 29))
+
+# Scenarios compared against another scenario's baseline instead of their own.
+# 28 is scenario 1's simulation with HDF5 logging at LoggingLevel 3; logging must
+# not change a single control output, so it shares scenario 1's baseline. Its
+# extra key is the avrSWAP capture that compare_hdf5_avrswap() checks the .RO.h5
+# against.
+SHARED_BASELINE = {28: 1}
+EXTRA_OUTPUT_KEYS = {28: {"avrSWAP_full"}}
+
+
+def baseline_path(scenario_num):
+    return os.path.join(BASELINE_DIR, f"scenario_{SHARED_BASELINE.get(scenario_num, scenario_num)}.npz")
 
 
 def build_discon(build_dir, preset=None):
@@ -134,18 +146,18 @@ def run_scenario(scenario_num, output_dir, work_dir=None, asan_env=None):
 
 def compare_scenario(scenario_num, output_dir):
     """Compare scenario output against baseline. Returns (identical, details)."""
-    baseline_path = os.path.join(BASELINE_DIR, f"scenario_{scenario_num}.npz")
+    bpath = baseline_path(scenario_num)
     output_path = os.path.join(output_dir, f"scenario_{scenario_num}.npz")
 
-    if not os.path.exists(baseline_path):
-        return False, f"no baseline file at {baseline_path}"
+    if not os.path.exists(bpath):
+        return False, f"no baseline file at {bpath}"
     if not os.path.exists(output_path):
         return False, "output file not written"
 
-    b = np.load(baseline_path)
+    b = np.load(bpath)
     o = np.load(output_path)
 
-    if set(b.files) != set(o.files):
+    if set(b.files) != set(o.files) - EXTRA_OUTPUT_KEYS.get(scenario_num, set()):
         return False, f"key mismatch: baseline={sorted(b.files)} output={sorted(o.files)}"
 
     mismatches = []
@@ -301,7 +313,7 @@ def read_provenance():
 def main():
     parser = argparse.ArgumentParser(description="Verify C++ controller against frozen baselines")
     parser.add_argument("--scenario", type=int, default=0,
-                        help="Run single scenario (1-27). Default 0 = all.")
+                        help="Run single scenario (1-28). Default 0 = all.")
     parser.add_argument("--rebuild", action="store_true",
                         help="Run cmake --build before verifying.")
     parser.add_argument("--update-baseline", action="store_true",
@@ -309,8 +321,8 @@ def main():
     parser.add_argument("--preset", type=str, default=None,
                         help="CMake preset name (e.g. 'asan'). Sets build dir to build-{preset}.")
     parser.add_argument("--hdf5", action="store_true",
-                        help="Also run Scenario 28 (HDF5 OutputFormat) and compare its .RO.h5 "
-                             "debug output against Scenario 1's .RO.dbg text output.")
+                        help="Also compare Scenario 28's .RO.h5 debug output against "
+                             "Scenario 1's .RO.dbg text output (runs either if not selected).")
     args = parser.parse_args()
 
     # Resolve build directory from preset
@@ -360,6 +372,9 @@ def main():
         os.makedirs(BASELINE_DIR, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="rosco_regression_") as workdir:
             for s in scenarios:
+                if s in SHARED_BASELINE:
+                    print(f"  scenario_{s:2d}: shares scenario {SHARED_BASELINE[s]}'s baseline — skipped")
+                    continue
                 sys.stdout.write(f"  scenario_{s:2d}: running... ")
                 sys.stdout.flush()
                 ok = run_scenario(s, BASELINE_DIR, work_dir=workdir, asan_env=asan_env)
@@ -393,7 +408,7 @@ def main():
         if passed == total:
             total_vals = 0
             for s in scenarios:
-                bp = os.path.join(BASELINE_DIR, f"scenario_{s}.npz")
+                bp = baseline_path(s)
                 if os.path.exists(bp):
                     b = np.load(bp)
                     total_vals += sum(len(b[k]) for k in b.files)
@@ -407,13 +422,11 @@ def main():
 
         if args.hdf5:
             print()
-            print("Running Scenario 28 (HDF5 OutputFormat) for text/HDF5 comparison...")
-            if 1 not in scenarios:
-                run_scenario(1, tmpdir, asan_env=asan_env)
-            ok28 = run_scenario(28, tmpdir, asan_env=asan_env)
-            if not ok28:
-                print("  Scenario 28: SUBPROCESS FAILED")
-                sys.exit(1)
+            print("Comparing Scenario 28's HDF5 debug output against Scenario 1's text output...")
+            for s in (1, 28):
+                if s not in scenarios and not run_scenario(s, tmpdir, asan_env=asan_env):
+                    print(f"  Scenario {s}: SUBPROCESS FAILED")
+                    sys.exit(1)
             identical, detail = compare_hdf5_debug(tmpdir)
             if identical is None:
                 print(f"  SKIPPED: {detail}")

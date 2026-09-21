@@ -56,7 +56,7 @@ same generator and parser files the rename touches. Order: see
 | 9 | Baseline provenance metadata | P1 | DONE — commit `4523559c`; `baselines/PROVENANCE.json`, written by `--update-baseline`, printed in every run header; initial file backfilled honestly from git rather than fabricated |
 | 10 | C++ line/branch coverage (gcovr) | P2 | TODO — after the CI work in `CMakeLists.txt` settles; local only, no CI job from this plan |
 | 11 | Mode-coverage table: regression vs Examples | P2 | DONE — `mode_coverage.py` + `test_mode_coverage.py` (registry sync, no DLL); README "What is *not* covered". Headline: no scenario runs `VS_ControlMode=3` or `VS_ConstPower=0`, the IEA-15/NREL-2.8 configuration. See 11 for findings |
-| 12 | HDF5 scenario symmetry | P3 | TODO — before 14/15, so scenario 28's baseline is created before the format change |
+| 12 | HDF5 scenario symmetry | P3 | DONE — scenario 28 is in `ALL_SCENARIOS` and compared bit-for-bit against `scenario_1.npz` (`SHARED_BASELINE`) rather than a new baseline file; gate is now 28 scenarios, **5,772,000** values. See 12 |
 | 13 | Data-driven scenario definitions | P3 | DONE — `scenarios.py` 2,080 → 866 lines: a `Scenario` table + four runners. All 27 baselines identical. Found two scenarios whose synthetic inputs never reach the controller; see 13 |
 | 14 | Store `t`/`ws` in baselines, delete `SCENARIO_WIND` | P3 | TODO — land with 15 as one baseline-format commit |
 | 15 | Compress baselines | P3 | TODO — land with 14 |
@@ -617,6 +617,22 @@ inside the temp dir instead of requiring a prior scenario-1 run in `Examples/`.
 
 Do it before 14/15, so scenario 28's new baseline goes through the format change with the
 other 27 rather than being written in the old format and immediately rewritten.
+
+**DONE 2026-09-21 — by a different route than planned: no new baseline file.** Scenario 28
+is scenario 1's simulation with `OutputFormat=1, LoggingLevel=3`. Its avrSWAP-level outputs
+were checked to be bit-identical to `baselines/scenario_1.npz` in every array. A frozen
+copy would have duplicated those arrays plus a 40,000 × 85 avrSWAP capture (~27 MB
+uncompressed) to assert nothing new. Instead:
+- `run_regression.py` gains `SHARED_BASELINE = {28: 1}`: scenario 28 runs with the rest and
+  is compared bit-for-bit against scenario 1's baseline, which asserts the property that
+  matters — **logging format and level do not change a single control output**. Its one
+  extra key, `avrSWAP_full`, is allowed by name (`EXTRA_OUTPUT_KEYS`), not by ignoring
+  unknown keys.
+- `--update-baseline` skips shared scenarios, so it cannot write a `scenario_28.npz`.
+- The `.RO.h5` checks are unchanged; they already ran in the temp dir (the "prior scenario-1
+  run in `Examples/`" dependency was gone since task 2).
+- The gate total rises from 5,252,000 to **5,772,000** values (28 scenarios). README and
+  `.github/copilot-instructions.md` updated.
 
 ### 13. Data-driven scenario definitions
 `scenarios.py` is 2,028 lines of 28 near-identical hand-written functions. Most differ only

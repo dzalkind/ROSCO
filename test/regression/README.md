@@ -1,7 +1,7 @@
 # ROSCO C++ controller regression suite
 
-27 scenarios drive the compiled `libdiscon` through the controller's modes and
-compare **5,252,000 float64 values** against frozen baselines — *bit-for-bit,
+28 scenarios drive the compiled `libdiscon` through the controller's modes and
+compare **5,772,000 float64 values** against frozen baselines — *bit-for-bit,
 not to a tolerance*. It is the strongest guarantee in the repo: if it passes, a
 refactor changed no controller behaviour at all. Full run is about 75 s.
 
@@ -22,7 +22,7 @@ pytest test/regression/test_tuning.py               # tuning only, ~3 s, no DLL
 python test/regression/mode_coverage.py --gaps      # what no scenario configures
 ```
 
-Expected: `RESULT: ALL IDENTICAL — 5,252,000 total float64 values compared`.
+Expected: `RESULT: ALL IDENTICAL — 5,772,000 total float64 values compared`.
 
 No setup steps beyond installing the package (`pip install -e .`, which builds
 the DLL into `rosco/lib/`). The suite regenerates every input it needs from
@@ -219,8 +219,13 @@ exactly. Making them do what was intended means passing the signals through
 `turbine_state`, which will move both baselines — a deliberate decision, not a
 refactor.
 
-Scenario 28 has no frozen baseline; it is compared against scenario 1's text
-output instead, and is excluded from `ALL_SCENARIOS`.
+Scenario 28 has no baseline file of its own. It is scenario 1's simulation with
+HDF5 logging at `LoggingLevel=3`, and logging must not change a single control
+output, so `run_regression.py` compares it bit-for-bit against
+`baselines/scenario_1.npz` (`SHARED_BASELINE`). Separately, `--hdf5` and
+`test_hdf5_matches_text_output` check its `.RO.h5` against scenario 1's text
+`.RO.dbg`, and its `/avrSWAP` dataset against the avrSWAP values captured in the
+sim loop.
 
 ### What is *not* covered
 
@@ -285,7 +290,7 @@ test/regression/
     test_mode_coverage.py  keeps mode_coverage.py in step with the registry
     plot_regression.py     failure-diagnosis plots
     fixtures/              committed DISCON inputs — one per scenario
-    baselines/             27 frozen .npz files (~40 MB) + PROVENANCE.json
+    baselines/             27 frozen .npz files (~40 MB; 28 shares 1's) + PROVENANCE.json
 ```
 
 This lives at the repo top level rather than under `rosco/` so the baselines

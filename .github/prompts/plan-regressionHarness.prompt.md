@@ -24,7 +24,7 @@ pushed). Tasks 7, 8a and 9 are **done but uncommitted** in the working tree. Rem
 | 2 | Consolidate into `test/regression/` | P0 | DONE — commit `e08c79f1` (unpushed); suite re-verified 27/27 (5,252,000 values) from the new path |
 | 2b | Align build directory + CMake presets | P0 | DONE — commit `e08c79f1` (unpushed); `rosco/controller/build` everywhere, presets dropped to `"version": 1`, `default` preset removed, `--rebuild` now configures an unconfigured build dir |
 | 3 | Rename VIT-era vocabulary | P0 | DONE for the harness — commit `e08c79f1` (unpushed); `vit_sim`→`scenarios`, `verify_cpp`→`run_regression`, `baseline_arrays`→`baselines`, sim names→`regression_N`. C++ source vocabulary split out as task 3b. |
-| 3b | Rename VIT-era vocabulary in the C++ source | P1 | TODO — deferred deliberately; do it once the regression suite is settled, so the rename has a green baseline to verify against |
+| 3b | Rename VIT-era vocabulary in the C++ source | P3 | DEFERRED (decision 2026-09-21) — do it after *all* regression work in this plan is finished. It is pure cosmetics across ~49 files; doing it mid-plan would churn the diff of every task that follows for no functional gain. |
 | 4 | Write `test/regression/README.md` | P0 | DONE — commit `e08c79f1` (unpushed) |
 | 5 | Remove the hidden `01_turbine_model.py` dependency | P0 | DONE — commit `e08c79f1` (unpushed); pickle load replaced with `Turbine(inps['turbine_params'])`; verified 27/27 from a fresh clone with no prior steps |
 | 6 | Add CI job | P0 | DONE — commit `e08c79f1` (unpushed); `pytest -v test/regression` step in `build_and_test_conda`, ubuntu only. Not yet exercised on a real CI runner. |
@@ -237,10 +237,11 @@ which `compare_hdf5_debug()` hardcodes. Rename both together. (Done — renamed 
 
 The C++ source keeps its VIT-era filenames — split out as task 3b below.
 
-### 3b. Rename VIT-era vocabulary in the C++ source
-Deferred from task 3 by decision 2026-09-21: **do this after the regression suite is set up**,
-not as part of it. The suite is what makes the rename safe, so it should exist and be green
-first.
+### 3b. Rename VIT-era vocabulary in the C++ source — **DEFERRED to last**
+Decision 2026-09-21: do this after *all* regression work in this plan is finished, not
+partway through. Two reasons: the suite is what makes the rename safe to do at all, and the
+rename is purely cosmetic across ~49 files — landing it mid-plan would churn the diff of
+every remaining task for no functional gain.
 
 `rosco/controller/src/include/vit_types.h` and `vit_translated.h` are live headers. 49 files
 reference them, including `write_registry.py` (it emits `#include "vit_types.h"` at lines 128
@@ -530,16 +531,16 @@ alone, at the end.
    and keeping it out of the reorganisation PR keeps that PR's diff readable.
 2. **Tasks 2–6 as one PR** ("make the regression suite runnable and CI-enforced"). Nothing
    about *what* is verified changes; it is renames, moves, docs, and a workflow entry.
-3. **Task 3b** once the harness is settled — the C++ header rename, verified against the
-   now-green suite. Small and self-contained; slot it wherever convenient after the P0 PR.
-4. **Tasks 7, 8a, 9 as a third PR** ("decouple controller regression from the tuner"). The
+3. **Tasks 7, 8a, 9 as a third PR** ("decouple controller regression from the tuner"). The
    one with real design content and the only one that touches baselines.
-5. **Task 8b** once a parameter dump exists. It does *not* have to wait for the
+4. **Task 8b** once a parameter dump exists. It does *not* have to wait for the
    input-modernization plan to land — it needs one generated `dump_to_toml()`, which that
    plan wants anyway (its Further Considerations #0). Whoever gets there first unblocks it.
-6. **Tasks 10–11** — coverage is a reporting layer; it should sit on top of a stable
+5. **Tasks 10–11** — coverage is a reporting layer; it should sit on top of a stable
    harness, not be built into a moving one.
-7. **P3 opportunistically.**
+6. **P3 opportunistically** — including task 3b (the C++ vocabulary rename), which is
+   deliberately last: it touches ~49 files cosmetically and would otherwise churn the diff
+   of every task above it.
 
 ## Open questions for review
 - ~~Top-level `test/` vs folding into the existing `rosco/test/`?~~ **Decided 2026-09-21:**

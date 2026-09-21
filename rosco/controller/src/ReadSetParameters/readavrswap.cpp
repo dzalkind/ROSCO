@@ -79,6 +79,10 @@ void ReadAvrSWAP(float* avrSWAP, LocalVariables& LocalVar, const ControlParamete
 
     LocalVar.BlPitchCMeas = (1.0 / static_cast<double>(LocalVar.NumBl)) * (LocalVar.BlPitch[0] + LocalVar.BlPitch[1] + LocalVar.BlPitch[2]);
 
+    // restart triggers a one-shot re-initialisation of the filters, PI
+    // controllers and rate limiters. Only a cold start needs it: on a warm
+    // restart (iStatus == -9) ReadRestartFile restores their state from the
+    // checkpoint, and re-seeding would throw that state away.
     if (LocalVar.iStatus == 0) {
         LocalVar.restart = 1;
     } else {
@@ -88,10 +92,11 @@ void ReadAvrSWAP(float* avrSWAP, LocalVariables& LocalVar, const ControlParamete
     // FA_Acc_TT is in the non-rotating tower-top frame, convert to nacelle frame
     LocalVar.FA_Acc_Nac = LocalVar.FA_Acc_TT * std::cos(LocalVar.NacHeading * D2R) + LocalVar.SS_Acc_TT * std::sin(LocalVar.NacHeading * D2R);
 
-    // Increment timestep counter
+    // Increment timestep counter. Checkpoint save/restore calls (iStatus -8/-9)
+    // are not timesteps, so they must not advance it.
     if (LocalVar.iStatus == 0 && LocalVar.Time == 0.0) {
         LocalVar.n_DT = 0;
-    } else {
+    } else if (LocalVar.iStatus > -8) {
         LocalVar.n_DT = LocalVar.n_DT + 1;
     }
 }

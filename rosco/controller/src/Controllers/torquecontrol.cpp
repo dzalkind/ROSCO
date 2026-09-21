@@ -4,6 +4,7 @@
 #include "../ControlElements/ratelimiter.hpp"
 #include "../ControlElements/picontroller.hpp"
 #include "../ControlElements/pidcontroller.hpp"
+#include "../include/controller_objects.hpp"
 
 void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // TorqueControl: generator torque controller
@@ -29,7 +30,7 @@ void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariab
         (CntrPar.VS_ControlMode == VS_Mode_Power_TSR) ||
         (CntrPar.VS_ControlMode == VS_Mode_Torque_TSR)) {
 
-        static PIController genTqPI;
+        auto& genTqPI = ObjState.torque.genTqPI;
         if (LocalVar.iStatus == 0 || LocalVar.restart) {
             genTqPI.init(LocalVar.VS_LastGenTrq);
             LocalVar.GenTq = LocalVar.VS_LastGenTrq;
@@ -44,7 +45,7 @@ void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariab
 
     } else if (CntrPar.VS_ControlMode == VS_Mode_KOmega) {
         // K*Omega^2 with PI transitions
-        static PIController genArTqPI;
+        auto& genArTqPI = ObjState.torque.genArTqPI;
         if (LocalVar.iStatus == 0 || LocalVar.restart) {
             genArTqPI.init(CntrPar.VS_MaxOMTq);
             LocalVar.GenArTq = CntrPar.VS_MaxOMTq;
@@ -52,7 +53,7 @@ void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariab
             LocalVar.GenArTq = genArTqPI.step(LocalVar.VS_SpdErrAr, CntrPar.VS_KP[0], CntrPar.VS_KI[0],
                 CntrPar.VS_MaxOMTq, CntrPar.VS_ArSatTq, LocalVar.DT);
         }
-        static PIController genBrTqPI;
+        auto& genBrTqPI = ObjState.torque.genBrTqPI;
         if (LocalVar.iStatus == 0 || LocalVar.restart) {
             genBrTqPI.init(CntrPar.VS_MinOMTq);
             LocalVar.GenBrTq = CntrPar.VS_MinOMTq;
@@ -101,7 +102,7 @@ void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariab
                                   std::min(CntrPar.VS_MaxTq, LocalVar.VS_MaxTq));
 
     // Rate limit
-    static RateLimiter genTqRL;
+    auto& genTqRL = ObjState.torque.genTqRL;
     if (LocalVar.iStatus == 0 || LocalVar.restart) genTqRL.init(LocalVar.GenTq);
     LocalVar.GenTq = genTqRL.step(LocalVar.GenTq, -CntrPar.VS_MaxRat, CntrPar.VS_MaxRat, LocalVar.DT);
 
@@ -140,7 +141,7 @@ void TorqueControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariab
             LocalVar.AzError = LocalVar.OL_Azimuth - LocalVar.AzUnwrapped;
 
             // PID controller for azimuth tracking torque
-            static PIDController genTqAzPID;
+            auto& genTqAzPID = ObjState.torque.genTqAzPID;
             if (LocalVar.iStatus == 0 || LocalVar.restart) {
                 genTqAzPID.init(0.0, CntrPar.RP_Gains[3], LocalVar.DT, LocalVar.AzError);
                 LocalVar.GenTqAz = 0.0;

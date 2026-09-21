@@ -1,6 +1,7 @@
 #include "../include/vit_translated.h"
 #include <cmath>
 #include "../include/rosco_constants.h"
+#include "../include/controller_objects.hpp"
 
 void SpeedSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
 
@@ -9,7 +10,7 @@ void SpeedSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar) 
 
     // Lookup table for speed setpoint (PRC_Mode 1)
     if (CntrPar.PRC_Mode == 1) {
-        static LPFilter prcWindFilter;
+        auto& prcWindFilter = ObjState.speed_setpoints.prcWindFilter;
         if (LocalVar.iStatus == 0 || LocalVar.restart) prcWindFilter.init(CntrPar.PRC_LPF_Freq, LocalVar.DT, LocalVar.WE_Vw);
         LocalVar.PRC_WSE_F = prcWindFilter.step(LocalVar.WE_Vw);
         LocalVar.PC_RefSpd_PRC = interp1d(CntrPar.PRC_WindSpeeds,
@@ -62,7 +63,7 @@ void SpeedSetpoints(const ControlParameters& CntrPar, LocalVariables& LocalVar) 
     LocalVar.VS_RefSpd = LocalVar.VS_RefSpd_TSR * LocalVar.PRC_R_Speed;
 
     // Filter reference signal
-    static LPFilter refSpdFilter;
+    auto& refSpdFilter = ObjState.speed_setpoints.refSpdFilter;
     if (LocalVar.iStatus == 0 || LocalVar.restart) refSpdFilter.init(CntrPar.F_VSRefSpdCornerFreq, LocalVar.DT, LocalVar.VS_RefSpd_TSR);
     LocalVar.VS_RefSpd = refSpdFilter.step(LocalVar.VS_RefSpd_TSR);
 

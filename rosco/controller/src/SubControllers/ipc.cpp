@@ -1,6 +1,7 @@
 #include "../include/vit_translated.h"
 #include <algorithm>
 #include "../ControlElements/picontroller.hpp"
+#include "../include/controller_objects.hpp"
 
 void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // IPC: Individual Pitch Control for 1P and 2P load reduction
@@ -19,10 +20,10 @@ void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     double Y_MErrF_IPC = 0.0;
     if (CntrPar.Y_ControlMode == 2) {
         double Y_MErr = wrap_360(LocalVar.NacHeading + LocalVar.NacVane);
-        static LPFilter yawErrFilter;
+        auto& yawErrFilter = ObjState.ipc.yawErrFilter;
         if (LocalVar.iStatus == 0 || LocalVar.restart) yawErrFilter.init(CntrPar.F_YawErr, LocalVar.DT, Y_MErr);
         Y_MErrF = yawErrFilter.step(Y_MErr);
-        static PIController yawIpcPI;
+        auto& yawIpcPI = ObjState.ipc.yawIpcPI;
         if (LocalVar.iStatus == 0 || LocalVar.restart) {
             yawIpcPI.init(0.0);
             Y_MErrF_IPC = 0.0;
@@ -55,7 +56,7 @@ void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
 
     // PI controllers for 1P and 2P
     if (CntrPar.IPC_ControlMode >= 1 && CntrPar.Y_ControlMode != 2) {
-        static PIController ipcTilt1pPI;
+        auto& ipcTilt1pPI = ObjState.ipc.ipcTilt1pPI;
         if (LocalVar.iStatus == 0 || LocalVar.restart) {
             ipcTilt1pPI.init(0.0);
             LocalVar.IPC_AxisTilt_1P = 0.0;
@@ -63,7 +64,7 @@ void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
             LocalVar.IPC_AxisTilt_1P = ipcTilt1pPI.step(LocalVar.axisTilt_1P, LocalVar.IPC_KP[0], LocalVar.IPC_KI[0],
                 -LocalVar.IPC_IntSat, LocalVar.IPC_IntSat, LocalVar.DT);
         }
-        static PIController ipcYaw1pPI;
+        auto& ipcYaw1pPI = ObjState.ipc.ipcYaw1pPI;
         if (LocalVar.iStatus == 0 || LocalVar.restart) {
             ipcYaw1pPI.init(0.0);
             LocalVar.IPC_AxisYaw_1P = 0.0;
@@ -73,7 +74,7 @@ void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
         }
 
         if (CntrPar.IPC_ControlMode >= 2) {
-            static PIController ipcTilt2pPI;
+            auto& ipcTilt2pPI = ObjState.ipc.ipcTilt2pPI;
             if (LocalVar.iStatus == 0 || LocalVar.restart) {
                 ipcTilt2pPI.init(0.0);
                 LocalVar.IPC_AxisTilt_2P = 0.0;
@@ -81,7 +82,7 @@ void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
                 LocalVar.IPC_AxisTilt_2P = ipcTilt2pPI.step(LocalVar.axisTilt_2P, LocalVar.IPC_KP[1], LocalVar.IPC_KI[1],
                     -LocalVar.IPC_IntSat, LocalVar.IPC_IntSat, LocalVar.DT);
             }
-            static PIController ipcYaw2pPI;
+            auto& ipcYaw2pPI = ObjState.ipc.ipcYaw2pPI;
             if (LocalVar.iStatus == 0 || LocalVar.restart) {
                 ipcYaw2pPI.init(0.0);
                 LocalVar.IPC_AxisYaw_2P = 0.0;
@@ -107,7 +108,7 @@ void IPC(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
                                LocalVar.Azimuth, 2, CntrPar.IPC_aziOffset[1], PitComIPC_2P);
 
     // Sum 1P and 2P contributions, optionally filter
-    static LPFilter ipcActFilter[3];
+    auto& ipcActFilter = ObjState.ipc.ipcActFilter;
     for (int K = 0; K < LocalVar.NumBl; K++) {
         PitComIPC[K] = PitComIPC_1P[K] + PitComIPC_2P[K];
 

@@ -1,6 +1,7 @@
 #include "../include/vit_types.h"
 #include "../include/vit_translated.h"
 #include "../ControlElements/ratelimiter.hpp"
+#include "../include/controller_objects.hpp"
 
 void RefSpeedExclusion(LocalVariables& LocalVar, const ControlParameters& CntrPar) {
 
@@ -36,7 +37,7 @@ void RefSpeedExclusion(LocalVariables& LocalVar, const ControlParameters& CntrPa
     LocalVar.TRA_LastRefSpd = LocalVar.VS_RefSpd_TRA;
 
     // Rate limit reference speed
-    static RateLimiter refSpdRL;
+    auto& refSpdRL = ObjState.ref_speed_exclusion.refSpdRL;
     if (LocalVar.iStatus == 0 || LocalVar.restart) refSpdRL.init(LocalVar.VS_RefSpd_TRA);
     LocalVar.VS_RefSpd_RL = refSpdRL.step(LocalVar.VS_RefSpd_TRA, -CntrPar.TRA_RateLimit, CntrPar.TRA_RateLimit, LocalVar.DT);
     LocalVar.VS_RefSpd = LocalVar.VS_RefSpd_RL * CntrPar.WE_GearboxRatio;

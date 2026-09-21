@@ -1,11 +1,12 @@
 #include "../include/vit_translated.h"
+#include "../include/controller_objects.hpp"
 
 void Startup(LocalVariables& LocalVar, const ControlParameters& CntrPar) {
 
     double SU_PrevLoad;
 
     // Filtered rotor speed
-    static LPFilter rotSpeedFilter;
+    auto& rotSpeedFilter = ObjState.startup.rotSpeedFilter;
     if (LocalVar.iStatus == 0 || LocalVar.restart) rotSpeedFilter.init(CntrPar.SU_RotorSpeedCornerFreq, LocalVar.DT, LocalVar.RotSpeed);
     LocalVar.SU_RotSpeedF = rotSpeedFilter.step(LocalVar.RotSpeed);
 

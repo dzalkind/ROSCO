@@ -6,6 +6,7 @@
 #define RESTART_FIELDS_H
 
 #include "vit_types.h"
+#include "controller_objects.hpp"
 #include <fstream>
 #include <cmath>
 #include <string>
@@ -267,6 +268,11 @@ void checkpoint_fields(Stream& f, LocalVariables& LocalVar, FieldOp field_op) {
     field_op(f, LocalVar.resP.res);
     field_op(f, LocalVar.rlP.rl);
 
+    // --- Filter / controller instances ---
+    // Written as one raw block; see controller_objects.hpp. This is the state
+    // that actually drives the controller, so a warm restart is only bit-exact
+    // because it round-trips here.
+    field_op(f, ObjState);
 
 }
 

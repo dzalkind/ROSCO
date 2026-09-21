@@ -42,6 +42,7 @@ FetchContent_MakeAvailable(tomlplusplus)
 set(SOURCES
     src/rosco_types_io.cpp
     src/discon.cpp
+    src/controller_objects.cpp
     src/Stages/stage_1_sensing.cpp
     src/Stages/stage_2_setup.cpp
     src/Stages/stage_3_filtering.cpp

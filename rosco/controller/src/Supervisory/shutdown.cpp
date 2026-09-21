@@ -2,6 +2,7 @@
 #include <cmath>
 
 #include "../include/rosco_constants.h"
+#include "../include/controller_objects.hpp"
 
 void Shutdown(LocalVariables& LocalVar, const ControlParameters& CntrPar) {
 
@@ -11,12 +12,12 @@ void Shutdown(LocalVariables& LocalVar, const ControlParameters& CntrPar) {
     }
 
     // Filter pitch signal
-    static LPFilter pitchFilter;
+    auto& pitchFilter = ObjState.shutdown.pitchFilter;
     if (LocalVar.iStatus == 0 || LocalVar.restart) pitchFilter.init(CntrPar.SD_PitchCornerFreq, LocalVar.DT, LocalVar.BlPitchCMeas);
     LocalVar.SD_BlPitchF = pitchFilter.step(LocalVar.BlPitchCMeas);
 
     // Filter generator speed
-    static LPFilter genSpeedFilter;
+    auto& genSpeedFilter = ObjState.shutdown.genSpeedFilter;
     if (LocalVar.iStatus == 0 || LocalVar.restart) genSpeedFilter.init(CntrPar.SD_GenSpdCornerFreq, LocalVar.DT, LocalVar.GenSpeed);
     LocalVar.SD_GenSpeedF = genSpeedFilter.step(LocalVar.GenSpeed);
 
@@ -24,11 +25,11 @@ void Shutdown(LocalVariables& LocalVar, const ControlParameters& CntrPar) {
     double SD_NacVane_cos = std::cos(LocalVar.NacVane * D2R);
     double SD_NacVane_sin = std::sin(LocalVar.NacVane * D2R);
 
-    static LPFilter nacVaneCosFilter;
+    auto& nacVaneCosFilter = ObjState.shutdown.nacVaneCosFilter;
     if (LocalVar.iStatus == 0 || LocalVar.restart) nacVaneCosFilter.init(CntrPar.SD_YawErrorCornerFreq, LocalVar.DT, SD_NacVane_cos);
     double SD_NacVaneCosF = nacVaneCosFilter.step(SD_NacVane_cos);
 
-    static LPFilter nacVaneSinFilter;
+    auto& nacVaneSinFilter = ObjState.shutdown.nacVaneSinFilter;
     if (LocalVar.iStatus == 0 || LocalVar.restart) nacVaneSinFilter.init(CntrPar.SD_YawErrorCornerFreq, LocalVar.DT, SD_NacVane_sin);
     double SD_NacVaneSinF = nacVaneSinFilter.step(SD_NacVane_sin);
     LocalVar.SD_NacVaneF = wrap_180(std::atan2(SD_NacVaneSinF, SD_NacVaneCosF) * R2D);

@@ -1,13 +1,14 @@
 #include "../include/vit_translated.h"
 #include <cmath>
 #include "../include/rosco_constants.h"
+#include "../include/controller_objects.hpp"
 
 void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // YawRateControl: yaw rate control using yaw drive
     //   Y_ControlMode = 1: active yaw rate control
 
     // SAVE variable — persists across calls (filter index, not debug-relevant)
-    static int Tidx = 0;
+    auto& Tidx = ObjState.yaw.Tidx;
 
     if (CntrPar.Y_ControlMode == 1) {
         // Compass wind direction in degrees
@@ -31,11 +32,11 @@ void YawRateControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVaria
         double WDpO_cos = cos(WindDirPlusOffset * D2R);
         double WDpO_sin = sin(WindDirPlusOffset * D2R);
 
-        static LPFilter windDirCosFilter;
+        auto& windDirCosFilter = ObjState.yaw.windDirCosFilter;
         if (LocalVar.iStatus == 0) windDirCosFilter.init(CntrPar.F_YawErr, LocalVar.DT, WDpO_cos);
         double WindDirPlusOffsetCosF = windDirCosFilter.step(WDpO_cos);
 
-        static LPFilter windDirSinFilter;
+        auto& windDirSinFilter = ObjState.yaw.windDirSinFilter;
         if (LocalVar.iStatus == 0) windDirSinFilter.init(CntrPar.F_YawErr, LocalVar.DT, WDpO_sin);
         double WindDirPlusOffsetSinF = windDirSinFilter.step(WDpO_sin);
         double NacHeadingTarget = wrap_180(atan2(WindDirPlusOffsetSinF, WindDirPlusOffsetCosF) * R2D);

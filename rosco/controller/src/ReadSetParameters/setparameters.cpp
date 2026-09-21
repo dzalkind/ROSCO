@@ -3,6 +3,7 @@
 #include "../include/rosco_constants.h"
 #include <cstring>
 #include <algorithm>
+#include "../include/controller_objects.hpp"
 
 void SetParameters(const ControlParameters& CntrPar, LocalVariables& LocalVar,
                    float* avrSWAP,
@@ -60,7 +61,7 @@ void SetParameters(const ControlParameters& CntrPar, LocalVariables& LocalVar,
     } else {
         LocalVar.OL_Index = LocalVar.WE_Vw;
         if (CntrPar.OL_BP_FiltFreq > 0) {
-            static LPFilter olIndexFilter;
+            auto& olIndexFilter = ObjState.setparameters.olIndexFilter;
             if (LocalVar.iStatus == 0 || LocalVar.restart) olIndexFilter.init(CntrPar.OL_BP_FiltFreq, LocalVar.DT, LocalVar.WE_Vw);
             LocalVar.OL_Index = olIndexFilter.step(LocalVar.WE_Vw);
         }

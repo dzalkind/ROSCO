@@ -76,10 +76,10 @@ void stage_2_setup(float* avrSWAP, ControlParameters& CntrPar, LocalVariables& L
     }
 
     // ZeroMQ: receive wind-farm-level offsets (optional).
-    // Only runs during the main control loop (iStatus >= 0 or checkpoint calls).
-    // The final-call ZMQ send (iStatus == -1) is handled by the DISCON orchestrator.
-    bool running = (LocalVar.iStatus >= 0) || (LocalVar.iStatus <= -8);
-    if (running && CntrPar.ZMQ_Mode > 0) {
+    // Only runs during the main control loop. Checkpoint save/restore calls
+    // (iStatus -8/-9) are not timesteps, and the final-call ZMQ send
+    // (iStatus == -1) is handled by the DISCON orchestrator.
+    if (LocalVar.iStatus >= 0 && CntrPar.ZMQ_Mode > 0) {
         UpdateZeroMQ(LocalVar, CntrPar);
     }
 }

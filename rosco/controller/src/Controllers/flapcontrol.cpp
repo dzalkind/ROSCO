@@ -4,6 +4,7 @@
 #include "../include/rosco_constants.h"
 #include "../ControlElements/picontroller.hpp"
 #include "../ControlElements/piicontroller.hpp"
+#include "../include/controller_objects.hpp"
 
 void FlapControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // FlapControl: blade flap angle control
@@ -12,7 +13,7 @@ void FlapControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariable
     //   Flp_Mode = 3: cyclic (1P) flap control via Coleman transform
 
     if (CntrPar.Flp_Mode > 0) {
-        static PIIController flpPII[3];
+        auto& flpPII = ObjState.flap.flpPII;
         if (LocalVar.iStatus == 0) {
             // Initialization
             LocalVar.RootMyb_Last[0] = 0.0 - LocalVar.rootMOOP[0];
@@ -64,8 +65,8 @@ void FlapControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariable
                                &axisTilt_1P, &axisYaw_1P);
 
             // PI control on tilt and yaw axes
-            static PIController flpTiltPI;
-            static PIController flpYawPI;
+            auto& flpTiltPI = ObjState.flap.flpTiltPI;
+            auto& flpYawPI = ObjState.flap.flpYawPI;
             double Flp_axisTilt_1P, Flp_axisYaw_1P;
             if (LocalVar.iStatus == 0 || LocalVar.restart) {
                 flpTiltPI.init(0.0);

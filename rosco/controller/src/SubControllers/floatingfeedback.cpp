@@ -1,5 +1,6 @@
 #include "../include/vit_translated.h"
 #include "../ControlElements/picontroller.hpp"
+#include "../include/controller_objects.hpp"
 
 double FloatingFeedback(LocalVariables& LocalVar, const ControlParameters& CntrPar) {
     // FloatingFeedback: pitch contribution from nacelle velocity feedback
@@ -12,7 +13,7 @@ double FloatingFeedback(LocalVariables& LocalVar, const ControlParameters& CntrP
                                     LocalVar.WE_Vw_F);
 
     // Integrate fore-aft acceleration to get velocity (KP=0, KI=1 → pure integrator)
-    static PIController faVelPI;
+    auto& faVelPI = ObjState.floating.faVelPI;
     double FA_vel;
     if (LocalVar.iStatus == 0 || LocalVar.restart) {
         faVelPI.init(0.0);
@@ -21,7 +22,7 @@ double FloatingFeedback(LocalVariables& LocalVar, const ControlParameters& CntrP
         FA_vel = faVelPI.step(LocalVar.FA_AccF, 0.0, 1.0, -100.0, 100.0, LocalVar.DT);
     }
 
-    static PIController nacImuFaVelPI;
+    auto& nacImuFaVelPI = ObjState.floating.nacImuFaVelPI;
     double NacIMU_FA_vel;
     if (LocalVar.iStatus == 0 || LocalVar.restart) {
         nacImuFaVelPI.init(0.0);

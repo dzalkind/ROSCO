@@ -5,6 +5,7 @@
 #include "../Filters/seclpfilter.hpp"
 #include "../ControlElements/ratelimiter.hpp"
 #include "../ControlElements/picontroller.hpp"
+#include "../include/controller_objects.hpp"
 
 void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // PitchControl: master blade pitch controller
@@ -32,7 +33,7 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
     LocalVar.PC_TF = interp1d(gs_angles, CntrPar.PC_GS_TF, LocalVar.BlPitchCMeasF);
 
     // Collective pitch PI controller
-    static PIController pcPitComTPI;
+    auto& pcPitComTPI = ObjState.pitch.pcPitComTPI;
     if (LocalVar.iStatus == 0 || LocalVar.restart) {
         pcPitComTPI.init(LocalVar.BlPitch[0]);
         LocalVar.PC_PitComT = LocalVar.BlPitch[0];
@@ -75,7 +76,7 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
 
     // Saturate collective pitch
     LocalVar.PC_PitComT = saturate(LocalVar.PC_PitComT, LocalVar.PC_MinPit, CntrPar.PC_MaxPit);
-    static RateLimiter pitComTRL;
+    auto& pitComTRL = ObjState.pitch.pitComTRL;
     if (LocalVar.iStatus == 0 || LocalVar.restart) {
         pitComTRL.init(LocalVar.BlPitchCMeas);
         LocalVar.PC_PitComT = LocalVar.BlPitchCMeas;
@@ -99,7 +100,7 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
         LocalVar.PitCom[K] += LocalVar.ZMQ_PitOffset[K];
 
         // Rate limit per blade
-        static RateLimiter pitComRL[3];
+        auto& pitComRL = ObjState.pitch.pitComRL;
         if (LocalVar.iStatus == 0 || LocalVar.restart) {
             pitComRL[K].init(LocalVar.BlPitch[K]);
             LocalVar.PitCom[K] = LocalVar.BlPitch[K];
@@ -146,14 +147,14 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
     }
 
     // Pitch actuator model
-    static LPFilter pitchActFilter[3];
+    auto& pitchActFilter = ObjState.pitch.pitchActFilter;
     for (int K = 0; K < LocalVar.NumBl; K++) {
         if (CntrPar.PA_Mode > 0) {
             if (CntrPar.PA_Mode == 1) {
                 if (LocalVar.iStatus == 0 || LocalVar.restart) pitchActFilter[K].init(CntrPar.PA_CornerFreq, LocalVar.DT, LocalVar.PitCom[K]);
                 LocalVar.PitComAct[K] = pitchActFilter[K].step(LocalVar.PitCom[K]);
             } else if (CntrPar.PA_Mode == 2) {
-                static SecLPFilter pitchActFilter2[3];
+                auto& pitchActFilter2 = ObjState.pitch.pitchActFilter2;
                 if (LocalVar.iStatus == 0 || LocalVar.restart) pitchActFilter2[K].init(CntrPar.PA_CornerFreq, CntrPar.PA_Damping, LocalVar.DT, LocalVar.PitCom[K]);
                 LocalVar.PitComAct[K] = pitchActFilter2[K].step(LocalVar.PitCom[K]);
             }
@@ -165,7 +166,7 @@ void PitchControl(float* avrSWAP, const ControlParameters& CntrPar, LocalVariabl
     // Hardware saturation
     for (int K = 0; K < LocalVar.NumBl; K++) {
         LocalVar.PitComAct[K] = saturate(LocalVar.PitComAct[K], CntrPar.PC_MinPit, CntrPar.PC_MaxPit);
-        static RateLimiter pitComActRL[3];
+        auto& pitComActRL = ObjState.pitch.pitComActRL;
         if (LocalVar.iStatus == 0 || LocalVar.restart) {
             pitComActRL[K].init(LocalVar.BlPitch[K]);
             LocalVar.PitComAct[K] = LocalVar.BlPitch[K];

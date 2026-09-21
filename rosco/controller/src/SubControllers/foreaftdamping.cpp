@@ -2,12 +2,13 @@
 #include "../include/vit_translated.h"
 #include <algorithm>
 #include "../ControlElements/picontroller.hpp"
+#include "../include/controller_objects.hpp"
 
 void ForeAftDamping(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // Fore-aft damping controller: reduces tower vibrations using pitch
 
     // PI controller on fore-aft acceleration (high-pass filtered)
-    static PIController faAccPI;
+    auto& faAccPI = ObjState.fore_aft.faAccPI;
     if (LocalVar.iStatus == 0 || LocalVar.restart) {
         faAccPI.init(0.0);
         LocalVar.FA_AccHPFI = 0.0;

@@ -25,6 +25,7 @@
 #include "include/vit_translated.h"
 #include <cstdio>
 #include <cstring>
+#include <cmath>
 #include <algorithm>
 #include <string>
 
@@ -94,7 +95,15 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         // Store caller-provided file paths in LocalVar so stages can access them.
         // ACC_INFILE is used by stage_2_setup for config loading.
         // RootName is used by stage_8_output for debug logs and checkpoint files.
-        LocalVar.ACC_INFILE = TrimBladedString(accINFILE, accINFILE_size);
+        //
+        // accINFILE only holds the controller input file on the first call: for
+        // the checkpoint/restore calls (iStatus -8/-9) OpenFAST reuses it to pass
+        // the <RootName>.dll.chkp filename. ACC_INFILE is written into the ROSCO
+        // checkpoint and replayed into read_config_files on restore, so latching
+        // it once keeps a restart pointing at the real DISCON input file.
+        if ((int)std::lround(avrSWAP[SWAP_STATUS]) == 0) {
+            LocalVar.ACC_INFILE = TrimBladedString(accINFILE, accINFILE_size);
+        }
         LocalVar.RootName   = GetRoot(TrimBladedString(avcOUTNAME, avcOUTNAME_size));
 
         // --------------------------------------------------------
@@ -103,8 +112,12 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         stage_1_sensing    (avrSWAP, CntrPar, LocalVar, PerfData, ExtDLL);
         stage_2_setup      (avrSWAP, CntrPar, LocalVar, PerfData, ExtDLL);
 
-        bool running = (LocalVar.iStatus >= 0) || (LocalVar.iStatus <= -8);
-        if (running) {
+        // Stages 3-7 advance the controller by one timestep. iStatus -8 (save
+        // checkpoint) and -9 (restore checkpoint) are state-management calls
+        // whose outputs OpenFAST discards, so they must not advance anything —
+        // otherwise checkpointing perturbs the run it is meant to capture, and a
+        // restart resumes one controller step ahead of where it stopped.
+        if (LocalVar.iStatus >= 0) {
             stage_3_filtering  (avrSWAP, CntrPar, LocalVar, PerfData, ExtDLL);
             stage_4_estimation (avrSWAP, CntrPar, LocalVar, PerfData, ExtDLL);
             stage_5_supervisory(avrSWAP, CntrPar, LocalVar, PerfData, ExtDLL);

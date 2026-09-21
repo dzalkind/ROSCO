@@ -1,5 +1,6 @@
 #include "../include/vit_types.h"
 #include "../include/vit_translated.h"
+#include "../include/controller_objects.hpp"
 
 void SetpointSmoother(LocalVariables& LocalVar, const ControlParameters& CntrPar) {
 
@@ -11,7 +12,7 @@ void SetpointSmoother(LocalVariables& LocalVar, const ControlParameters& CntrPar
                         - ((CntrPar.VS_RtPwr * R_Total - LocalVar.VS_LastGenPwr)) / CntrPar.VS_RtPwr * CntrPar.SS_PCGain;
         DelOmega = DelOmega * CntrPar.PC_RefSpd;
         // Filter
-        static LPFilter ssFilter;
+        auto& ssFilter = ObjState.setpoint_smoother.ssFilter;
         if (LocalVar.iStatus == 0 || LocalVar.restart) ssFilter.init(CntrPar.F_SSCornerFreq, LocalVar.DT, DelOmega);
         LocalVar.SS_DelOmegaF = ssFilter.step(DelOmega);
     } else {

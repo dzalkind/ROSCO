@@ -4,6 +4,7 @@
 #include "../include/rosco_constants.h"
 #include "../ControlElements/picontroller.hpp"
 #include "../ControlElements/rescontroller.hpp"
+#include "../include/controller_objects.hpp"
 
 void ActiveWakeControl(const ControlParameters& CntrPar, LocalVariables& LocalVar) {
     // ActiveWakeControl: active wake mixing via individual pitch
@@ -100,7 +101,7 @@ void ActiveWakeControl(const ControlParameters& CntrPar, LocalVariables& LocalVa
                     (FixedFrameM[Imode] - LocalVar.TiltMean / (LocalVar.n_DT + 1));
 
                 if (CntrPar.AWC_Mode == 4) {
-                    static ResController awcResCtrl[2];
+                    auto& awcResCtrl = ObjState.awc.awcResCtrl;
                     if (LocalVar.iStatus == 0 || LocalVar.restart) {
                         awcResCtrl[Imode].init();
                         AWC_TiltYaw[Imode] = 0.0;
@@ -109,7 +110,7 @@ void ActiveWakeControl(const ControlParameters& CntrPar, LocalVariables& LocalVa
                             CntrPar.AWC_freq[Imode], CntrPar.PC_MinPit, CntrPar.PC_MaxPit, LocalVar.DT);
                     }
                 } else {
-                    static PIController awcPI[2];
+                    auto& awcPI = ObjState.awc.awcPI;
                     if (LocalVar.iStatus == 0 || LocalVar.restart) {
                         awcPI[Imode].init(0.0);
                         AWC_TiltYaw[Imode] = 0.0;
@@ -164,7 +165,7 @@ void ActiveWakeControl(const ControlParameters& CntrPar, LocalVariables& LocalVa
 
         // PI control (after one period)
         if (LocalVar.Time > 1.0 / CntrPar.AWC_freq[0]) {
-            static PIController awcStrPI;
+            auto& awcStrPI = ObjState.awc.awcStrPI;
             if (LocalVar.iStatus == 0 || LocalVar.restart) {
                 awcStrPI.init(0.0);
                 AWC_TiltYaw[0] = 0.0;

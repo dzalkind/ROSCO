@@ -4,6 +4,7 @@
 #include <limits>
 
 #include "../include/rosco_constants.h"
+#include "../include/controller_objects.hpp"
 
 // Fortran P(i,j) = C P[j-1][i-1] (column-major to row-major mapping)
 #define WE_P(i,j)  LocalVar.WE.P[(j)-1][(i)-1]
@@ -70,7 +71,7 @@ void WindSpeedEstimator(LocalVariables& LocalVar, const ControlParameters& CntrP
     }
 
     // Filter hub height wind speed; initialize to WE_Vw on first WSE call or restart
-    static LPFilter horWindFilter;
+    auto& horWindFilter = ObjState.wse.horWindFilter;
     if (LocalVar.RestartWSE == 0 || LocalVar.restart) horWindFilter.init(CntrPar.F_WECornerFreq / 10.0, LocalVar.DT, LocalVar.WE_Vw);
     LocalVar.HorWindV_F = std::cos(LocalVar.NacVaneF * D2R) * horWindFilter.step(LocalVar.HorWindV);
 

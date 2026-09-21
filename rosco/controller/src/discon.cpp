@@ -56,6 +56,20 @@ static std::string TrimBladedString(const char* s, int len) {
 }
 
 // ============================================================
+// ReportError: fill the aviFAIL / avcMSG error channel.
+// The "ROSCO:" prefix matches the Fortran DISCON, which prepended
+// its RoutineName before handing the message back to the caller.
+// ============================================================
+static void ReportError(int* aviFAIL, char* avcMSG, int size_avcMSG, const std::string& what) {
+    const std::string msg = "ROSCO:" + what;
+    *aviFAIL = -1;
+    int n = std::min(size_avcMSG > 1 ? size_avcMSG - 1 : 0, (int)msg.size());
+    std::memcpy(avcMSG, msg.data(), (size_t)n);
+    avcMSG[n] = '\0';
+    printf(" ROSCO ERROR: %s\n", what.c_str());
+}
+
+// ============================================================
 // DISCON — Bladed DLL entry point (called every timestep)
 // ============================================================
 #if defined(_WIN32)
@@ -108,23 +122,10 @@ DISCON_EXPORT void DISCON(float* avrSWAP, int* aviFAIL, char* accINFILE, char* a
         if (size_avcMSG > 0) avcMSG[0] = '\0';
 
     } catch (const RoscoError& e) {
-        *aviFAIL = -1;
-        int n = size_avcMSG > 1 ? size_avcMSG - 1 : 0;
-        std::strncpy(avcMSG, e.what(), (size_t)n);
-        avcMSG[n] = '\0';
-        printf(" ROSCO ERROR: %s\n", e.what());
+        ReportError(aviFAIL, avcMSG, size_avcMSG, e.what());
     } catch (const std::exception& e) {
-        *aviFAIL = -1;
-        int n = size_avcMSG > 1 ? size_avcMSG - 1 : 0;
-        std::strncpy(avcMSG, e.what(), (size_t)n);
-        avcMSG[n] = '\0';
-        printf(" ROSCO ERROR (std::exception): %s\n", e.what());
+        ReportError(aviFAIL, avcMSG, size_avcMSG, std::string("std::exception: ") + e.what());
     } catch (...) {
-        *aviFAIL = -1;
-        const char* msg = "Unknown C++ exception in DISCON";
-        int n = size_avcMSG > 1 ? size_avcMSG - 1 : 0;
-        std::strncpy(avcMSG, msg, (size_t)n);
-        avcMSG[n] = '\0';
-        printf(" ROSCO ERROR: %s\n", msg);
+        ReportError(aviFAIL, avcMSG, size_avcMSG, "Unknown C++ exception in DISCON");
     }
 }

@@ -2,11 +2,11 @@
 """
 plot_regression.py — Plot key signals from the regression baseline npz files.
 
-Shows wind speed (reconstructed), blade pitch, generator speed, generator torque,
+Shows wind speed, blade pitch, generator speed, generator torque,
 generator power, and any other active signals on a shared time axis.
 
 Usage:
-    python3 test/regression/plot_regression.py                    # all 27 scenarios
+    python3 test/regression/plot_regression.py                    # every baseline
     python3 test/regression/plot_regression.py --scenario 1       # single scenario
     python3 test/regression/plot_regression.py --scenario 1 3 5   # several
     python3 test/regression/plot_regression.py --output plots/    # save figures
@@ -20,42 +20,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 BASELINE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "baselines")
-
-# dt is 0.025 s for all scenarios
-DT = 0.025
-
-# Wind speed profile per scenario: (ws0_m_s, step_wind)
-# step_wind=True  → ws[i] = ws0 + t[i] // 100  (steps up 1 m/s per 100 s)
-# step_wind=False → ws = ws0 * ones  (constant)
-SCENARIO_WIND = {
-    1:  (7.0, True),
-    2:  (9.0, False),
-    3:  (9.0, True),
-    4:  (9.0, True),
-    5:  (9.0, True),
-    6:  (9.0, True),
-    7:  (9.0, False),
-    8:  (9.0, False),
-    9:  (7.0, True),
-    10: (9.0, False),
-    11: (9.0, True),
-    12: (7.0, True),
-    13: (9.0, True),
-    14: (9.0, False),
-    15: (9.0, True),
-    16: (9.0, True),
-    17: (7.0, True),
-    18: (9.0, True),
-    19: (9.0, True),
-    20: (9.0, True),
-    21: (9.0, True),
-    22: (9.0, True),
-    23: (7.0, True),
-    24: (9.0, False),
-    25: (7.0, True),
-    26: (9.0, False),
-    27: (9.0, True),
-}
 
 # Short label for each scenario
 SCENARIO_LABEL = {
@@ -89,16 +53,6 @@ SCENARIO_LABEL = {
 }
 
 
-def wind_speed(n, ws0, step_wind):
-    """Reconstruct wind speed array matching scenarios.py logic."""
-    t = np.arange(n) * DT
-    ws = np.ones(n) * ws0
-    if step_wind:
-        for i in range(n):
-            ws[i] = ws0 + t[i] // 100
-    return t, ws
-
-
 def r2d(arr):
     """Radians to degrees."""
     return np.degrees(arr)
@@ -124,9 +78,7 @@ def plot_scenario(scenario_num, ax_dict=None, show=True, save_path=None):
         return
 
     d = np.load(npz_path)
-    n = len(d["gen_speed"])
-    ws0, step_wind = SCENARIO_WIND.get(scenario_num, (9.0, True))
-    t, ws = wind_speed(n, ws0, step_wind)
+    t, ws = d["t"], d["ws"]
 
     # Decide which optional signal rows to show
     optional_signals = {}
@@ -214,18 +166,15 @@ def plot_scenario(scenario_num, ax_dict=None, show=True, save_path=None):
 def main():
     parser = argparse.ArgumentParser(description="Plot regression scenario baselines")
     parser.add_argument("--scenario", type=int, nargs="+", default=[],
-                        help="Scenario number(s) to plot (1-27). Default: all.")
+                        help="Scenario number(s) to plot. Default: every baseline.")
     parser.add_argument("--output", type=str, default=None,
                         help="Directory to save PNG figures (e.g. plots/). "
                              "If omitted, figures are shown interactively.")
     args = parser.parse_args()
 
-    scenarios = args.scenario if args.scenario else list(range(1, 28))
+    scenarios = args.scenario if args.scenario else sorted(SCENARIO_LABEL)
 
     for s in scenarios:
-        if s not in SCENARIO_WIND:
-            print(f"  WARNING: scenario {s} not in range 1-27, skipping.")
-            continue
         print(f"Plotting scenario {s}: {SCENARIO_LABEL.get(s, '')}")
         save_path = None
         if args.output:

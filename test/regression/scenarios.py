@@ -51,7 +51,7 @@ def save_and_print_results(arrays, scenario_num, output_dir):
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
         path = os.path.join(output_dir, f'scenario_{scenario_num}.npz')
-        np.savez(path, **arrays)
+        np.savez_compressed(path, **arrays)
         print(f"  Saved: {path}")
 
 from rosco import discon_lib_path as lib_name
@@ -794,7 +794,11 @@ def run_scenario(num, turbine, output_dir=None):
     print("=" * 60)
     print(f"Scenario {num}: {s.title}")
     print("=" * 60)
-    save_and_print_results(s.run(turbine), num, output_dir)
+    result = s.run(turbine)
+    # The inputs travel with the outputs, so a baseline says which wind it was
+    # captured under and plot_regression.py needs no copy of this table.
+    result['t'], result['ws'] = s.wind()
+    save_and_print_results(result, num, output_dir)
     print(f"Scenario {num}: done")
 
 

@@ -58,8 +58,8 @@ same generator and parser files the rename touches. Order: see
 | 11 | Mode-coverage table: regression vs Examples | P2 | DONE — `mode_coverage.py` + `test_mode_coverage.py` (registry sync, no DLL); README "What is *not* covered". Headline: no scenario runs `VS_ControlMode=3` or `VS_ConstPower=0`, the IEA-15/NREL-2.8 configuration. See 11 for findings |
 | 12 | HDF5 scenario symmetry | P3 | DONE — scenario 28 is in `ALL_SCENARIOS` and compared bit-for-bit against `scenario_1.npz` (`SHARED_BASELINE`) rather than a new baseline file; gate is now 28 scenarios, **5,772,000** values. See 12 |
 | 13 | Data-driven scenario definitions | P3 | DONE — `scenarios.py` 2,080 → 866 lines: a `Scenario` table + four runners. All 27 baselines identical. Found two scenarios whose synthetic inputs never reach the controller; see 13 |
-| 14 | Store `t`/`ws` in baselines, delete `SCENARIO_WIND` | P3 | TODO — land with 15 as one baseline-format commit |
-| 15 | Compress baselines | P3 | TODO — land with 14 |
+| 14 | Store `t`/`ws` in baselines, delete `SCENARIO_WIND` | P3 | DONE — with 15, one commit. Every baseline gains `t`/`ws`; `plot_regression.py` reads them. All 5,252,000 original values verified byte-identical to the previous commit. Gate total now **6,660,000** (5,772,000 outputs + inputs) |
+| 15 | Compress baselines | P3 | DONE — with 14. `savez_compressed`; `baselines/` 40 MB → 8.7 MB. `--update-baseline` writes compressed |
 
 ---
 
@@ -700,6 +700,21 @@ baseline file is rewritten once, not twice. Acceptance: every existing array loa
 bit-identical from the new files; only keys (`t`, `ws`) and compression change. Do it
 before input modernization, so that plan's acceptance test compares against baselines in
 their final format.
+
+**DONE 2026-09-21 (14 + 15 together).** The 27 baseline files were *converted*, not
+regenerated: each existing file was loaded, given `t` and `ws` from the scenario table
+(asserting their length matches the stored arrays), and re-saved with `savez_compressed`.
+No simulation ran, so no stored value could move; an independent check then compared every
+array against the blob in the previous commit (`git show HEAD:…`) — dtype and bytes — for
+all 5,252,000 values. `PROVENANCE.json` is deliberately unchanged: it records where the
+*values* came from, and those did not change.
+
+Scenario output now always carries `t`/`ws` (added in `run_scenario`), so a change to a
+scenario's wind fails the regression as a key-level mismatch instead of being silently
+re-plotted with the wrong axis. `plot_regression.py`'s `SCENARIO_WIND` table and its
+`wind_speed()` reconstruction are deleted; it had already drifted (7 and 8 marked constant
+wind; both step). The reported total now counts the inputs too: **6,660,000** values, of
+which 5,772,000 are controller outputs.
 
 ---
 

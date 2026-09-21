@@ -55,7 +55,7 @@ same generator and parser files the rename touches. Order: see
 | 8b | Input-parsing test: DISCON → parsed parameters | P1 | DEFERRED to input modernization Phase 0 (decision 2026-09-21). The TOML path skips the `.IN` parser's post-processing, so a dump of parsed state is not a valid input file, and a `.IN`-only test would not have caught the `OutputFormat` bug that motivates it. See 8b. |
 | 9 | Baseline provenance metadata | P1 | DONE — commit `4523559c`; `baselines/PROVENANCE.json`, written by `--update-baseline`, printed in every run header; initial file backfilled honestly from git rather than fabricated |
 | 10 | C++ line/branch coverage (gcovr) | P2 | TODO — after the CI work in `CMakeLists.txt` settles; local only, no CI job from this plan |
-| 11 | Mode-coverage table: regression vs Examples | P2 | TODO — next up |
+| 11 | Mode-coverage table: regression vs Examples | P2 | DONE — `mode_coverage.py` + `test_mode_coverage.py` (registry sync, no DLL); README "What is *not* covered". Headline: no scenario runs `VS_ControlMode=3` or `VS_ConstPower=0`, the IEA-15/NREL-2.8 configuration. See 11 for findings |
 | 12 | HDF5 scenario symmetry | P3 | TODO — before 14/15, so scenario 28's baseline is created before the format change |
 | 13 | Data-driven scenario definitions | P3 | TODO — also makes input plan step 13 (TOML fixtures) a one-line change |
 | 14 | Store `t`/`ws` in baselines, delete `SCENARIO_WIND` | P3 | TODO — land with 15 as one baseline-format commit |
@@ -566,6 +566,46 @@ matrix: mode value × covered-by. That gives:
 
 Pair it with task 10: mode coverage says *what is configured*, gcov says *what executed*.
 Neither alone is the answer.
+
+**DONE 2026-09-21.** `test/regression/mode_coverage.py` (`--gaps` for the short form) and
+`test_mode_coverage.py`. Design points:
+- **Value domains** come from the `checkinputs.cpp` range checks, or, where there is none
+  (`AWC_Mode`, `PF_Mode`, `OL_Mode`, …), from the comparisons the controller source makes.
+  The toolbox schema was not usable: its two sections disagree (`AWC_Mode` max 2 vs 5,
+  `Flp_Mode` max 2 though 3 exists, `PF_Mode` max 1 though 2 exists) — more evidence for
+  input-plan Phase 1.
+- **Dependent settings count only when their parent mode is on**: `IPC_SatMode` (IPC on),
+  `PRC_Comm` (`PRC_Mode = 2`), `OL_BP_Mode` (`OL_Mode > 0`), `OutputFormat`
+  (`LoggingLevel > 0`). Without this, every fixture "covered" `IPC_SatMode = 2`.
+- **Examples are read from `Examples/examples_out/`** because nearly all Examples generate
+  their DISCON at run time; only 6 ROSCO DISCON files under `Test_Cases/` are committed.
+  That column is machine-dependent and the report says so.
+- `test_mode_coverage.py` fails if the registry gains a `*_Mode` the table lacks, or a
+  fixture uses a value outside the table, so the report cannot silently go stale.
+
+**Findings** (fixtures + 6 test cases + 35 locally generated Example files):
+- *Only outside the regression, and common in practice:* `VS_ControlMode = 3` and
+  `VS_ConstPower = 0` — the IEA-15 and NREL-2.8 configuration. Every scenario runs
+  `VS_ControlMode = 2` (or 1) with constant power. **Strongest candidate for a new
+  scenario.** Also `F_LPFType = 2`, `WE_Mode = 0`, `IPC_SatMode = 0/1/3`, `Ext_Mode = 1`,
+  `ZMQ_Mode = 1`, `LoggingLevel = 2`.
+- *Configured nowhere in the repo:* `VS_ControlMode = 0/4`, `VS_FBP = 2/3`,
+  `PRC_Comm = 1/2`, `OL_BP_Mode = 1`, `Ext_Interface = 0`, `LoggingLevel = 0`.
+- *Redundant Examples:* only the `NREL-5MW` test case adds no mode value the regression
+  lacks. Every other Example contributes something, so no Example can be dropped on these
+  grounds.
+- *README table validated:* each scenario's mode diff against `scenario_01` matches its
+  description. 3/7 and 16/26 share mode sets on purpose (7 drives synthetic inputs, 26 drives
+  flaps to non-zero output).
+- *Two `checkinputs.cpp` defects found along the way (not fixed — controller code):*
+  `PS_Mode` accepts 0–3 while its error message says "must be 0 or 1", and the controller
+  only distinguishes 0 from >0; and the `if (TRA_Mode > 1)` block at line 436 can never
+  run, because line 432 already rejects `TRA_Mode > 1` — so the frequency-avoidance input
+  checks are dead code, while `speedsetpoints.cpp` activates the feature at
+  `TRA_Mode > 0`.
+
+Adding scenarios is a separate decision: each new one needs a baseline, so it is left for
+Daniel to choose which gaps are worth closing.
 
 ---
 

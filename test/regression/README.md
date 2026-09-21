@@ -19,6 +19,7 @@ python test/regression/run_regression.py --scenario 3
 python test/regression/run_regression.py --rebuild  # cmake build first
 python test/regression/run_regression.py --hdf5     # also check HDF5 output
 pytest test/regression/test_tuning.py               # tuning only, ~3 s, no DLL
+python test/regression/mode_coverage.py --gaps      # what no scenario configures
 ```
 
 Expected: `RESULT: ALL IDENTICAL — 5,252,000 total float64 values compared`.
@@ -207,6 +208,34 @@ scenario's modes — would silently persist. Change `patches=` and regenerate.
 Scenario 28 has no frozen baseline; it is compared against scenario 1's text
 output instead, and is excluded from `ALL_SCENARIOS`.
 
+### What is *not* covered
+
+```bash
+python test/regression/mode_coverage.py          # every mode value × who configures it
+python test/regression/mode_coverage.py --gaps   # only values no scenario sets
+```
+
+This tabulates each mode parameter's values across the fixtures, the committed
+`Examples/Test_Cases/` DISCON files, and any DISCON files that running the
+Examples has left in `Examples/examples_out/` (gitignored, so that column
+depends on what you have run). A setting whose parent mode is off is not
+counted — `IPC_SatMode` means nothing with IPC off. It reports what is
+*configured*, not what *executes*.
+
+As of 2026-09-21, no scenario configures:
+
+- `VS_ControlMode = 3` (power-based TSR tracking) and `VS_ConstPower = 0` —
+  what the IEA-15 and NREL-2.8 Examples actually use. Every scenario runs
+  `VS_ControlMode = 2` or `1` with constant power.
+- `F_LPFType = 2` (second-order low-pass), `WE_Mode = 0`,
+  `IPC_SatMode = 0/1/3`, `Ext_Mode = 1`, `ZMQ_Mode = 1` — each used by at least
+  one Example.
+- `VS_ControlMode = 0/4`, `VS_FBP = 2/3`, `PRC_Comm = 1/2`, `OL_BP_Mode = 1`,
+  `Ext_Interface = 0` — used by nothing in the repo.
+
+`test_mode_coverage.py` fails if the registry gains a mode the report does not
+know about, so the table cannot silently go stale.
+
 **Scenario numbers are permanent.** They name the baseline files and are cited
 in `REFACTOR_NOTES.md` and commit history. Never renumber one.
 
@@ -236,6 +265,8 @@ test/regression/
     scenarios.py           the 28 scenario definitions
     test_regression.py     pytest wrapper: one test per scenario
     test_tuning.py         tuner still reproduces scenario_01.IN
+    mode_coverage.py       which mode values the scenarios and Examples configure
+    test_mode_coverage.py  keeps mode_coverage.py in step with the registry
     plot_regression.py     failure-diagnosis plots
     fixtures/              committed DISCON inputs — one per scenario
     baselines/             27 frozen .npz files (~40 MB) + PROVENANCE.json

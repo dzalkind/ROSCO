@@ -122,6 +122,18 @@ target_include_directories(discon PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../tran
 target_link_libraries(discon PRIVATE ${CMAKE_DL_LIBS})
 target_link_libraries(discon PRIVATE tomlplusplus::tomlplusplus)
 
+# A mingw-built DLL that imports libstdc++-6 / libgcc_s_seh-1 / libwinpthread-1
+# binds at load time to whichever copy comes first on PATH, which is rarely the
+# GCC that compiled it: a conda environment, for instance, puts its own
+# (differently versioned) copies ahead of the toolchain's. The controller then
+# crashes as soon as C++ runtime state crosses that boundary. Linking the GCC
+# runtimes statically makes libdiscon.dll self-contained and immune to PATH.
+if(MINGW)
+    target_link_options(discon PRIVATE
+        -static-libgcc -static-libstdc++
+        -Wl,-Bstatic,--whole-archive,-lwinpthread,--no-whole-archive,-Bdynamic)
+endif()
+
 if(HDF5_FOUND)
     target_include_directories(discon PRIVATE ${HDF5_INCLUDE_DIRS})
     target_link_libraries(discon PRIVATE ${HDF5_C_LIBRARIES})

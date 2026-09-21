@@ -33,7 +33,8 @@ should ignore it entirely; it is kept only as the record of how the port was don
 same scenarios run against the *unmodified upstream Fortran* controller, and
 `baseline_arrays/` held them run against the translated build. The two were verified equal
 at the time — commit `e491c935` (2026-04-03) records "4.73M values, upstream == modified ==
-C++". `baseline_arrays/` therefore still carries that provenance forward: every regression
+C++". Those baselines (now `test/regression/baselines/`) therefore still carry that
+provenance forward unchanged: every regression
 run since is transitively comparing against original Fortran behaviour. The upstream half is
 no longer regenerable on this branch (the Fortran is gone), but it is recoverable from the
 archive tag, and `master` still has the Fortran source if it ever needs to be re-derived.
@@ -106,9 +107,7 @@ The C++ DLL is also a better fit for LabVIEW than the Fortran version because it
 ### First-time setup
 
 ```bash
-mkdir -p build
-cd build
-cmake ../rosco/controller
+cmake -S rosco/controller -B rosco/controller/build
 ```
 
 CMake will fetch `toml++` automatically via FetchContent on first configure. No other external dependencies are required (ZeroMQ is optional and detected automatically).
@@ -116,39 +115,44 @@ CMake will fetch `toml++` automatically via FetchContent on first configure. No 
 ### Build the shared library
 
 ```bash
-cmake --build build
+cmake --build rosco/controller/build
 ```
 
-Output: `build/libdiscon.dylib` (macOS) or `build/libdiscon.so` (Linux).
+Output: `rosco/controller/build/libdiscon.dylib` (macOS) or `libdiscon.so` (Linux).
 
-To install into `rosco/lib/` (where the Python toolbox and `verify_cpp.py` expect it):
+To install into `rosco/lib/` (where the Python toolbox and the regression suite expect it):
 
 ```bash
-cmake --install build
+cmake --install rosco/controller/build
 ```
 
-Or use the `--rebuild` flag in `verify_cpp.py` which handles the copy automatically.
+Or use the `--rebuild` flag in `test/regression/run_regression.py`, which handles the copy
+automatically.
 
 ---
 
 ## Verification
 
-The `baseline_arrays/` directory contains 27 frozen `.npz` output files captured from the verified pure-C++ build. These are byte-identical to the original Fortran outputs and serve as the regression baseline for all refactoring work.
+The `test/regression/baselines/` directory contains 27 frozen `.npz` output files captured from the verified pure-C++ build. These are byte-identical to the original Fortran outputs and serve as the regression baseline for all refactoring work.
+
+Full documentation — how to read a failure, when a baseline may be updated, and the
+determinism machinery — is in [test/regression/README.md](test/regression/README.md).
 
 ### Running the verification suite
 
 ```bash
 # Verify current build against all 27 scenario baselines:
-python3 scripts/verify_cpp.py
+pytest test/regression
+python3 test/regression/run_regression.py
 
 # After a code change that requires a rebuild:
-python3 scripts/verify_cpp.py --rebuild
+python3 test/regression/run_regression.py --rebuild
 
 # Single scenario:
-python3 scripts/verify_cpp.py --scenario 1
+python3 test/regression/run_regression.py --scenario 1
 ```
 
-Each scenario runs in a **separate subprocess** to reset the DLL's static variables between scenarios (same isolation that Docker exec provided during the VIT translation workflow). No Docker is required.
+Each scenario runs in a **separate subprocess** to reset the DLL's static variables between scenarios. No Docker is required.
 
 `libscrub.so` is built automatically on first run — it prevents a scipy FITPACK non-determinism bug in Scenario 3 (see dev note 202603261512).
 
@@ -157,9 +161,9 @@ Each scenario runs in a **separate subprocess** to reset the DLL's static variab
 If a refactoring intentionally changes controller outputs (e.g. Phase 2 filter class changes), re-capture and commit:
 
 ```bash
-python3 scripts/verify_cpp.py --rebuild --update-baseline
-git add baseline_arrays/
-git commit -m "Update baseline arrays after intentional output change"
+python3 test/regression/run_regression.py --rebuild --update-baseline
+git add test/regression/baselines/
+git commit -m "Update baselines after intentional output change"
 ```
 
 ---
@@ -283,7 +287,7 @@ double y = interp1d(xData, yData, x);  // throws RoscoError on failure
 
 This removed `ErrVar` from nearly every function signature and eliminated hundreds of lines of error-forwarding boilerplate. A `rosco_warn()` function handles non-fatal warnings (e.g. restart file I/O) by printing to stderr without interrupting execution.
 
-The verification script (`verify_cpp.py`) was also updated to check for memory errors using AddressSanitizer when available.
+The verification script (`run_regression.py`) was also updated to check for memory errors using AddressSanitizer when available.
 
 ### 9. Stage functions — controller pipeline decomposition
 
@@ -404,11 +408,11 @@ Replaced the text-based `.RO.dbg` files with a compact HDF5 binary format (text 
 | 1 | HDF5 build infrastructure | `find_package(HDF5)` in CMakeLists, `DebugWriter` abstraction (`debug_writer.hpp`), `HDF5DebugWriter` + `TextDebugWriter` backends, `OutputFormat` parameter (now defaults to HDF5) |
 | 2 | Refactor debug.cpp | Generated code uses `DebugWriter` abstraction; backend selected by `OutputFormat` |
 | 3 | avrSWAP in HDF5 | `/avrSWAP` dataset wired into the same `.RO.h5` file via `open_avrswap()`/`write_avrswap_row()`; text `.dbg3` unchanged |
-| 4 | Python tooling | `load_hdf5_output()` auto-detects and reads `/avrSWAP` + labels; `verify_cpp.py --hdf5` compares HDF5 vs text with exact channel-set + avrSWAP equality |
+| 4 | Python tooling | `load_hdf5_output()` auto-detects and reads `/avrSWAP` + labels; `run_regression.py --hdf5` compares HDF5 vs text with exact channel-set + avrSWAP equality |
 
 **Also removed along the way:** the Fortran registry generation (`ROSCO_Types.f90`, `ROSCO_IO.f90`) was dead code in this pure-C++ controller and has been deleted — `write_registry.py` now only emits C++ artifacts.
 
-**Verification:** `python scripts/verify_cpp.py --hdf5 --rebuild` — 27/27 scenarios byte-identical (text and HDF5), HDF5 channel set matches text exactly, avrSWAP (39998, 85) identical row-for-row.
+**Verification:** `python test/regression/run_regression.py --hdf5 --rebuild` — 27/27 scenarios byte-identical (text and HDF5), HDF5 channel set matches text exactly, avrSWAP (39998, 85) identical row-for-row.
 
 See `.github/prompts/plan-outputFileModernization.prompt.md` for full plan details and follow-up issue history.
 

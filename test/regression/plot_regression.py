@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-plot_verification.py — Plot key signals from vit_sim baseline_arrays npz files.
+plot_regression.py — Plot key signals from the regression baseline npz files.
 
 Shows wind speed (reconstructed), blade pitch, generator speed, generator torque,
 generator power, and any other active signals on a shared time axis.
 
 Usage:
-    python3 scripts/plot_verification.py              # plot all 27 scenarios
-    python3 scripts/plot_verification.py --scenario 1 # single scenario
-    python3 scripts/plot_verification.py --scenario 1 3 5  # multiple scenarios
-    python3 scripts/plot_verification.py --output plots/  # save figures to dir
+    python3 test/regression/plot_regression.py                    # all 27 scenarios
+    python3 test/regression/plot_regression.py --scenario 1       # single scenario
+    python3 test/regression/plot_regression.py --scenario 1 3 5   # several
+    python3 test/regression/plot_regression.py --output plots/    # save figures
 """
 
 import argparse
@@ -19,8 +19,7 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BASELINE_DIR = os.path.join(REPO_ROOT, "baseline_arrays")
+BASELINE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "baselines")
 
 # dt is 0.025 s for all scenarios
 DT = 0.025
@@ -91,7 +90,7 @@ SCENARIO_LABEL = {
 
 
 def wind_speed(n, ws0, step_wind):
-    """Reconstruct wind speed array matching vit_sim.py logic."""
+    """Reconstruct wind speed array matching scenarios.py logic."""
     t = np.arange(n) * DT
     ws = np.ones(n) * ws0
     if step_wind:
@@ -213,7 +212,7 @@ def plot_scenario(scenario_num, ax_dict=None, show=True, save_path=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Plot vit_sim verification scenarios")
+    parser = argparse.ArgumentParser(description="Plot regression scenario baselines")
     parser.add_argument("--scenario", type=int, nargs="+", default=[],
                         help="Scenario number(s) to plot (1-27). Default: all.")
     parser.add_argument("--output", type=str, default=None,

@@ -10,8 +10,9 @@
 > `write_registry.py` rather than editing the generated files.
 >
 > Behaviour is locked down by a 27-scenario regression suite
-> (`python scripts/verify_cpp.py`) that compares 5,252,000 float64 values against frozen
-> baselines.
+> (`pytest test/regression`, or `python test/regression/run_regression.py`) that compares
+> 5,252,000 float64 values against frozen baselines — see
+> [test/regression/README.md](test/regression/README.md).
 
 ---
 

@@ -93,7 +93,9 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 #where = ["rosco"]
-exclude = ["Matlab_Toolbox"]
+# test/ holds the C++ regression suite: ~40 MB of baselines that must not ship
+# in the wheel. (rosco/test, the toolbox tests, is unaffected by this pattern.)
+exclude = ["Matlab_Toolbox", "test*"]
 namespaces = true
 
 [tool.setuptools.package-data]

@@ -17,11 +17,12 @@ deliberate `--update-baseline` commit with justification.
 | # | Task | Priority | Status |
 |---|------|----------|--------|
 | 1 | Delete dead translation scaffolding | P0 | STAGED, UNCOMMITTED — tag `archive/vit-translation` created + pushed 2026-09-21; deletions staged in index, suite re-verified 27/27 |
-| 2 | Consolidate into `test/regression/` | P0 | TODO |
-| 3 | Rename VIT-era vocabulary | P0 | TODO |
-| 4 | Write `test/regression/README.md` | P0 | TODO |
-| 5 | Remove the hidden `01_turbine_model.py` dependency | P0 | TODO |
-| 6 | Add CI job | P0 | TODO |
+| 2 | Consolidate into `test/regression/` | P0 | STAGED, UNCOMMITTED — 2026-09-21; suite re-verified 27/27 (5,252,000 values) from the new path |
+| 2b | Align build directory + CMake presets | P0 | STAGED, UNCOMMITTED — 2026-09-21; `rosco/controller/build` everywhere, presets dropped to `"version": 1`, `default` preset removed, `--rebuild` now configures an unconfigured build dir |
+| 3 | Rename VIT-era vocabulary | P0 | STAGED, UNCOMMITTED — 2026-09-21; `vit_sim`→`scenarios`, `verify_cpp`→`run_regression`, `baseline_arrays`→`baselines`, sim names→`regression_N` |
+| 4 | Write `test/regression/README.md` | P0 | STAGED, UNCOMMITTED — 2026-09-21 |
+| 5 | Remove the hidden `01_turbine_model.py` dependency | P0 | STAGED, UNCOMMITTED — 2026-09-21; pickle load replaced with `Turbine(inps['turbine_params'])`; verified 27/27 from a fresh clone with no prior steps |
+| 6 | Add CI job | P0 | STAGED, UNCOMMITTED — 2026-09-21; `pytest -v test/regression` step in `build_and_test_conda`, ubuntu only |
 | 7 | Commit DISCON fixtures | P1 | TODO |
 | 8a | Layer A test: YAML → DISCON text (tuner) | P1 | TODO |
 | 8b | Layer B test: DISCON → parsed parameters (`Echo`) | P1 | TODO (converges with input-modernization plan) |
@@ -72,9 +73,23 @@ Measured/verified on 2026-09-21, current `c++` branch:
    `write_discon()` calls, 28 of them with `patches=`, but only **15 distinct filenames** —
    `DISCON.IN` is written 8 separate times with different patches. Whatever is on disk
    afterwards reflects only the last scenario that ran. This is invisible today because
-   every scenario rewrites its file immediately before use, but it means the current
-   `Examples/DISCON_*.IN` files on disk are *not* a record of what the suite tested, and it
-   makes the run order load-bearing in a way nothing documents.
+   every scenario rewrites its file immediately before use, but it means the files on disk
+   after a run are *not* a record of what the suite tested. (Task 2 moved those writes into
+   a scratch temp directory, so they no longer land in `Examples/` — but the 15-names-for-29-
+   parameter-sets problem is unchanged and is still task 7's to solve.)
+10. **Three build directories, and the docs point at the wrong one.**
+    `.github/copilot-instructions.md` says `cd build && cmake ../rosco/controller` (repo-root
+    `build/`); [verify_cpp.py:29](/Users/dzalkind/Tools/ROSCO-C/scripts/verify_cpp.py:29)
+    defaults to `rosco/controller/build`; the `default` CMake preset resolves to the same
+    `rosco/controller/build`. All three exist on the maintainer's machine, so the conflict is
+    invisible locally. A newcomer follows the instructions, builds at the repo root, runs
+    `verify_cpp.py --rebuild`, and gets `cmake --build` against an unconfigured directory.
+11. **Floating-point reproducibility is already handled — do not regress it.**
+    [CMakeLists.txt:16](/Users/dzalkind/Tools/ROSCO-C/rosco/controller/CMakeLists.txt:16)
+    sets `-ffp-contract=off` (and `/fp:precise` on MSVC), and forces `RelWithDebInfo` when no
+    build type is given. This is *why* bit-identical baselines survive across compilers and
+    optimisation levels. Any new build preset (ASan, coverage) must keep those flags, and the
+    README should say so, because it is not obvious and silently breaks the whole suite.
 
 ---
 
@@ -159,7 +174,12 @@ Three things worth being clear about before doing it:
 *Check:* `python scripts/verify_cpp.py` still 27/27 after deletion. (Verified 2026-09-21:
 the suite does not reference any of these paths.)
 
-### 2. Consolidate into `test/regression/`
+### 2. Consolidate into `test/regression/` — **DONE**
+
+Landed layout (no `conftest.py`: pytest's own rootdir `sys.path` insertion is enough, and
+there were no shared fixtures to put in one; `fixtures/` and `test_tuning.py` arrive with
+task 7/8a):
+
 ```
 test/
     regression/
@@ -180,7 +200,26 @@ Keep the CLI (`python test/regression/run_regression.py --scenario 3`) — it is
 actually debug a failure — and add the pytest wrapper so `pytest test/` finds it and CI
 reports per-scenario pass/fail instead of one opaque job.
 
-### 3. Rename VIT-era vocabulary
+### 2b. Align build directory + CMake presets — **DONE**
+Findings 10 and 11. `rosco/controller/CMakePresets.json` is now tracked (it was untracked,
+which quietly made `verify_cpp.py --preset asan` a maintainer-only feature). Remaining work:
+
+- **Pick one build directory and make all three sources agree** — the runner's
+  `DEFAULT_BUILD_DIR`, the `default` preset's `binaryDir`, and
+  `.github/copilot-instructions.md` / `README.md`. Recommend `rosco/controller/build`, since
+  two of the three already use it and presets resolve relative to `sourceDir`.
+- **Fix the preset schema version.** `"version": 3` requires CMake ≥ 3.21, but
+  `cmake_minimum_required(VERSION 3.14)`. Either drop the presets file to `"version": 1`
+  (CMake 3.19) or raise the stated minimum. Today a user on 3.14–3.20 gets an opaque error
+  from `--preset` rather than a clear version message.
+- **Drop the redundant `default` preset**, or keep it only as documentation —
+  `CMakeLists.txt` already forces `RelWithDebInfo` when `CMAKE_BUILD_TYPE` is unset.
+- **Document the FP flags** (finding 11) in the regression README, and add a line to the
+  "adding a preset" guidance: presets must not override `-ffp-contract=off` or add
+  `-ffast-math`, or baselines will stop reproducing. The `coverage` preset from task 10 is
+  the first one that will need to honour this.
+
+### 3. Rename VIT-era vocabulary — **DONE**
 `vit_sim` → `scenarios`, `verify_cpp` → `run_regression`, `baseline_arrays` → `baselines`,
 `vit_simN.RO.dbg` sim names → `regression_N.RO.dbg`. Drop "VIT"/"KGen" from all docstrings,
 or define them once in the README as historical context. Scenario *numbers* stay as they
@@ -189,7 +228,7 @@ are — they are referenced in `REFACTOR_NOTES.md` and in commit history.
 *Careful:* the `sim_name` passed to `ControllerInterface` determines the `.RO.dbg` filename,
 which `compare_hdf5_debug()` hardcodes. Rename both together.
 
-### 4. Write `test/regression/README.md`
+### 4. Write `test/regression/README.md` — **DONE**
 The handoff document. Must cover:
 - What the suite asserts (bit-identical float64 arrays, not tolerances) and why.
 - How to run: full, single scenario, with rebuild, with plots.
@@ -204,7 +243,11 @@ The handoff document. Must cover:
 - What each scenario exercises — one line each, generated from task 11's table.
 - How to add a scenario.
 
-### 5. Remove the hidden `01_turbine_model.py` dependency
+### 5. Remove the hidden `01_turbine_model.py` dependency — **DONE**
+Resolved by constructing the turbine from the YAML's `turbine_params` instead of loading the
+pickle — exactly what `01_turbine_model.py` does before saving it. `load_from_fast()` then
+repopulates everything else, so the pickle contributed nothing that is not re-derivable.
+
 Finding 3. Either commit the saved turbine pickle as a fixture (fast, but a binary blob that
 silently ages), or — preferred — drop the `turbine.load(...)` line entirely, since
 `load_from_fast()` on the next line repopulates the object from `Test_Cases` + the Cp text
@@ -213,9 +256,10 @@ file anyway. Verify which fields the pickle actually contributes before deleting
 *Check:* `git clean -xdf && python test/regression/run_regression.py` from a fresh clone
 must pass with no prior steps.
 
-### 6. Add CI job
-New job in `CI_rosco-compile.yml`, ubuntu only, conda env (needs scipy/wisdem):
-build the DLL → `pytest test/regression`. Gate the HDF5 comparison on `h5py` + libhdf5 being
+### 6. Add CI job — **DONE**
+Added as a step in the existing `build_and_test_conda` job rather than a new job: that job
+already installs the conda env, builds the DLL via `pip install -e .`, and runs ubuntu-only
+steps, so a separate job would have duplicated all of it. Gate the HDF5 comparison on `h5py` + libhdf5 being
 present, skipping rather than failing when absent. Runtime budget ~3 min including build.
 
 ---
@@ -225,8 +269,13 @@ present, skipping rather than failing when absent. Runtime budget ~3 min includi
 ### 7. Commit DISCON fixtures
 Move the generated `DISCON_*.IN` into `test/regression/fixtures/` and commit them.
 `Examples/DISCON*.IN` stays gitignored — the fixtures live under `test/`, so the existing
-ignore rule does not fight them (today the four tracked `Examples/DISCON_*.IN` files are
-force-added against `.gitignore`, which is its own trap).
+ignore rule does not fight them.
+
+*Updated after task 2:* the suite now writes its generated DISCON files into a scratch temp
+directory, not `Examples/`, so the run no longer mutates the working tree at all. The four
+tracked `Examples/DISCON_{awc,filters,flp,ipc}.IN` files — force-added against `.gitignore`
+— are now orphans: nothing in the repo reads or writes them. Task 7 should delete them as
+part of introducing `fixtures/`.
 
 **Scope is larger than it looks: the fixture files are currently mutated in place.** There
 are 29 `write_discon()` calls across 28 scenarios but only **15 distinct filenames** —

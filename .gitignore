@@ -47,6 +47,8 @@ _build
 # ide settings and files
 .idea
 .vscode
+.github/lsp.json
+.mscppls/
 
 # OpenFAST generated files
 *.sum

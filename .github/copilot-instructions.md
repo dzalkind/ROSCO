@@ -22,14 +22,24 @@ To add a new field to the `.dbg` output:
 
 ## Verification
 
-After any code change: `python scripts/verify_cpp.py --rebuild`
+After any code change: `python test/regression/run_regression.py --rebuild`
 All 27 scenarios must pass byte-identical (5,252,000 float64 values).
+`pytest test/regression` runs the same check, one test per scenario.
+See `test/regression/README.md`.
 
 ## Build
 
+The one build directory is `rosco/controller/build` — `run_regression.py`,
+the CMake presets, and these instructions all use it.
+
 ```bash
-cd build && cmake ../rosco/controller && make -j8
+cmake -S rosco/controller -B rosco/controller/build
+cmake --build rosco/controller/build -j8
 ```
+
+`rosco/controller/CMakeLists.txt` sets `-ffp-contract=off` (`/fp:precise` on
+MSVC). This is what makes the regression baselines reproduce across compilers.
+Never remove it, and never add `-ffast-math` in a preset.
 
 ## Registry YAML Flags
 

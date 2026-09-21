@@ -1,44 +1,23 @@
 """
-vit_sim
--------
-VIT-specific simulation script for kernel extraction and baseline capture.
+scenarios.py
+------------
+Simulation scenarios for the ROSCO C++ controller regression suite.
 
-Runs multiple simulation scenarios to exercise all controller code paths needed
-for VIT translation verification:
+Each scenario drives the compiled ``libdiscon`` through a different set of
+controller modes and captures the resulting avrSWAP time series. The arrays are
+compared bit-for-bit against the frozen baselines in ``baselines/`` — see
+``README.md``.
 
-  1. Standard 1-DOF step-wind simulation (same as 04_simple_sim.py)
-     - Exercises: saturate, wrap_180, interp1d, LPFilter, HPFilter, SecLPFilter
-  2. Yaw-by-IPC simulation with Y_ControlMode=2
-     - Exercises: wrap_360 (via synthetic NacHeading/NacVane signals)
-  3. Filter coverage simulation with multi-mode flags enabled
-     - Exercises: NotchFilter, SecLPFilter_Vel, ForeAftDamping, FloatingFeedback,
-       FlapControl, YawRateControl, StructuralControl, CableControl
-  4. Flap control simulation with Flp_Mode=2
-     - Exercises: PIIController (dual-integral flap controller)
-  5. Active wake control simulation with AWC_Mode=4
-     - Exercises: ResController (proportional-resonant controller), ActiveWakeControl
-  6. IPC simulation with IPC_ControlMode=1
-     - Exercises: IPC, NotchFilterSlopes
-  7. Synthetic inputs for under-exercised functions (manual sim loop)
-     - Exercises: YawRateControl, ForeAftDamping, FloatingFeedback,
-       StructuralControl, CableControl, FlapControl with non-zero inputs
-  8. IPC + AWC with real blade moments (manual sim loop)
-     - Exercises: IPC (real gains), ActiveWakeControl (rootMOOP feedback),
-       NotchFilterSlopes (non-zero rootMOOP)
+Scenario numbers are stable: they are referenced by baseline filenames,
+``REFACTOR_NOTES.md``, and commit history. Never renumber an existing scenario.
 
-All scenarios use the same compiled libdiscon.so, so KGen instrumentation
-captures state from whichever function is being extracted.
+Normally driven by ``run_regression.py``, which runs each scenario in its own
+subprocess (the DLL keeps static state) from a scratch working directory.
+Invoking this module directly writes its generated ``DISCON_*.IN`` and the
+controller's ``*.RO.dbg*`` output into the *current* directory:
 
-Usage:
-    python3 vit_sim.py              # Run all scenarios
-    python3 vit_sim.py --scenario 1 # Standard sim only
-    python3 vit_sim.py --scenario 2 # Yaw-by-IPC sim only
-    python3 vit_sim.py --scenario 3 # Filter/mode coverage sim only
-    python3 vit_sim.py --scenario 4 # Flap control sim only
-    python3 vit_sim.py --scenario 5 # Active wake control sim only
-    python3 vit_sim.py --scenario 6 # IPC sim only
-    python3 vit_sim.py --scenario 7 # Synthetic inputs sim only
-    python3 vit_sim.py --scenario 8 # IPC + AWC sim only
+    cd $(mktemp -d)
+    python /path/to/test/regression/scenarios.py --scenario 1
 """
 
 import argparse
@@ -108,8 +87,10 @@ from rosco.toolbox.inputs.validation import load_rosco_yaml
 
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
-example_out_dir = os.path.join(this_dir, 'examples_out')
-os.makedirs(example_out_dir, exist_ok=True)
+REPO_ROOT = os.path.dirname(os.path.dirname(this_dir))
+EXAMPLES_DIR = os.path.join(REPO_ROOT, 'Examples')
+TUNE_DIR = os.path.join(EXAMPLES_DIR, 'Tune_Cases')
+EXAMPLE_INPUTS_DIR = os.path.join(EXAMPLES_DIR, 'example_inputs')
 
 # Workaround for scipy FITPACK bispev non-determinism (dev note 202603261512).
 # FITPACK's fpbisp reads an uninitialized stack variable whose value depends on
@@ -123,24 +104,24 @@ os.makedirs(example_out_dir, exist_ok=True)
 # See dev note 202603261512 for the full bug report with reproduction steps.
 import ctypes as _ctypes
 from scipy import interpolate as _interpolate
-_scrub_lib_path = os.path.join(os.path.dirname(this_dir), 'rosco', 'lib', 'libscrub.so')
+_scrub_lib_path = os.path.join(REPO_ROOT, 'rosco', 'lib', 'libscrub.so')
 if os.path.exists(_scrub_lib_path):
     _scrub_lib = _ctypes.CDLL(_scrub_lib_path)
     def _scrubbed_interp_surface(self, pitch, TSR):
-        if not hasattr(self, '_vit_surface_spline'):
-            self._vit_surface_spline = _interpolate.RectBivariateSpline(
+        if not hasattr(self, '_cached_surface_spline'):
+            self._cached_surface_spline = _interpolate.RectBivariateSpline(
                 self.pitch_initial_rad, self.TSR_initial, self.performance_table.T)
         _scrub_lib.scrub_stack()
-        return np.squeeze(self._vit_surface_spline(pitch, TSR).T)
+        return np.squeeze(self._cached_surface_spline(pitch, TSR).T)
     def _scrubbed_interp_gradient(self, pitch, TSR):
-        if not hasattr(self, '_vit_grad_pitch_spline'):
-            self._vit_grad_pitch_spline = _interpolate.RectBivariateSpline(
+        if not hasattr(self, '_cached_grad_pitch_spline'):
+            self._cached_grad_pitch_spline = _interpolate.RectBivariateSpline(
                 self.pitch_initial_rad, self.TSR_initial, self.gradient_pitch.T)
-            self._vit_grad_TSR_spline = _interpolate.RectBivariateSpline(
+            self._cached_grad_TSR_spline = _interpolate.RectBivariateSpline(
                 self.pitch_initial_rad, self.TSR_initial, self.gradient_TSR.T)
         _scrub_lib.scrub_stack()
-        grad = np.array([self._vit_grad_pitch_spline(pitch, TSR).T,
-                         self._vit_grad_TSR_spline(pitch, TSR).T])
+        grad = np.array([self._cached_grad_pitch_spline(pitch, TSR).T,
+                         self._cached_grad_TSR_spline(pitch, TSR).T])
         return np.ndarray.flatten(grad)
     ROSCO_turbine.RotorPerformance.interp_surface = _scrubbed_interp_surface
     ROSCO_turbine.RotorPerformance.interp_gradient = _scrubbed_interp_gradient
@@ -148,19 +129,17 @@ if os.path.exists(_scrub_lib_path):
 
 def load_turbine_and_controller():
     """Load the NREL5MW turbine and tune a ROSCO controller. Returns (turbine, controller)."""
-    tune_dir = os.path.join(this_dir, 'Tune_Cases')
-    parameter_filename = os.path.join(tune_dir, 'NREL5MW.yaml')
+    parameter_filename = os.path.join(TUNE_DIR, 'NREL5MW.yaml')
     inps = load_rosco_yaml(parameter_filename)
     path_params = inps['path_params']
     controller_params = inps['controller_params']
 
-    turbine = ROSCO_turbine.Turbine
-    turbine = turbine.load(os.path.join(example_out_dir, '01_NREL5MW_saved.p'))
+    turbine = ROSCO_turbine.Turbine(inps['turbine_params'])
 
-    cp_filename = os.path.join(tune_dir, path_params['rotor_performance_filename'])
+    cp_filename = os.path.join(TUNE_DIR, path_params['rotor_performance_filename'])
     turbine.load_from_fast(
         path_params['FAST_InputFile'],
-        os.path.join(tune_dir, path_params['FAST_directory']),
+        os.path.join(TUNE_DIR, path_params['FAST_directory']),
         rot_source='txt', txt_filename=cp_filename
     )
 
@@ -203,11 +182,11 @@ def run_scenario_1(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 1: Standard step-wind simulation")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON.IN')
+    param_filename = os.path.abspath('DISCON.IN')
     write_discon(turbine, controller, cp_filename, param_filename)
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim1'
+        lib_name, param_filename=param_filename, sim_name='regression_1'
     )
 
     sim_1 = ROSCO_sim.Sim(turbine, controller_int)
@@ -224,7 +203,7 @@ def run_scenario_1(turbine, controller, cp_filename, output_dir=None):
 
     # Second run to check deallocation (same as 04_simple_sim.py)
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim1b'
+        lib_name, param_filename=param_filename, sim_name='regression_1b'
     )
     sim_1b = ROSCO_sim.Sim(turbine, controller_int)
     sim_1b.sim_ws_series(t, ws, rotor_rpm_init=4, make_plots=False, extra_avrswap=EXTRA_AVRSWAP)
@@ -247,17 +226,17 @@ def run_scenario_2(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 2: Yaw-by-IPC simulation (wrap_360)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_yaw.IN')
+    param_filename = os.path.abspath('DISCON_yaw.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'Y_ControlMode': 2,
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim2'
+        lib_name, param_filename=param_filename, sim_name='regression_2'
     )
 
-    # Shorter simulation — we just need wrap_360 to be called enough times
-    # for KGen to capture 20 invocations
+    # Shorter simulation — we just need wrap_360 called enough times to cover
+    # its <0, 0-360 and >=360 input ranges.
     dt = 0.025
     tlen = 100
     ws0 = 9
@@ -361,7 +340,7 @@ def run_scenario_3(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 3: Mode coverage (notch + cable + flap + structural)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_filters.IN')
+    param_filename = os.path.abspath('DISCON_filters.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         # NotchFilter: 1 notch filter on generator speed
         'F_NumNotchFilts': 1,
@@ -404,7 +383,7 @@ def run_scenario_3(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim3'
+        lib_name, param_filename=param_filename, sim_name='regression_3'
     )
 
     sim_3 = ROSCO_sim.Sim(turbine, controller_int)
@@ -439,7 +418,7 @@ def run_scenario_4(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 4: Flap control (Flp_Mode=2, PIIController)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_flp.IN')
+    param_filename = os.path.abspath('DISCON_flp.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'Flp_Mode': 2,
         'IPC_ControlMode': 0,  # Mutual exclusion with Flp_Mode > 0
@@ -452,7 +431,7 @@ def run_scenario_4(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim4'
+        lib_name, param_filename=param_filename, sim_name='regression_4'
     )
 
     sim_4 = ROSCO_sim.Sim(turbine, controller_int)
@@ -488,7 +467,7 @@ def run_scenario_5(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 5: Active wake control (AWC_Mode=4, ResController)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_awc.IN')
+    param_filename = os.path.abspath('DISCON_awc.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'AWC_Mode': 4,
         # Nonzero gains so ResController produces nontrivial output
@@ -496,7 +475,7 @@ def run_scenario_5(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim5'
+        lib_name, param_filename=param_filename, sim_name='regression_5'
     )
 
     sim_5 = ROSCO_sim.Sim(turbine, controller_int)
@@ -534,7 +513,7 @@ def run_scenario_6(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 6: IPC (IPC_ControlMode=1, NotchFilterSlopes)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_ipc.IN')
+    param_filename = os.path.abspath('DISCON_ipc.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'IPC_ControlMode': 1,
         'Flp_Mode': 0,       # Mutual exclusion with IPC_ControlMode > 0
@@ -543,7 +522,7 @@ def run_scenario_6(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim6'
+        lib_name, param_filename=param_filename, sim_name='regression_6'
     )
 
     sim_6 = ROSCO_sim.Sim(turbine, controller_int)
@@ -582,7 +561,7 @@ def run_scenario_7(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 7: Synthetic inputs (yaw, tower, float, struct, cable, flap)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_synth.IN')
+    param_filename = os.path.abspath('DISCON_synth.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'Y_ControlMode': 1,
         'TD_Mode': 1,
@@ -607,7 +586,7 @@ def run_scenario_7(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim7'
+        lib_name, param_filename=param_filename, sim_name='regression_7'
     )
 
     dt = 0.025
@@ -725,7 +704,7 @@ def run_scenario_8(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 8: IPC + AWC with blade moments")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_ipc_awc.IN')
+    param_filename = os.path.abspath('DISCON_ipc_awc.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'IPC_ControlMode': 1,
         'IPC_KP': '0.1 0.1',
@@ -747,7 +726,7 @@ def run_scenario_8(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim8'
+        lib_name, param_filename=param_filename, sim_name='regression_8'
     )
 
     dt = 0.025
@@ -846,7 +825,7 @@ def run_scenario_9(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 9: Startup/Shutdown/TRA (SU_Mode=1, SD_Mode=1, TRA_Mode=1)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_su_sd_tra.IN')
+    param_filename = os.path.abspath('DISCON_su_sd_tra.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'SU_Mode': 1,
         'SU_StartTime': 0,
@@ -877,7 +856,7 @@ def run_scenario_9(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim9'
+        lib_name, param_filename=param_filename, sim_name='regression_9'
     )
 
     sim_9 = ROSCO_sim.Sim(turbine, controller_int)
@@ -909,8 +888,8 @@ def run_scenario_10(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 10: Rotor position control (OL_Mode=2, PIDController)")
     print("=" * 60)
 
-    ol_input_path = os.path.join(this_dir, 'example_inputs', 'OL_Mode2_Input.dat')
-    param_filename = os.path.join(this_dir, 'DISCON_ol_mode2.IN')
+    ol_input_path = os.path.join(EXAMPLE_INPUTS_DIR, 'OL_Mode2_Input.dat')
+    param_filename = os.path.abspath('DISCON_ol_mode2.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'OL_Mode': 2,
         'OL_Filename': ol_input_path,
@@ -931,7 +910,7 @@ def run_scenario_10(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim10'
+        lib_name, param_filename=param_filename, sim_name='regression_10'
     )
 
     sim_10 = ROSCO_sim.Sim(turbine, controller_int)
@@ -964,7 +943,7 @@ def run_scenario_11(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 11: Active wake control (AWC_Mode=1, complex number method)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_awc.IN')
+    param_filename = os.path.abspath('DISCON_awc.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'AWC_Mode': 1,
         'AWC_NumModes': 1,
@@ -975,7 +954,7 @@ def run_scenario_11(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim11'
+        lib_name, param_filename=param_filename, sim_name='regression_11'
     )
 
     sim_11 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1007,13 +986,13 @@ def run_scenario_12(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 12: K*Omega^2 torque control (VS_ControlMode=1)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON.IN')
+    param_filename = os.path.abspath('DISCON.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'VS_ControlMode': 1,
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim12'
+        lib_name, param_filename=param_filename, sim_name='regression_12'
     )
 
     sim_12 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1047,7 +1026,7 @@ def run_scenario_13(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 13: Power overspeed mode (VS_FBP=1)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON.IN')
+    param_filename = os.path.abspath('DISCON.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'VS_FBP': 1,
         'PC_ControlMode': 0,
@@ -1055,7 +1034,7 @@ def run_scenario_13(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim13'
+        lib_name, param_filename=param_filename, sim_name='regression_13'
     )
 
     sim_13 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1087,8 +1066,8 @@ def run_scenario_14(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 14: Time-based open-loop control (OL_Mode=1)")
     print("=" * 60)
 
-    ol_input_path = os.path.join(this_dir, 'example_inputs', 'OL_Mode1_Input.dat')
-    param_filename = os.path.join(this_dir, 'DISCON_ol_mode1.IN')
+    ol_input_path = os.path.join(EXAMPLE_INPUTS_DIR, 'OL_Mode1_Input.dat')
+    param_filename = os.path.abspath('DISCON_ol_mode1.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'OL_Mode': 1,
         'OL_Filename': ol_input_path,
@@ -1107,7 +1086,7 @@ def run_scenario_14(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim14'
+        lib_name, param_filename=param_filename, sim_name='regression_14'
     )
 
     sim_14 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1137,7 +1116,7 @@ def run_scenario_15(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 15: Coleman transform AWC (AWC_Mode=2)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_awc.IN')
+    param_filename = os.path.abspath('DISCON_awc.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'AWC_Mode': 2,
         'AWC_NumModes': 1,
@@ -1149,7 +1128,7 @@ def run_scenario_15(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim15'
+        lib_name, param_filename=param_filename, sim_name='regression_15'
     )
 
     sim_15 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1181,7 +1160,7 @@ def run_scenario_16(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 16: Coleman transform flap control (Flp_Mode=3)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_flp.IN')
+    param_filename = os.path.abspath('DISCON_flp.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'Flp_Mode': 3,
         'IPC_ControlMode': 0,
@@ -1191,7 +1170,7 @@ def run_scenario_16(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim16'
+        lib_name, param_filename=param_filename, sim_name='regression_16'
     )
 
     sim_16 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1223,13 +1202,13 @@ def run_scenario_17(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 17: I&I wind speed estimator (WE_Mode=1)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON.IN')
+    param_filename = os.path.abspath('DISCON.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'WE_Mode': 1,
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim17'
+        lib_name, param_filename=param_filename, sim_name='regression_17'
     )
 
     sim_17 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1262,7 +1241,7 @@ def run_scenario_18(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 18: 1P+2P individual pitch control (IPC_ControlMode=2)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_ipc.IN')
+    param_filename = os.path.abspath('DISCON_ipc.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'IPC_ControlMode': 2,
         'IPC_KP': '0.1 0.05',
@@ -1277,7 +1256,7 @@ def run_scenario_18(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim18'
+        lib_name, param_filename=param_filename, sim_name='regression_18'
     )
 
     sim_18 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1311,7 +1290,7 @@ def run_scenario_19(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 19: PA_Mode=1 + PF_Mode=1 + VS_ConstPower=1 + Fl_Mode=2")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON.IN')
+    param_filename = os.path.abspath('DISCON.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'PA_Mode': 1,
         'PF_Mode': 1,
@@ -1322,7 +1301,7 @@ def run_scenario_19(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim19'
+        lib_name, param_filename=param_filename, sim_name='regression_19'
     )
 
     sim_19 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1354,7 +1333,7 @@ def run_scenario_20(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 20: PA_Mode=2 + PF_Mode=2 + PRC_Mode=1")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON.IN')
+    param_filename = os.path.abspath('DISCON.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'PA_Mode': 2,
         'PF_Mode': 2,
@@ -1363,7 +1342,7 @@ def run_scenario_20(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim20'
+        lib_name, param_filename=param_filename, sim_name='regression_20'
     )
 
     sim_20 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1394,7 +1373,7 @@ def run_scenario_21(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 21: Closed-loop PI AWC (AWC_Mode=3)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_awc.IN')
+    param_filename = os.path.abspath('DISCON_awc.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'AWC_Mode': 3,
         'AWC_NumModes': 1,
@@ -1406,7 +1385,7 @@ def run_scenario_21(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim21'
+        lib_name, param_filename=param_filename, sim_name='regression_21'
     )
 
     sim_21 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1437,7 +1416,7 @@ def run_scenario_22(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 22: Strouhal transform AWC (AWC_Mode=5)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_awc.IN')
+    param_filename = os.path.abspath('DISCON_awc.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'AWC_Mode': 5,
         'AWC_NumModes': 1,
@@ -1449,7 +1428,7 @@ def run_scenario_22(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim22'
+        lib_name, param_filename=param_filename, sim_name='regression_22'
     )
 
     sim_22 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1480,14 +1459,14 @@ def run_scenario_23(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 23: PS_Mode=0 + SS_Mode=0 (disabled paths)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON.IN')
+    param_filename = os.path.abspath('DISCON.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'PS_Mode': 0,
         'SS_Mode': 0,
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim23'
+        lib_name, param_filename=param_filename, sim_name='regression_23'
     )
 
     sim_23 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1519,8 +1498,8 @@ def run_scenario_24(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 24: Open-loop cable + structural (CC_Mode=2, StC_Mode=2)")
     print("=" * 60)
 
-    ol_input_path = os.path.join(this_dir, 'example_inputs', 'OL_Mode1_CC_StC_Input.dat')
-    param_filename = os.path.join(this_dir, 'DISCON_ol_cc_stc.IN')
+    ol_input_path = os.path.join(EXAMPLE_INPUTS_DIR, 'OL_Mode1_CC_StC_Input.dat')
+    param_filename = os.path.abspath('DISCON_ol_cc_stc.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'OL_Mode': 1,
         'OL_Filename': ol_input_path,
@@ -1545,7 +1524,7 @@ def run_scenario_24(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim24'
+        lib_name, param_filename=param_filename, sim_name='regression_24'
     )
 
     sim_24 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1575,7 +1554,7 @@ def run_scenario_25(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 25: Dynamic power rating (PRC_Mode=2, PRC_Comm=0)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON.IN')
+    param_filename = os.path.abspath('DISCON.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'PRC_Mode': 2,
         'PRC_Comm': 0,
@@ -1585,7 +1564,7 @@ def run_scenario_25(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim25'
+        lib_name, param_filename=param_filename, sim_name='regression_25'
     )
 
     sim_25 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1621,7 +1600,7 @@ def run_scenario_26(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 26: Flp_Mode=3 with synthetic rootMOOP (non-zero flap output)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_flap26.IN')
+    param_filename = os.path.abspath('DISCON_flap26.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'Flp_Mode': 3,
         'Flp_Kp': -0.001,
@@ -1639,7 +1618,7 @@ def run_scenario_26(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim26'
+        lib_name, param_filename=param_filename, sim_name='regression_26'
     )
 
     dt = 0.025
@@ -1740,7 +1719,7 @@ def run_scenario_27(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 27: Maximum-coverage stress test (11 modes)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_stress27.IN')
+    param_filename = os.path.abspath('DISCON_stress27.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'IPC_ControlMode': 1,
         'IPC_KP': '0.1 0.0',
@@ -1777,7 +1756,7 @@ def run_scenario_27(turbine, controller, cp_filename, output_dir=None):
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim27'
+        lib_name, param_filename=param_filename, sim_name='regression_27'
     )
 
     dt = 0.025
@@ -1894,14 +1873,14 @@ def run_scenario_28(turbine, controller, cp_filename, output_dir=None):
     print("Scenario 28: HDF5 output format (OutputFormat=1)")
     print("=" * 60)
 
-    param_filename = os.path.join(this_dir, 'DISCON_hdf5.IN')
+    param_filename = os.path.abspath('DISCON_hdf5.IN')
     write_discon(turbine, controller, cp_filename, param_filename, patches={
         'OutputFormat': 1,
         'LoggingLevel': 3,  # exercise avrSWAP HDF5 dataset (Phase 3)
     })
 
     controller_int = ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=param_filename, sim_name='vit_sim28'
+        lib_name, param_filename=param_filename, sim_name='regression_28'
     )
 
     sim_28 = ROSCO_sim.Sim(turbine, controller_int)
@@ -1927,7 +1906,7 @@ def run_scenario_28(turbine, controller, cp_filename, output_dir=None):
     save_and_print_results(result, 28, output_dir)
 
     # Verify HDF5 file was created and contains valid data
-    h5_path = os.path.join(this_dir, 'vit_sim28.RO.h5')
+    h5_path = os.path.abspath('regression_28.RO.h5')
     if os.path.exists(h5_path):
         import h5py
         with h5py.File(h5_path, 'r') as f:
@@ -1952,7 +1931,7 @@ def run_scenario_28(turbine, controller, cp_filename, output_dir=None):
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    parser = argparse.ArgumentParser(description='VIT simulation runner')
+    parser = argparse.ArgumentParser(description='ROSCO regression scenario runner')
     parser.add_argument('--scenario', type=int, default=0,
                         help='Run specific scenario (1-27). Default 0 = run all.')
     parser.add_argument('--output-dir', type=str, default=None,
@@ -1966,7 +1945,9 @@ def main():
     turbine, controller, cp_filename = load_turbine_and_controller()
     od = args.output_dir
 
-    # Scenario dispatch table (ordered for KGen extraction compatibility)
+    # Scenario dispatch table. The order is historical and only matters when
+    # running every scenario in one process; run_regression.py isolates each one
+    # in its own subprocess.
     scenario_order = [3, 4, 5, 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
                       17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
     scenario_functions = {
@@ -2012,8 +1993,6 @@ def main():
         return
 
     # Normal mode: run scenarios with output
-    # Scenario 3 runs first so KGen's early invocations (1-20) capture all
-    # mode-gated code paths.
     for s in scenario_order:
         if args.scenario == 0 or args.scenario == s:
             scenario_functions[s](turbine, controller, cp_filename, od)

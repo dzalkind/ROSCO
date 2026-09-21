@@ -9,7 +9,10 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# VIT: disable FP contraction for bit-identical verification during translation phase.
+# Reproducibility: the regression suite in test/regression/ compares controller
+# output bit-for-bit against frozen baselines. Disabling FP contraction is what
+# makes those baselines survive across compilers and optimisation levels.
+# Do not remove, and do not let a CMake preset add -ffast-math.
 if(MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:precise")
 else()

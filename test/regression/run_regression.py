@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
-verify_cpp.py — Run all 27 vit_sim scenarios against frozen baseline_arrays.
+run_regression.py — Run all 27 scenarios against the frozen baselines.
 
-Each scenario runs in a separate subprocess (required to reset the C++ DLL's
-static variables between scenarios — same isolation that Docker exec provided
-during the VIT translation workflow).
+Each scenario runs in a separate subprocess, because the controller DLL keeps
+static state that is only reset by unloading the process.
 
 Usage:
-    python3 scripts/verify_cpp.py              # all 27 scenarios
-    python3 scripts/verify_cpp.py --scenario 1 # single scenario
-    python3 scripts/verify_cpp.py --rebuild     # cmake build before running
+    python3 test/regression/run_regression.py              # all 27 scenarios
+    python3 test/regression/run_regression.py --scenario 1 # single scenario
+    python3 test/regression/run_regression.py --rebuild    # cmake build first
 
 Expected result: ALL IDENTICAL
+
+`pytest test/regression` runs the same comparison, one test per scenario.
 """
 
 import argparse
@@ -22,9 +23,10 @@ import tempfile
 
 import numpy as np
 
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-EXAMPLES_DIR = os.path.join(REPO_ROOT, "Examples")
-BASELINE_DIR = os.path.join(REPO_ROOT, "baseline_arrays")
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
+SCENARIOS = os.path.join(HERE, "scenarios.py")
+BASELINE_DIR = os.path.join(HERE, "baselines")
 DEFAULT_BUILD_DIR = os.path.join(REPO_ROOT, "rosco", "controller", "build")
 CONTROLLER_DIR = os.path.join(REPO_ROOT, "rosco", "controller")
 LIB_DIR = os.path.join(REPO_ROOT, "rosco", "lib")
@@ -38,17 +40,21 @@ def build_discon(build_dir, preset=None):
     """cmake --build the controller and copy libdiscon to rosco/lib."""
     if preset:
         # Configure with preset first
-        print(f"Configuring with preset '{preset}'...")
-        r = subprocess.run(
-            ["cmake", "--preset", preset],
-            cwd=CONTROLLER_DIR,
-            capture_output=False,
-        )
+        print(f"Configuring with preset '{preset}'...", flush=True)
+        cmd = ["cmake", "--preset", preset]
+    elif not os.path.exists(os.path.join(build_dir, "CMakeCache.txt")):
+        print(f"Configuring {build_dir}...", flush=True)
+        cmd = ["cmake", "-S", CONTROLLER_DIR, "-B", build_dir]
+    else:
+        cmd = None
+
+    if cmd:
+        r = subprocess.run(cmd, cwd=CONTROLLER_DIR, capture_output=False)
         if r.returncode != 0:
             print("ERROR: cmake configure failed.", file=sys.stderr)
             sys.exit(1)
 
-    print("Building libdiscon...")
+    print("Building libdiscon...", flush=True)
     r = subprocess.run(
         ["cmake", "--build", build_dir],
         capture_output=False,
@@ -92,17 +98,24 @@ def build_scrub():
     print()
 
 
-def run_scenario(scenario_num, output_dir, asan_env=None):
-    """Run a single scenario in a subprocess. Returns True on success."""
+def run_scenario(scenario_num, output_dir, work_dir=None, asan_env=None):
+    """Run a single scenario in a subprocess. Returns True on success.
+
+    `output_dir` receives the scenario_N.npz arrays. `work_dir` (default:
+    `output_dir`) is the subprocess cwd, and so receives the generated
+    DISCON_*.IN and the controller's *.RO.dbg* / *.RO.h5 output.
+    """
     env = None
     if asan_env:
         env = os.environ.copy()
         env.update(asan_env)
+    work_dir = work_dir or output_dir
+    os.makedirs(work_dir, exist_ok=True)
     r = subprocess.run(
-        [sys.executable, "vit_sim.py",
+        [sys.executable, SCENARIOS,
          "--scenario", str(scenario_num),
          "--output-dir", output_dir],
-        cwd=EXAMPLES_DIR,
+        cwd=work_dir,
         capture_output=True,
         text=True,
         env=env,
@@ -146,21 +159,21 @@ def compare_scenario(scenario_num, output_dir):
     return True, f"{sum(len(b[k]) for k in b.files)} values identical"
 
 
-def compare_hdf5_debug():
+def compare_hdf5_debug(work_dir):
     """Compare Scenario 28 (.RO.h5) debug output against Scenario 1 (.RO.dbg)
-    text output — same simulation, two OutputFormat values. Requires both
-    scenarios to have already been run (writes to Examples/, not output_dir).
+    text output — same simulation, two OutputFormat values. Both scenarios must
+    already have been run with `work_dir` as their working directory.
 
     Also verifies the "/avrSWAP" HDF5 dataset (written only at LoggingLevel=3,
     which Scenario 28 sets) against the ground-truth avrSWAP values captured
     directly from the Python sim loop (scenario_28.npz's 'avrSWAP_full').
     """
-    text_path = os.path.join(EXAMPLES_DIR, "vit_sim1.RO.dbg")
-    h5_path = os.path.join(EXAMPLES_DIR, "vit_sim28.RO.h5")
+    text_path = os.path.join(work_dir, "regression_1.RO.dbg")
+    h5_path = os.path.join(work_dir, "regression_28.RO.h5")
     if not os.path.exists(h5_path):
-        return None, "vit_sim28.RO.h5 not found (HDF5 support may not be compiled in)"
+        return None, "regression_28.RO.h5 not found (HDF5 support may not be compiled in)"
     if not os.path.exists(text_path):
-        return False, "vit_sim1.RO.dbg not found (run scenario 1 first)"
+        return False, "regression_1.RO.dbg not found (run scenario 1 first)"
 
     sys.path.insert(0, os.path.join(REPO_ROOT, "rosco"))
     from toolbox.ofTools.fast_io.output_processing import load_ascii_output, load_hdf5_output
@@ -188,18 +201,18 @@ def compare_hdf5_debug():
         return False, "; ".join(mismatches)
 
     # --- avrSWAP dataset verification (LoggingLevel=3) ---
-    avr_ok, avr_detail = compare_hdf5_avrswap(h5_path)
+    avr_ok, avr_detail = compare_hdf5_avrswap(h5_path, work_dir)
     if not avr_ok:
         return False, avr_detail
 
     return True, f"{len(text_channels)} channels identical (text vs HDF5); {avr_detail}"
 
 
-def compare_hdf5_avrswap(h5_path):
+def compare_hdf5_avrswap(h5_path, npz_dir):
     """Verify the "/avrSWAP" dataset in an .RO.h5 file: presence, column
     labels, shape, and values against the Python-captured ground truth
     (scenario_28.npz's 'avrSWAP_full', saved by run_scenario_28)."""
-    npz_path = os.path.join(tempfile.gettempdir(), "scenario_28.npz")
+    npz_path = os.path.join(npz_dir, "scenario_28.npz")
     if not os.path.exists(npz_path):
         return False, "scenario_28.npz not found (run scenario 28 first)"
 
@@ -241,7 +254,7 @@ def main():
     parser.add_argument("--rebuild", action="store_true",
                         help="Run cmake --build before verifying.")
     parser.add_argument("--update-baseline", action="store_true",
-                        help="Overwrite baseline_arrays/ with current outputs instead of comparing.")
+                        help="Overwrite baselines/ with current outputs instead of comparing.")
     parser.add_argument("--preset", type=str, default=None,
                         help="CMake preset name (e.g. 'asan'). Sets build dir to build-{preset}.")
     parser.add_argument("--hdf5", action="store_true",
@@ -256,7 +269,7 @@ def main():
         build_dir = DEFAULT_BUILD_DIR
 
     if not os.path.exists(BASELINE_DIR):
-        print(f"ERROR: baseline_arrays/ not found at {BASELINE_DIR}", file=sys.stderr)
+        print(f"ERROR: baselines/ not found at {BASELINE_DIR}", file=sys.stderr)
         sys.exit(1)
 
     if args.rebuild:
@@ -284,19 +297,20 @@ def main():
     print()
 
     if args.update_baseline:
-        print(f"Updating baseline_arrays/ with current outputs...")
+        print("Updating baselines/ with current outputs...")
         print()
         os.makedirs(BASELINE_DIR, exist_ok=True)
-        for s in scenarios:
-            sys.stdout.write(f"  scenario_{s:2d}: running... ")
-            sys.stdout.flush()
-            ok = run_scenario(s, BASELINE_DIR, asan_env=asan_env)
-            print("saved" if ok else "FAILED")
+        with tempfile.TemporaryDirectory(prefix="rosco_regression_") as workdir:
+            for s in scenarios:
+                sys.stdout.write(f"  scenario_{s:2d}: running... ")
+                sys.stdout.flush()
+                ok = run_scenario(s, BASELINE_DIR, work_dir=workdir, asan_env=asan_env)
+                print("saved" if ok else "FAILED")
         print()
-        print("Baseline updated. Commit baseline_arrays/ to lock in the new reference.")
+        print("Baseline updated. Commit test/regression/baselines/ to lock in the new reference.")
         return
 
-    with tempfile.TemporaryDirectory(prefix="rosco_verify_") as tmpdir:
+    with tempfile.TemporaryDirectory(prefix="rosco_regression_") as tmpdir:
         results = {}
 
         for s in scenarios:
@@ -331,23 +345,23 @@ def main():
                     print(f"  scenario_{s}: {detail}")
             sys.exit(1)
 
-    if args.hdf5:
-        print()
-        print("Running Scenario 28 (HDF5 OutputFormat) for text/HDF5 comparison...")
-        if 1 not in scenarios:
-            run_scenario(1, tempfile.gettempdir())
-        ok28 = run_scenario(28, tempfile.gettempdir())
-        if not ok28:
-            print("  Scenario 28: SUBPROCESS FAILED")
-            sys.exit(1)
-        identical, detail = compare_hdf5_debug()
-        if identical is None:
-            print(f"  SKIPPED: {detail}")
-        else:
-            status = "IDENTICAL" if identical else "MISMATCH"
-            print(f"  {status}  ({detail})")
-            if not identical:
+        if args.hdf5:
+            print()
+            print("Running Scenario 28 (HDF5 OutputFormat) for text/HDF5 comparison...")
+            if 1 not in scenarios:
+                run_scenario(1, tmpdir, asan_env=asan_env)
+            ok28 = run_scenario(28, tmpdir, asan_env=asan_env)
+            if not ok28:
+                print("  Scenario 28: SUBPROCESS FAILED")
                 sys.exit(1)
+            identical, detail = compare_hdf5_debug(tmpdir)
+            if identical is None:
+                print(f"  SKIPPED: {detail}")
+            else:
+                status = "IDENTICAL" if identical else "MISMATCH"
+                print(f"  {status}  ({detail})")
+                if not identical:
+                    sys.exit(1)
 
 
 if __name__ == "__main__":

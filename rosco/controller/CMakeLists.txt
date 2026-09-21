@@ -119,9 +119,7 @@ endif()
 
 add_library(discon SHARED ${SOURCES})
 target_include_directories(discon PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../translations)
-if(NOT MSVC)
-    target_link_libraries(discon PRIVATE dl)
-endif()
+target_link_libraries(discon PRIVATE ${CMAKE_DL_LIBS})
 target_link_libraries(discon PRIVATE tomlplusplus::tomlplusplus)
 
 if(HDF5_FOUND)

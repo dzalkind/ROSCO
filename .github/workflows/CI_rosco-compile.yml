@@ -69,7 +69,9 @@ jobs:
               if: false == contains( matrix.os, 'windows')
               run: |
                   echo "CC=${{ steps.install_cc.outputs.cc }}" >> $GITHUB_ENV
-                  echo "CXX=${{ steps.install_cc.outputs.cxx }}" >> $GITHUB_ENV
+                  # setup-cpp-compiler reports the C driver as its cxx output on macOS,
+                  # which links C++ objects without libc++. Derive clang++ from cc instead.
+                  echo "CXX=${{ steps.install_cc.outputs.cc }}++" >> $GITHUB_ENV
 
             #- name: Setup tmate session
             #  if: contains( matrix.os, 'windows')

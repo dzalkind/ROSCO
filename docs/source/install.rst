@@ -33,9 +33,8 @@ Steps for the installation of the complete rosco toolset are:
     # If you encounter SSL errors on Windows:
     conda config --set ssl_verify no
 
-    # Install a C/C++17-capable compiler
-    conda install -y gcc gxx          # Linux/Mac (via conda-forge)
-    conda install -y m2w64-toolchain  # Windows (MinGW-w64 toolchain)
+    # Install a C/C++17-capable compiler (conda-forge ships MinGW-w64 GCC on Windows)
+    conda install -y gcc gxx
 
     # Install CMake (if not already available system-wide)
     conda install -y cmake make
@@ -179,7 +178,9 @@ On **Windows (64-bit)**, install the MinGW-w64 toolchain via Anaconda:
 
 .. code-block:: bash
 
-    conda install -y m2w64-toolchain cmake make
+    conda install -y gcc gxx cmake make
+
+The older ``m2w64-toolchain`` package is GCC 5 and cannot compile the C++17 sources.
 
 Building the shared library
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

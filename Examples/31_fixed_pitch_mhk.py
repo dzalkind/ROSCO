@@ -176,7 +176,7 @@ def main():
         plt.savefig(fig_fname,bbox_inches='tight',)
 
     # Simulate all control configurations, in parallel
-    run_dir = os.path.join(example_out_dir, '31_MHK_2_reorder')
+    run_dir = os.path.join(example_out_dir, '31_MHK')
     os.makedirs(run_dir,exist_ok=True)
 
     # simulation set up

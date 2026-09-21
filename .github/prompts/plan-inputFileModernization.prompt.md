@@ -4,9 +4,36 @@
 
 Modernize ROSCO's input system to make TOML the sole forward-going format with rich inline comments (matching DISCON.IN readability), fix the fragile Cp/Ct/Cq text parser to use keyword-based scanning with improved section separators, unify the dual-schema descriptions into one source of truth, create a Python TOML writer, and provide a DISCON.IN → TOML migration utility. Drop DISCON.IN after one transition release.
 
+## Sequencing (decided 2026-09-21)
+
+This plan starts **after** the regression plan's remaining work: P2/P3 tasks 10–15, 8c,
+then 3b (the C++ vocabulary rename, which touches `write_registry.py` and
+`readcontrolparameterfilesub.cpp` — so it must land before this plan edits them). The
+regression plan's task 8b (input-parsing test) has moved here, as Phase 0.
+
 ## Current State
 
-- C++ `load_from_toml()` already works (auto-generated from `rosco_types.yaml`)
+- C++ `load_from_toml()` parses a TOML file (generated from `rosco_types.yaml`), **but the
+  TOML path is incomplete** — see the next bullet. Nothing in `test/`, `rosco/test/` or the
+  Examples runs a `.toml` input.
+- **The TOML path skips all post-processing.** `read_config_files()`
+  (`readconfigfiles.cpp`) sends `.toml` to `load_from_toml()` and everything else to the
+  hand-written `ReadControlParameterFileSub()`. Only the `.IN` parser then runs the
+  post-processing (`readcontrolparameterfilesub.cpp:456` onward):
+  - computed constants: `n_DT_Out` (also setting `DT_Out` from `DT` when 0), `n_DT_ZMQ`,
+    `PC_RtTq99`, `VS_MinOMTq`, `VS_MaxOMTq`;
+  - resolving relative `PerfFileName` / `OL_Filename` against the input file's directory;
+  - `Y_Rate *= R2D` (unit conversion);
+  - reading `OL_Filename` into `OL_Channels` and splitting it into the `OL_*` arrays.
+
+  Instead, `load_from_toml()` reads those *computed* fields straight from the file, falling
+  back to 0. A `.toml` input therefore runs with `PC_RtTq99 = 0`, unconverted `Y_Rate`,
+  relative paths resolved against the working directory, no open-loop data, and
+  `n_DT_Out = 0` — which `debug.cpp:587` uses as a modulus whenever logging is on.
+- `ControlParameters` (214 fields in `rosco_types.yaml`) mixes **user inputs** and
+  **computed state** with nothing in the registry to tell them apart. That is why the TOML
+  reader and `DISCON_template.toml` treat computed fields as inputs.
+- `Examples/DISCON_template.toml` exists with `#` comments for descriptions
 - `Examples/DISCON_template.toml` exists with `#` comments for descriptions
 - **No Python TOML writer** — `write_DISCON()` only writes legacy `.IN`
 - **Two divergent schema sources**: `rosco_types.yaml` (C++ codegen) and `toolbox_schema.yaml` (Python toolbox)
@@ -19,6 +46,56 @@ Modernize ROSCO's input system to make TOML the sole forward-going format with r
   currently has **no way to report what it parsed**, in any format.
 
 ---
+
+## Phase 0: One input path, a parameter dump, and the input-parsing test
+
+*Added 2026-09-21. Absorbs regression-plan task 8b. Everything later in this plan assumes
+it: a TOML writer, a migration tool and TOML fixtures are all pointless while the TOML path
+produces a different controller from the `.IN` path.*
+
+0a. **Split parsing from post-processing.** Move the post-processing out of
+   `ReadControlParameterFileSub()` into one function that `read_config_files()` calls after
+   *either* reader. It needs the input file's directory (for relative paths) and
+   `LocalVar.DT`. For `.IN` inputs this only moves code, so the hard gate must stay
+   bit-identical (27 baselines). For `.toml` it fixes the bug in Current State.
+   *No dependency — first.*
+
+0b. **Mark each registry field as input or computed.** Add a flag to `rosco_types.yaml`
+   (e.g. `computed: true` on `n_DT_Out`, `PC_RtTq99`, `OL_Channels`, …). Generator changes:
+   `load_from_toml()` reads only input fields; `DISCON_template.toml` lists only input
+   fields. The `.IN` parser is hand-written, so it needs no change. *Depends on 0a.*
+
+0c. **Generate `dump_to_toml()`** in `rosco_types_io.cpp`, the inverse of
+   `load_from_toml()`, from the same YAML. Called at two points:
+   - **after parsing, before post-processing, input fields only.** This is a valid input
+     file: what `Echo = 1` should write to `<RootName>.echo`, and a C++ route to the
+     `.IN` → TOML conversion (compare with Phase 4, which plans a Python route).
+   - **after post-processing, all fields.** The full-state snapshot for the 8b test.
+
+   Floats must round-trip exactly (`%.17g` or `std::to_chars`), or snapshots and the round
+   trip will not compare bit-for-bit. Absolute paths must not appear in committed snapshots;
+   write them relative, as the fixtures do. *Depends on 0b.*
+
+0d. **Input-parsing regression tests (regression-plan task 8b).** Three checks, in
+   increasing strength:
+   1. *Snapshot:* each `test/regression/fixtures/scenario_NN.IN` → parse →
+      full-state dump, compared with a committed snapshot. Catches parser and default-value
+      changes for every registry field, including ones no fixture sets.
+   2. *Round trip:* `.IN` → input dump (TOML) → `load_from_toml()` → input dump, and the
+      two dumps must be identical. This exercises the generated TOML reader, and is the
+      check that would have caught the `OutputFormat` defaults bug
+      (`plan-outputFileModernization.prompt.md` follow-up #4).
+   3. *Behaviour:* run the scenarios from the TOML dumps, and all 27 baselines must be
+      byte-identical. This is step 13's acceptance test, reached early.
+
+   Write "input parsing" in anything a contributor reads, not "layer B".
+   *Depends on 0c.*
+
+**Open decision — how the test gets a dump.** Recommended: via `Echo = 1`. The test copies
+a fixture to a temp dir, sets `Echo = 1`, makes one `iStatus = 0` call, and reads the
+`.echo` file. That makes the documented feature real without adding to the library's
+public interface. Alternative: a separate exported dump function — simpler for the test,
+but a new public symbol.
 
 ## Phase 1: Unify Schema Descriptions
 
@@ -58,15 +135,15 @@ Modernize ROSCO's input system to make TOML the sole forward-going format with r
 
 ## Phase 4: Migration Utility
 
-9. **Create `convert_discon_to_toml()`** — reads DISCON.IN via `read_DISCON()`, writes a `.toml` file with all parameters *(depends on 7)*
+9. **Create `convert_discon_to_toml()`** — reads DISCON.IN via `read_DISCON()`, writes a `.toml` file with all *input* parameters (not the computed ones — see Phase 0b) *(depends on 7)*. Phase 0c's C++ input dump already produces the same file; decide then whether the Python route is still needed, or becomes a thin wrapper around it, and test that the two agree.
 10. **Add CLI entry point**: `rosco convert-input old_DISCON.IN --output config.toml` *(depends on 9)*
 
 ## Phase 5: Deprecate DISCON.IN
 
 11. **Add deprecation warnings** in `ReadControlParameterFileSub` (C++) and `write_DISCON()` (Python)
-12. **Convert all example DISCON.IN files to `.toml`**; keep one legacy `.IN` for testing *(depends on 9)*. Coordinate with the regression plan's task 7 (`test/regression/fixtures/`): once those fixtures exist they are the canonical set to convert, and the "one legacy `.IN`" should be one of them, so the DISCON path keeps a live regression test until step 14 removes it.
-13. **Update `test/regression/scenarios.py`** to use TOML inputs *(depends on 12)*. Note the scenarios generate their inputs at run time via `write_discon()`, so this means switching that call to `write_DISCON_toml()` — and it must leave all 27 baselines byte-identical, since the controller's behaviour must not depend on which format it was configured from. That equality is the strongest test in this plan.
-14. *(Future release)* **Remove DISCON.IN support entirely** — delete `readcontrolparameterfilesub.cpp` and `write_DISCON()`. `ReadCpFile` stays since Cp_Ct_Cq.txt is still used.
+12. **Convert all example DISCON.IN files to `.toml`**; keep one legacy `.IN` for testing *(depends on 9)*. The regression fixtures (`test/regression/fixtures/scenario_01..28.IN`, committed in `4523559c`) are the canonical set to convert, and the "one legacy `.IN`" should be one of them, so the DISCON path keeps a live regression test until step 14 removes it.
+13. **Point the regression scenarios at TOML fixtures** *(depends on 12)*. The scenarios no longer run the tuner: they read committed fixtures. So this step means converting `test/regression/fixtures/*.IN` to `.toml` and changing the fixture column of the scenario table (regression-plan task 13). Keep `--write-fixtures` able to regenerate the TOML set from the tuning YAML. It must leave all 27 baselines byte-identical, since the controller's behaviour must not depend on which format configured it. That equality is the strongest test in this plan — and Phase 0d check 3 will already have proven it once.
+14. *(Future release)* **Remove DISCON.IN support entirely** — delete `readcontrolparameterfilesub.cpp` and `write_DISCON()`. `ReadCpFile` stays since Cp_Ct_Cq.txt is still used, and so does the post-processing function from Phase 0a — move it out of `readcontrolparameterfilesub.cpp` before deleting that file.
 
 ---
 
@@ -75,17 +152,21 @@ Modernize ROSCO's input system to make TOML the sole forward-going format with r
 - `rosco/controller/rosco_registry/rosco_types.yaml` — canonical parameter registry; enhance descriptions
 - `rosco/controller/rosco_registry/write_registry.py` — `_write_toml_template()`, `_write_cpp_io()`; add `_write_toolbox_schema()`
 - `rosco/controller/src/ReadSetParameters/readcpfile.cpp` — rewrite with keyword-based scanning
-- `rosco/controller/src/ReadSetParameters/readcontrolparameterfilesub.cpp` — legacy DISCON.IN parser; deprecate
+- `rosco/controller/src/ReadSetParameters/readcontrolparameterfilesub.cpp` — legacy DISCON.IN parser (hand-written, not generated); post-processing moves out in Phase 0a; deprecate
+- `rosco/controller/src/ReadSetParameters/readconfigfiles.cpp` — `read_config_files()` dispatches `.toml` vs `.IN`; gains the shared post-processing call in Phase 0a
+- `rosco/controller/src/rosco_types_io.cpp` — generated; gains `dump_to_toml()` in Phase 0c
+- `test/regression/fixtures/` — the committed `.IN` set; Phase 0d snapshots and step 13 TOML fixtures live alongside
 - `rosco/toolbox/utilities.py` — add `write_DISCON_toml()`, update `write_rotor_performance()` separators, update `load_from_txt()`, add `convert_discon_to_toml()`
 - `rosco/toolbox/inputs/toolbox_schema.yaml` — partially auto-generate from registry
 - `Examples/Test_Cases/*/Cp_Ct_Cq.*.txt` — regenerate with improved separators
-- `test/regression/scenarios.py` — update scenarios to TOML (moved from `Examples/vit_sim.py` 2026-09-21)
+- `test/regression/scenarios.py` — scenario table; point it at TOML fixtures in step 13 (moved from `Examples/vit_sim.py` 2026-09-21)
 - `test/regression/run_regression.py` — regression runner (moved from `scripts/verify_cpp.py` 2026-09-21)
 
 ## Verification
 
+0. After Phase 0a (before any TOML work): `.IN` inputs still give all 27 scenarios byte-identical to baselines — the post-processing move is pure code motion
 1. `python test/regression/run_regression.py --rebuild` with TOML inputs — all 27 scenarios byte-identical to baselines (or `pytest test/regression`)
-2. Round-trip: `write_DISCON_toml()` → `load_from_toml()` → field-by-field comparison against `DISCON_dict()` output
+2. Round-trip: `write_DISCON_toml()` → `load_from_toml()` → field-by-field comparison against `DISCON_dict()` output. The C++ side of this is Phase 0d check 2.
 3. Migration: `convert_discon_to_toml()` on each existing example, then re-run verification
 4. Regenerate registry, verify `rosco_types_io.cpp` compiles and passes all scenarios
 5. Manual inspection of generated `.toml` for readability — comments should match DISCON.IN clarity
@@ -100,16 +181,14 @@ Modernize ROSCO's input system to make TOML the sole forward-going format with r
 
 ## Further Considerations
 
-0. **A parameter dump unblocks the regression plan's task 8b.** That task wants to assert
-   *DISCON → parsed parameters*, so a change in the parser fails with a readable diff rather
-   than as a float mismatch blamed on the controller. It needs the controller to emit what it
-   parsed. `Echo` was the intended mechanism and was never implemented (see Current State).
-   The lazy route is a generated `dump_to_toml()` in `rosco_types_io.cpp` — that file is
-   already generated by `write_registry.py`, so the same generator that emits
-   `load_from_toml()` can emit its inverse from the same YAML. Two payoffs for one function:
-   it gives 8b its assertion, and it gives this plan a round-trip check (Verification step 2)
-   on the C++ side rather than only the Python side. It does **not** depend on Phases 1-4,
-   so 8b need not wait for this plan to land.
+0. **Superseded 2026-09-21 by Phase 0.** This note used to say a generated
+   `dump_to_toml()` could unblock the regression plan's task 8b independently of this plan.
+   Reading the code showed that premise was wrong: the TOML path skips the `.IN` parser's
+   post-processing, so a dump of parsed state is not a valid input file, and a `.IN`-only
+   dump test would never have exercised the generated TOML reader where the `OutputFormat`
+   bug lived. The dump is still the right tool, but it has to come after the parse /
+   post-processing split and the input-vs-computed flag, which is why 8b now lives here as
+   Phase 0d.
 
 1. **TOML table sections vs flat keys**: Current template uses flat keys. Adding `[filters]`, `[pitch_control]` hierarchy would improve organization but requires updating `load_from_toml()` key lookups. Recommendation: defer to a follow-up — migrate flat keys first, add sections later.
 2. **Python TOML library**: `tomlkit` preserves comments (needed for descriptions). `tomllib` (stdlib 3.11+) for reading. Recommendation: use `tomlkit` for writing.

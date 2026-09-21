@@ -14,31 +14,52 @@ change a baseline value. Any step that *would* is called out explicitly and requ
 deliberate `--update-baseline` commit with justification.
 
 ## Current Status
-P0 is committed: task 1 in `66e0e9da` (pushed), tasks 2–6 in `e08c79f1` (local, not yet
-pushed). Tasks 7, 8a and 9 are **done but uncommitted** in the working tree. Remaining P1:
-3b (C++ vocabulary) and 8b (needs a parameter dump).
+All of P0 and P1 is committed: task 1 in `66e0e9da`, tasks 2–6 in `e08c79f1`, tasks 7/8a/9 in
+`4523559c`. Remaining: P2, P3 and 8c, then 3b, then input modernization with 8b folded in.
+
+**Resequenced 2026-09-21:** 8b is deferred to the input-modernization plan (its new
+Phase 0). A useful input-parsing test needs design decisions that plan owns — which
+registry fields are inputs and which are computed, and where post-processing runs — and
+the code turned out to be less ready than assumed (see 8b). Remaining regression work is
+finished first, and 3b moves *ahead* of input modernization, since that plan rewrites the
+same generator and parser files the rename touches. Order: see
+[Recommended sequence](#recommended-sequence).
+
+> **The suite requires `openfast_io` 5.x.** Since `c90e217a` moved
+> `Examples/Test_Cases/` to OpenFAST v5 input format, an older `openfast_io` misparses the
+> `.fst` layout and every test dies inside `turbine.load_from_fast()` with
+> `ValueError: invalid literal for int() with base 10: '1E+06'` — before the controller is
+> ever called. `pyproject.toml` requires `openfast_io~=5.0` and `environment.yml` pins
+> `openfast-io=5.0`; check yours with
+> `python -c "import importlib.metadata as m; print(m.version('openfast_io'))"`.
+> This failure mode is environmental. It never implicates the baselines, and the fix is
+> never to touch them.
+>
+> **Verified 2026-09-21 with openfast_io 5.0.0 + OpenFAST v5 inputs: 29/29 pass, all 27
+> baselines byte-identical.** The input-format migration changed neither the plant model nor
+> the tuner output — which is precisely the assurance this suite exists to give.
 
 | # | Task | Priority | Status |
 |---|------|----------|--------|
 | 1 | Delete dead translation scaffolding | P0 | DONE — commit `66e0e9da`, pushed; tag `archive/vit-translation` created + pushed 2026-09-21 |
-| 2 | Consolidate into `test/regression/` | P0 | DONE — commit `e08c79f1` (unpushed); suite re-verified 27/27 (5,252,000 values) from the new path |
-| 2b | Align build directory + CMake presets | P0 | DONE — commit `e08c79f1` (unpushed); `rosco/controller/build` everywhere, presets dropped to `"version": 1`, `default` preset removed, `--rebuild` now configures an unconfigured build dir |
-| 3 | Rename VIT-era vocabulary | P0 | DONE for the harness — commit `e08c79f1` (unpushed); `vit_sim`→`scenarios`, `verify_cpp`→`run_regression`, `baseline_arrays`→`baselines`, sim names→`regression_N`. C++ source vocabulary split out as task 3b. |
-| 3b | Rename VIT-era vocabulary in the C++ source | P3 | DEFERRED (decision 2026-09-21) — do it after *all* regression work in this plan is finished. It is pure cosmetics across ~49 files; doing it mid-plan would churn the diff of every task that follows for no functional gain. |
-| 4 | Write `test/regression/README.md` | P0 | DONE — commit `e08c79f1` (unpushed) |
-| 5 | Remove the hidden `01_turbine_model.py` dependency | P0 | DONE — commit `e08c79f1` (unpushed); pickle load replaced with `Turbine(inps['turbine_params'])`; verified 27/27 from a fresh clone with no prior steps |
-| 6 | Add CI job | P0 | DONE — commit `e08c79f1` (unpushed); `pytest -v test/regression` step in `build_and_test_conda`, ubuntu only. Not yet exercised on a real CI runner. |
-| 7 | Commit DISCON fixtures | P1 | DONE (uncommitted) — `fixtures/scenario_01..28.IN`; no separate base file (scenario 1 is unpatched, so its fixture *is* the tuner output); `patches=` kept as the regeneration recipe behind `--write-fixtures`; regeneration is idempotent; suite still 27/27 with the tuner out of the loop |
-| 8a | Tuning test: YAML → DISCON text | P1 | DONE (uncommitted) — `test_tuning.py`, 3 s, no DLL; pins `scenario_01.IN`; verified it fails with a readable per-parameter diff |
-| 8c | Assert fixtures still equal scenario_01 + patches | P2 | TODO — needs task 13's patches table; see 8c |
-| 8b | Input-parsing test: DISCON → parsed parameters | P1 | TODO — blocked on a parameter dump, *not* on the whole input-modernization plan. `Echo` is parsed but never implemented (no writer exists); a generated `dump_to_toml()` in `rosco_types_io.cpp` unblocks it. See that plan's Further Considerations #0. |
-| 9 | Baseline provenance metadata | P1 | DONE (uncommitted) — `baselines/PROVENANCE.json`, written by `--update-baseline`, printed in every run header; initial file backfilled honestly from git rather than fabricated |
-| 10 | C++ line/branch coverage (gcovr) | P2 | TODO |
-| 11 | Mode-coverage table: regression vs Examples | P2 | TODO |
-| 12 | HDF5 scenario symmetry | P2 | TODO |
-| 13 | Data-driven scenario definitions | P3 | TODO |
-| 14 | Store `t`/`ws` in baselines, delete `SCENARIO_WIND` | P3 | TODO |
-| 15 | Compress baselines | P3 | TODO |
+| 2 | Consolidate into `test/regression/` | P0 | DONE — commit `e08c79f1`; suite re-verified 27/27 (5,252,000 values) from the new path |
+| 2b | Align build directory + CMake presets | P0 | DONE — commit `e08c79f1`; `rosco/controller/build` everywhere, presets dropped to `"version": 1`, `default` preset removed, `--rebuild` now configures an unconfigured build dir |
+| 3 | Rename VIT-era vocabulary | P0 | DONE for the harness — commit `e08c79f1`; `vit_sim`→`scenarios`, `verify_cpp`→`run_regression`, `baseline_arrays`→`baselines`, sim names→`regression_N`. C++ source vocabulary split out as task 3b. |
+| 3b | Rename VIT-era vocabulary in the C++ source | P3 | DEFERRED — after the rest of P2/P3, but **before** input modernization starts (resequenced 2026-09-21). It is pure cosmetics across ~49 files; that plan edits `write_registry.py` and `readcontrolparameterfilesub.cpp`, which the rename also touches. |
+| 4 | Write `test/regression/README.md` | P0 | DONE — commit `e08c79f1` |
+| 5 | Remove the hidden `01_turbine_model.py` dependency | P0 | DONE — commit `e08c79f1`; pickle load replaced with `Turbine(inps['turbine_params'])`; verified 27/27 from a fresh clone with no prior steps |
+| 6 | Add CI job | P0 | DONE — commit `e08c79f1`; `pytest -v test/regression` step in `build_and_test_conda`, ubuntu only. **Still never observed passing on a real runner** — latest CI run on `c++` is 2026-07-15 and failed, which predates this step. |
+| 7 | Commit DISCON fixtures | P1 | DONE — commit `4523559c`; `fixtures/scenario_01..28.IN`; no separate base file (scenario 1 is unpatched, so its fixture *is* the tuner output); `patches=` kept as the regeneration recipe behind `--write-fixtures`; regeneration is idempotent; suite still 27/27 with the tuner out of the loop |
+| 8a | Tuning test: YAML → DISCON text | P1 | DONE — commit `4523559c`; `test_tuning.py`, 3 s, no DLL; pins `scenario_01.IN`; verified it fails with a readable per-parameter diff |
+| 8c | Assert fixtures still equal scenario_01 + patches | P2 | TODO — right after task 13, which provides the patches table; see 8c |
+| 8b | Input-parsing test: DISCON → parsed parameters | P1 | DEFERRED to input modernization Phase 0 (decision 2026-09-21). The TOML path skips the `.IN` parser's post-processing, so a dump of parsed state is not a valid input file, and a `.IN`-only test would not have caught the `OutputFormat` bug that motivates it. See 8b. |
+| 9 | Baseline provenance metadata | P1 | DONE — commit `4523559c`; `baselines/PROVENANCE.json`, written by `--update-baseline`, printed in every run header; initial file backfilled honestly from git rather than fabricated |
+| 10 | C++ line/branch coverage (gcovr) | P2 | TODO — after the CI work in `CMakeLists.txt` settles; local only, no CI job from this plan |
+| 11 | Mode-coverage table: regression vs Examples | P2 | TODO — next up |
+| 12 | HDF5 scenario symmetry | P3 | TODO — before 14/15, so scenario 28's baseline is created before the format change |
+| 13 | Data-driven scenario definitions | P3 | TODO — also makes input plan step 13 (TOML fixtures) a one-line change |
+| 14 | Store `t`/`ws` in baselines, delete `SCENARIO_WIND` | P3 | TODO — land with 15 as one baseline-format commit |
+| 15 | Compress baselines | P3 | TODO — land with 14 |
 
 ---
 
@@ -237,11 +258,17 @@ which `compare_hdf5_debug()` hardcodes. Rename both together. (Done — renamed 
 
 The C++ source keeps its VIT-era filenames — split out as task 3b below.
 
-### 3b. Rename VIT-era vocabulary in the C++ source — **DEFERRED to last**
-Decision 2026-09-21: do this after *all* regression work in this plan is finished, not
-partway through. Two reasons: the suite is what makes the rename safe to do at all, and the
-rename is purely cosmetic across ~49 files — landing it mid-plan would churn the diff of
-every remaining task for no functional gain.
+### 3b. Rename VIT-era vocabulary in the C++ source — **DEFERRED, before input modernization**
+Decision 2026-09-21: do this after the rest of P2/P3, not partway through. Two reasons: the
+suite is what makes the rename safe to do at all, and the rename is purely cosmetic across
+~49 files — landing it mid-plan would churn the diff of every remaining task for no
+functional gain.
+
+*Resequenced 2026-09-21:* originally "last of everything", including 8b. With 8b deferred
+into the input-modernization plan, 3b now lands **between** the end of P2/P3 and the start
+of that plan. That plan rewrites `write_registry.py` and `readcontrolparameterfilesub.cpp`
+— both touched by this rename — so doing 3b after it would maximise the conflict rather
+than avoid it.
 
 `rosco/controller/src/include/vit_types.h` and `vit_translated.h` are live headers. 49 files
 reference them, including `write_registry.py` (it emits `#include "vit_types.h"` at lines 128
@@ -293,7 +320,7 @@ present, skipping rather than failing when absent. Runtime budget ~3 min includi
 
 ## P1 — Make the harness honest
 
-### 7. Commit DISCON fixtures — **DONE** (uncommitted)
+### 7. Commit DISCON fixtures — **DONE** (`4523559c`)
 
 **Terminology note:** this plan's "layer A/B/C" labels are internal to the plan. They are
 deliberately *not* used in `test/regression/README.md` or in any shipped docstring, where the
@@ -383,13 +410,13 @@ test covers all three at once. When it fails, it reports a float mismatch at
 | Layer | Transformation | Owned by | Tested today |
 |-------|----------------|----------|--------------|
 | **A** | `NREL5MW.yaml` → `DISCON_*.IN` | Python tuner (`tune_controller`, `write_DISCON`) | only implicitly |
-| **B** | `DISCON_*.IN` → `ControlParameters` struct | generated parser (`write_registry.py` → `rosco_types_io.cpp`, `readcontrolparameterfilesub.cpp`) | **not at all** |
+| **B** | `DISCON_*.IN` → `ControlParameters` struct | hand-written `.IN` parser (`readcontrolparameterfilesub.cpp`); the generated TOML reader (`write_registry.py` → `rosco_types_io.cpp`) is a separate path | **not at all** |
 | **C** | `ControlParameters` + plant → time series | C++ control algorithms | yes — this is the suite |
 
 Committing the fixtures (task 7) pins the boundary between A and B. Each side then gets its
 own cheap check, and a failure names its own layer.
 
-#### 8a. Layer A — tuning regression — **DONE** (uncommitted)
+#### 8a. Tuning regression — **DONE** (`4523559c`)
 
 **Scope is one file, not 27.** All 29 `write_discon()` calls in `scenarios.py` produce the
 *same* tuner output — `write_DISCON(turbine, controller, ...)` is called identically every
@@ -402,8 +429,11 @@ exactly one output to pin.
 
 ```
 load NREL5MW.yaml -> tune_controller() -> write_DISCON() -> tmp file
-diff against test/regression/fixtures/base_DISCON.IN
+diff against test/regression/fixtures/scenario_01.IN
 ```
+
+*(As landed: the reference is `scenario_01.IN`, not a separate `base_DISCON.IN` — see
+task 7.)*
 
 - No DLL, no simulation. Runs in seconds; goes in the same CI job.
 - Fails with a readable text diff naming the parameters that moved, rather than a float
@@ -411,7 +441,7 @@ diff against test/regression/fixtures/base_DISCON.IN
 - **Failure semantics, to state in the README:** a failure here means the *tuner* changed.
   That is sometimes intentional (a tuning improvement) and sometimes accidental (a wisdem
   or scipy upgrade). Either way, it is a separate decision from a controller regression,
-  and updating `base_DISCON.IN` is a deliberate reviewable commit.
+  and updating `scenario_01.IN` is a deliberate reviewable commit.
 - **Fallback if it proves flaky:** float formatting in the text output may vary across
   platforms or library versions. If so, parse both files with `read_DISCON()` and compare
   numerically with a tight tolerance. Do not delete the test — the failure mode it catches
@@ -419,10 +449,41 @@ diff against test/regression/fixtures/base_DISCON.IN
 
 **The relationship to the scenario fixtures:** each of the 27 remaining scenario fixtures is
 `scenario_01.IN` + that scenario's patches, frozen. Their diff against the base *is* the
-scenario definition, in reviewable text. Once committed, the `patches=` mechanism and its
-regex substitution can be deleted outright.
+scenario definition, in reviewable text. (The `patches=` mechanism was deliberately kept as
+the regeneration recipe — see task 7.)
 
-#### 8b. Layer B — input-parsing regression
+#### 8b. Layer B — input-parsing regression — **DEFERRED to input modernization Phase 0**
+
+**Status 2026-09-21: moved into `plan-inputFileModernization.prompt.md` Phase 0.** Reading
+the code showed the original design below rests on a wrong premise. Three findings:
+
+1. **The two input paths do different work.** `read_config_files()`
+   (`readconfigfiles.cpp`) dispatches `.toml` to the generated `load_from_toml()` and
+   everything else to the hand-written `ReadControlParameterFileSub()`. Only the latter runs
+   the post-processing at `readcontrolparameterfilesub.cpp:456-477` and after: `n_DT_Out`,
+   `n_DT_ZMQ`, `PC_RtTq99`, `VS_MinOMTq`, `VS_MaxOMTq`; resolving relative `PerfFileName` /
+   `OL_Filename` against the file's directory; the `Y_Rate` unit conversion; and loading
+   the open-loop file into `OL_Channels` / `OL_*`. A `.toml` input today runs with
+   `PC_RtTq99 = 0`, unconverted `Y_Rate`, unresolved paths, and `n_DT_Out = 0` — which
+   `debug.cpp:587` uses as a modulus when logging is on. Nothing tests the TOML path.
+2. **So a dump of `ControlParameters` after parsing is not a valid input file.** It holds
+   computed values, absolute machine-specific paths and converted units. Point 3 of the
+   original design ("echoing a parsed `.IN` file as TOML *is* the conversion") is false as
+   the code stands.
+3. **A `.IN`-only dump test would not have caught the motivating bug.** The `OutputFormat`
+   defaults bug was in the generated TOML reader. All 27 scenarios go through the `.IN`
+   parser, which falls back to the struct defaults in `rosco_types.hpp`, so it never
+   touched the faulty code.
+
+Fixing this properly means separating parsing from post-processing and marking registry
+fields as input vs computed — both input-modernization decisions. Deferring 8b there costs
+little: nothing in the remaining P2/P3 work changes the parser, apart from 3b's mechanical
+rename. The redesigned 8b (fixture snapshot, `.IN` → TOML → re-parse round trip, and
+running the scenarios from TOML against the same 27 baselines) is written up in that plan's
+Phase 0.
+
+*Original design follows, kept for context.*
+
 **This is the layer that has already bitten us.** Follow-up #4 in
 `plan-outputFileModernization.prompt.md` was exactly a layer-B bug: `_write_cpp_io()`
 hardcoded `value_or(0)` and ignored the registry's per-field `equals:` defaults, so the
@@ -453,7 +514,7 @@ code. Doing it once yields three things:
 schedule 8b as the opening move of the input-modernization plan, where the TOML writer is
 already on the roadmap. Flagged here so the convergence is not missed.
 
-#### 8c. Remaining gap: fixtures vs. their patches *(new, TODO)*
+#### 8c. Remaining gap: fixtures vs. their patches *(TODO, directly after task 13)*
 Nothing asserts that `scenario_NN.IN` still equals `scenario_01.IN` + that scenario's
 `patches=`. A hand-edit that changes behaviour is caught by the baselines; one that does not
 — touching a parameter inert under that scenario's modes — would persist silently. Closing it
@@ -462,7 +523,7 @@ is task 13's refactor. Mitigations in place meanwhile: `--write-fixtures` regene
 atomically, regeneration is idempotent so `git diff fixtures/` is a clean signal, and the
 README says not to hand-edit.
 
-### 9. Baseline provenance metadata — **DONE** (uncommitted)
+### 9. Baseline provenance metadata — **DONE** (`4523559c`)
 The initial `PROVENANCE.json` was **backfilled from git, not fabricated**: the baselines
 predate the mechanism, so claiming they were "generated now" would have been a lie. It
 records the last commit to change baseline *content* (`e491c935`, 2026-04-03 — the same
@@ -484,6 +545,13 @@ Add a CMake option (`ROSCO_COVERAGE=ON` → `--coverage`), run the suite, report
 `gcovr`. One dependency, no custom tooling. Output: which controller branches 27 scenarios
 never reach. Run it in CI as a non-gating informational job first; only consider a threshold
 once the baseline number is known.
+
+*Sequencing note 2026-09-21:* `CMakeLists.txt` is being edited by the parallel CI work
+(e.g. `-fno-gnu-unique`). Wait for that to land before adding `ROSCO_COVERAGE`, and keep
+this task to a local CMake option + gcovr report — adding the CI job belongs to the CI work,
+not this plan. The coverage flags must not override `-ffp-contract=off` (finding 11). One
+known gap to look for: the warm-restart path (`iStatus == -9`) is not exercised by any
+scenario.
 
 ### 11. Mode-coverage table: regression vs Examples
 The question "what do the regression and the Examples each cover, and where do they
@@ -507,11 +575,19 @@ Neither alone is the answer.
 Give scenario 28 a frozen baseline like the rest, and make `compare_hdf5_debug()` work
 inside the temp dir instead of requiring a prior scenario-1 run in `Examples/`.
 
+Do it before 14/15, so scenario 28's new baseline goes through the format change with the
+other 27 rather than being written in the old format and immediately rewritten.
+
 ### 13. Data-driven scenario definitions
 `scenarios.py` is 2,028 lines of 28 near-identical hand-written functions. Most differ only
 in fixture, wind profile, and which synthetic avrSWAP inputs get set. Collapse to a table +
 one runner. Defer until after task 7 — committed fixtures remove much of the per-scenario
 code by themselves, and the remainder will be easier to see.
+
+Two follow-ons depend on the table: 8c (the `patches=` dicts become data that a test can
+check against the fixtures), and input-modernization step 13, where pointing every scenario
+at a TOML fixture becomes a one-column change instead of 28 edits. All 27 baselines must
+stay byte-identical.
 
 ### 14. Store `t`/`ws` in the baselines
 Kills the duplicated `SCENARIO_WIND` table (finding 8). *Changes baseline file contents*
@@ -521,6 +597,12 @@ Kills the duplicated `SCENARIO_WIND` table (finding 8). *Changes baseline file c
 `np.savez_compressed` on 40 MB of smooth time series should cut it several-fold. Values are
 unchanged, so the comparison is unaffected — but it rewrites all 27 files, so do it once,
 alone, at the end.
+
+*Decision 2026-09-21:* land 14 and 15 together as a single baseline-format commit, so every
+baseline file is rewritten once, not twice. Acceptance: every existing array loads
+bit-identical from the new files; only keys (`t`, `ws`) and compression change. Do it
+before input modernization, so that plan's acceptance test compares against baselines in
+their final format.
 
 ---
 
@@ -533,14 +615,19 @@ alone, at the end.
    about *what* is verified changes; it is renames, moves, docs, and a workflow entry.
 3. **Tasks 7, 8a, 9 as a third PR** ("decouple controller regression from the tuner"). The
    one with real design content and the only one that touches baselines.
-4. **Task 8b** once a parameter dump exists. It does *not* have to wait for the
-   input-modernization plan to land — it needs one generated `dump_to_toml()`, which that
-   plan wants anyway (its Further Considerations #0). Whoever gets there first unblocks it.
-5. **Tasks 10–11** — coverage is a reporting layer; it should sit on top of a stable
-   harness, not be built into a moving one.
-6. **P3 opportunistically** — including task 3b (the C++ vocabulary rename), which is
-   deliberately last: it touches ~49 files cosmetically and would otherwise churn the diff
-   of every task above it.
+*Steps 1–3 are done. Remaining order, resequenced 2026-09-21:*
+
+4. **Task 11** — mode-coverage table. No C++, no baseline risk, and it shows which gaps a
+   new scenario could fill before tasks 12–13 reshape `scenarios.py`.
+5. **Task 13, then 8c** — scenarios as a table; 8c follows directly because it needs the
+   table. The largest remaining step.
+6. **Task 12** — scenario 28 gets a baseline, before the format change.
+7. **Tasks 14 + 15** — one baseline-format commit (`t`/`ws` keys + compression).
+8. **Task 10** — gcovr, once the CI edits to `CMakeLists.txt` have landed. Local only.
+9. **Task 3b** — the C++ vocabulary rename, after all of the above but *before* input
+   modernization, which edits the same generator and parser files.
+10. **Input modernization, starting with its Phase 0** — separates parsing from
+    post-processing, adds the parameter dump, and lands **8b** there.
 
 ## Open questions for review
 - ~~Top-level `test/` vs folding into the existing `rosco/test/`?~~ **Decided 2026-09-21:**

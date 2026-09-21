@@ -84,6 +84,12 @@ jobs:
             - name: Pip Install ROSCO
               run: |
                   '${{ steps.cp.outputs.python-path }}' -m pip install -e .
+
+            # wisdem -> wombat pulls polars-lts-cpu, which collides with polars on macOS
+            - name: Remove polars-lts-cpu (mac)
+              if: contains( matrix.os, 'mac')
+              run: |
+                  '${{ steps.cp.outputs.python-path }}' -m pip uninstall -y polars-lts-cpu || true
           
             # Re-generate registry
             - name: Generate Registry
@@ -151,6 +157,12 @@ jobs:
             - name: Conda Install ROSCO
               run: |
                   python -m pip install -e . --no-build-isolation
+
+            # wisdem -> wombat pulls polars-lts-cpu, which collides with polars on macOS
+            - name: Remove polars-lts-cpu (mac)
+              if: contains( matrix.os, 'mac')
+              run: |
+                  python -m pip uninstall -y polars-lts-cpu || true
           
             - name: Generate Registry
               run: |

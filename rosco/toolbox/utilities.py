@@ -73,9 +73,17 @@ def write_DISCON(turbine, controller, param_file='DISCON.IN', txt_filename='Cp_C
             mode_descriptions[input] = props['description']
 
     input_descriptions = {}
-    for input, props in sch['properties']['controller_params']['properties']['DISCON']['properties'].items():
+    discon_schema = sch['properties']['controller_params']['properties']['DISCON']['properties']
+    for input, props in discon_schema.items():
         if 'description' in props:
             input_descriptions[input] = props['description']
+
+    # Fill in schema defaults for anything missing, so DISCON.IN files written by
+    # older ROSCO versions can still be read and re-written
+    rosco_vt = {
+        **{k: v['default'] for k, v in discon_schema.items() if 'default' in v},
+        **rosco_vt,
+    }
 
     # Tidy inputs, if needed
     if not hasattr(rosco_vt['CC_GroupIndex'],'__len__'):

@@ -30,8 +30,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
 SCENARIOS = os.path.join(HERE, "scenarios.py")
-BASELINE_DIR = os.path.join(HERE, "baselines")
-PROVENANCE = os.path.join(BASELINE_DIR, "PROVENANCE.json")
+BASELINES_ROOT = os.path.join(HERE, "baselines")
 DEFAULT_BUILD_DIR = os.path.join(REPO_ROOT, "rosco", "controller", "build")
 CONTROLLER_DIR = os.path.join(REPO_ROOT, "rosco", "controller")
 LIB_DIR = os.path.join(REPO_ROOT, "rosco", "lib")
@@ -49,8 +48,68 @@ SHARED_BASELINE = {28: 1}
 EXTRA_OUTPUT_KEYS = {28: {"avrSWAP_full"}}
 
 
+def platform_tag():
+    """Folder name for this machine's baselines, e.g. 'darwin-arm64'.
+
+    Baselines are compared bit-for-bit, and bit-for-bit is a property of the
+    machine. The C++ controller reproduces exactly on every platform; the
+    Python plant model that drives it does not, so a set captured on macOS
+    arm64 differs from a Linux one by 1-2 ULP. Each platform therefore keeps
+    its own set rather than the suite being green on one machine only.
+    """
+    machine = platform.machine().lower()
+    if machine == "amd64":            # what Windows calls x86_64
+        machine = "x86_64"
+    return f"{platform.system().lower()}-{machine}"
+
+
+PLATFORM_TAG = platform_tag()
+BASELINE_DIR = os.path.join(BASELINES_ROOT, PLATFORM_TAG)
+PROVENANCE = os.path.join(BASELINE_DIR, "PROVENANCE.json")
+
+
 def baseline_path(scenario_num):
     return os.path.join(BASELINE_DIR, f"scenario_{SHARED_BASELINE.get(scenario_num, scenario_num)}.npz")
+
+
+def available_platforms():
+    """Platform tags that have a baseline set committed, sorted."""
+    try:
+        entries = os.listdir(BASELINES_ROOT)
+    except OSError:
+        return []
+    return sorted(
+        d for d in entries
+        if os.path.isdir(os.path.join(BASELINES_ROOT, d))
+        and any(f.endswith(".npz") for f in os.listdir(os.path.join(BASELINES_ROOT, d)))
+    )
+
+
+def baselines_exist():
+    """True if this platform has a baseline set to compare against."""
+    return PLATFORM_TAG in available_platforms()
+
+
+def missing_baselines_message():
+    """Why the suite cannot run here, and how to fix it.
+
+    Missing baselines for a platform is an absent reference, not a controller
+    regression, so the suite reports it as a skip rather than a failure — but
+    it has to say plainly which set is missing and how to produce it.
+    """
+    have = available_platforms()
+    lines = [
+        f"No regression baselines for this platform ({PLATFORM_TAG}).",
+        f"Expected them in {BASELINE_DIR}.",
+        "Committed sets: " + (", ".join(have) if have else "(none)"),
+        "",
+        "To generate them:",
+        f"  this platform ({PLATFORM_TAG}):",
+        "      python test/regression/run_regression.py --update-baseline",
+        "  linux-x86_64 (produced by CI, it cannot be generated on macOS):",
+        "      test/regression/fetch_linux_baselines.sh",
+    ]
+    return "\n".join(lines)
 
 
 def build_discon(build_dir, preset=None):
@@ -302,6 +361,7 @@ def write_provenance(scenarios_captured):
         "libdiscon": _discon_hash(),
     }
     history = [record] + read_provenance()
+    os.makedirs(BASELINE_DIR, exist_ok=True)
     with open(PROVENANCE, "w") as f:
         json.dump({"history": history}, f, indent=2, sort_keys=True)
         f.write("\n")
@@ -371,8 +431,10 @@ def main():
     else:
         build_dir = DEFAULT_BUILD_DIR
 
-    if not os.path.exists(BASELINE_DIR):
-        print(f"ERROR: baselines/ not found at {BASELINE_DIR}", file=sys.stderr)
+    # --update-baseline is how a platform's folder gets created, so it is the
+    # one mode that may run without one already being there.
+    if not args.update_baseline and not baselines_exist():
+        print(missing_baselines_message(), file=sys.stderr)
         sys.exit(1)
 
     if args.rebuild:
@@ -396,13 +458,14 @@ def main():
     scenarios = [args.scenario] if args.scenario > 0 else ALL_SCENARIOS
 
     print(f"Running {len(scenarios)} scenario(s) — each in a separate subprocess")
+    print(f"Platform: {PLATFORM_TAG}  (baselines are per platform)")
     print(f"Baseline: {BASELINE_DIR}")
     for line in describe_baselines([SHARED_BASELINE.get(s, s) for s in scenarios]):
         print(line)
     print()
 
     if args.update_baseline:
-        print("Updating baselines/ with current outputs...")
+        print(f"Updating baselines/{PLATFORM_TAG}/ with current outputs...")
         print()
         os.makedirs(BASELINE_DIR, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="rosco_regression_") as workdir:
@@ -418,7 +481,10 @@ def main():
         print()
         print(f"Provenance: scenarios {_ranges(prov['scenarios'])} from "
               f"{prov['git_sha'][:12]} on {prov['platform']}")
-        print("Baseline updated. Commit test/regression/baselines/ to lock in the new reference.")
+        print(f"Baseline updated. Commit test/regression/baselines/{PLATFORM_TAG}/ "
+              "to lock in the new reference.")
+        print("This is one platform's set; the other platforms need regenerating too "
+              "(see the README).")
         return
 
     with tempfile.TemporaryDirectory(prefix="rosco_regression_") as tmpdir:

@@ -19,7 +19,10 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-BASELINE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "baselines")
+# Baselines live in a per-platform folder; take the path from run_regression so
+# the two cannot drift apart about which set is "the" baseline.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from run_regression import BASELINE_DIR, PLATFORM_TAG, baselines_exist, missing_baselines_message  # noqa: E402
 
 # Short label for each scenario
 SCENARIO_LABEL = {
@@ -172,6 +175,11 @@ def main():
                              "If omitted, figures are shown interactively.")
     args = parser.parse_args()
 
+    if not baselines_exist():
+        print(missing_baselines_message(), file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Plotting the {PLATFORM_TAG} baselines from {BASELINE_DIR}")
     scenarios = args.scenario if args.scenario else sorted(SCENARIO_LABEL)
 
     for s in scenarios:

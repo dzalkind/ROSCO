@@ -34,7 +34,6 @@ regression plan's task 8b (input-parsing test) has moved here, as Phase 0.
   **computed state** with nothing in the registry to tell them apart. That is why the TOML
   reader and `DISCON_template.toml` treat computed fields as inputs.
 - `Examples/DISCON_template.toml` exists with `#` comments for descriptions
-- `Examples/DISCON_template.toml` exists with `#` comments for descriptions
 - **No Python TOML writer** — `write_DISCON()` only writes legacy `.IN`
 - **Two divergent schema sources**: `rosco_types.yaml` (C++ codegen) and `toolbox_schema.yaml` (Python toolbox)
 - Cp/Ct/Cq tables: separate `.txt` file with fragile line-counting parser (`ReadCpFile`) — format is fine, parser needs keyword-based scanning
@@ -98,6 +97,34 @@ public interface. Alternative: a separate exported dump function — simpler for
 but a new public symbol.
 
 ## Phase 1: Unify Schema Descriptions
+
+**Known collisions to resolve here (found 2026-09-22):**
+
+- **`PS_Mode` means two different things.** Tuning-side (`controller.py:502-508`) it
+  selects *how* the minimum-pitch schedule is computed: 1 peak shaving, 2 Cp-maximizing,
+  3 both. Runtime-side it is a plain on/off switch — `utilities.py:540` writes
+  `int(PS_Mode > 0)` into the DISCON, and `pitchcontrol.cpp:64` only tests `> 0`. Both
+  schema sections already document their own meaning correctly, so nothing is *wrong*; the
+  name is. **Option C, deferred here:** rename the tuning-side parameter (`PS_TuneMode`, or
+  `MinPitch_Mode`) and leave the DISCON's `PS_Mode` as the 0/1 switch. Costs a YAML
+  migration in `Tune_Cases/*.yaml`, `toolbox_schema.yaml` and `controller.py`, which is why
+  it waits for this phase rather than riding along with a checkinputs fix.
+  *Done 2026-09-22 (option A):* the misleading `checkinputs.cpp` message ("must be 0 or 1"
+  while accepting 0-3) is fixed and the registry description now states both meanings.
+- **`TRA_Mode` had three definitions.** The registry said `{0 none, 1 fore-aft damping,
+  2 exclusion zone, 3 both}`, the toolbox schema says `{0 none, 1 frequency exclusion}`
+  (max 1), and the C++ runtime calls `RefSpeedExclusion` for `TRA_Mode > 0`
+  (`speedsetpoints.cpp:71`). The registry description was stale — fore-aft damping is
+  `TD_Mode`, which had inherited the *same* stale description. Both fixed 2026-09-22, and
+  the dead `if (TRA_Mode > 1)` validation block in `checkinputs.cpp` now reads `> 0`.
+- **`Examples/28_tower_resonance.py` is broken by this confusion.** It sets
+  `controller_params['TRA_Mode'] = 2` (line 50), which exceeds the toolbox schema's own
+  maximum of 1 — and because the example mutates the dict after `load_rosco_yaml()`, nothing
+  validates it. The resulting DISCON makes the controller refuse: verified 2026-09-22,
+  `ROSCO ERROR: CheckInputs: TRA_Mode must be 0 or 1.` Either the example means
+  `TRA_Mode = 1`, or frequency exclusion was meant to be mode 2 of a 0-3 scheme that the C++
+  never implemented. **Needs Daniel's call** — it is an Examples/CI question, not a
+  regression-suite one.
 
 1. **Audit descriptions in both YAMLs** — diff `rosco_types.yaml` vs `toolbox_schema.yaml` for mismatches and gaps
 2. **Make `rosco_types.yaml` the canonical source** — enhance its descriptions and add `units` fields where missing

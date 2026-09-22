@@ -63,7 +63,7 @@ struct ControlParameters {
     double   F_VSRefSpdCornerFreq = 0.0;
 
     // --- Tower fore-aft damping ---
-    // Tower Fore-Aft control mode {0 - no fore-aft control, 1 - Tower fore-aft damping, 2 -Frequency exclusion zone, 3- Option...
+    // Tower resonance avoidance mode {0 - no frequency exclusion, 1 - use torque control setpoints to avoid a rotor speed band...
     int      TRA_Mode = 0;
     // Rotor speed for exclusion [LSS] [rad/s]
     double   TRA_ExclSpeed = 0.0;
@@ -71,7 +71,7 @@ struct ControlParameters {
     double   TRA_ExclBand = 0.0;
     // Time constant for gain change when in exclusion zone [s]
     double   TRA_RateLimit = 0.0;
-    // Tower Fore-Aft control mode {0 - no fore-aft control, 1 - Tower fore-aft damping, 2 -Frequency exclusion zone, 3- Option...
+    // Tower fore-aft damping mode {0 - no fore-aft damping, 1 - feed back tower-top fore-aft acceleration to collective pitch}
     int      TD_Mode = 0;
     // Corner frequency (-3dB point) in the high-pass filter on the fore-aft acceleration signal [rad/s]
     double   FA_HPFCornerFreq = 0.0;
@@ -253,7 +253,7 @@ struct ControlParameters {
     double   Y_IPC_KI = 0.0;
 
     // --- Pitch Saturation ---
-    // Pitch saturation mode {0 - no peak shaving, 1 -  implement pitch saturation}
+    // Pitch saturation mode {0 - no minimum pitch saturation, >0 - apply the PS_BldPitchMin schedule}. The toolbox parameter o...
     int      PS_Mode = 0;
     // Number of values in minimum blade pitch lookup table (should equal number of values in PS_WindSpeeds and PS_BldPitchMin)
     int      PS_BldPitchMin_N = 0;

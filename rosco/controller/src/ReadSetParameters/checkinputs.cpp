@@ -118,8 +118,12 @@ void CheckInputs(LocalVariables& LocalVar, const ControlParameters& CntrPar,
     }
 
     // PS_Mode
+    // The controller applies the minimum pitch schedule for any PS_Mode > 0.
+    // The toolbox's PS_Mode is a different parameter that happens to share the
+    // name: its 1/2/3 choose how that schedule is computed at tuning time, and
+    // write_DISCON() collapses them to 1 here.
     if ((CntrPar.PS_Mode < 0) || (CntrPar.PS_Mode > 3)) {
-        rosco_throw("CheckInputs", "PS_Mode must be 0 or 1.");
+        rosco_throw("CheckInputs", "PS_Mode must be between 0 and 3.");
     }
 
     // SU_Mode
@@ -433,7 +437,7 @@ void CheckInputs(LocalVariables& LocalVar, const ControlParameters& CntrPar,
         rosco_throw("CheckInputs", "TRA_Mode must be 0 or 1.");
     }
 
-    if (CntrPar.TRA_Mode > 1) {  // Frequency avoidance is active
+    if (CntrPar.TRA_Mode > 0) {  // Frequency avoidance is active
         if (CntrPar.TRA_ExclSpeed < 0) {
             rosco_throw("CheckInputs", "TRA_ExclSpeed must be greater than 0.");
         }
@@ -451,7 +455,7 @@ void CheckInputs(LocalVariables& LocalVar, const ControlParameters& CntrPar,
         }
 
         if (CntrPar.PRC_Mode == 1) {
-            printf(" ROSCO Warning: Note that frequency avoidance control (TRA_Mode > 1) will affect PRC set points\n");
+            printf(" ROSCO Warning: Note that frequency avoidance control (TRA_Mode > 0) will affect PRC set points\n");
         }
     }
 

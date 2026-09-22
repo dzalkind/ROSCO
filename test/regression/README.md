@@ -52,6 +52,7 @@ python test/regression/run_regression.py --rebuild  # cmake build first
 python test/regression/run_regression.py --hdf5     # also check HDF5 output
 pytest test/regression/test_tuning.py               # tuning only, ~3 s, no DLL
 python test/regression/mode_coverage.py --gaps      # what no scenario configures
+python test/regression/compare_baselines.py         # what a baseline change changed
 ```
 
 Expected: `RESULT: ALL IDENTICAL — 7,260,000 total float64 values compared`.
@@ -85,29 +86,77 @@ python test/regression/plot_regression.py --scenario 13 --output /tmp/plots
 Then re-run just that scenario while you bisect:
 `python test/regression/run_regression.py --scenario 13 --rebuild`.
 
-## Updating a baseline
+## Changing a baseline on purpose
 
 Almost never. A baseline changes only when the controller's output is *meant*
-to change — a bug fix with a known physical effect, or an intentional algorithm
-change. A refactor, a cleanup, or a port must not move a single value.
+to change — a bug fix with a known physical effect, an intentional algorithm
+change, or a scenario deliberately rewritten to test something it did not test
+before. A refactor, a cleanup, or a port must not move a single value.
 
-```bash
-python test/regression/run_regression.py --rebuild --update-baseline
-```
+The rule that makes this safe: **you predict the change before you look at it,
+and the evidence has to match your prediction.**
 
-Required discipline when you do:
+### The procedure
 
-- **Its own commit**, touching only `baselines/`, separate from the code change.
-- `--update-baseline` rewrites `baselines/PROVENANCE.json` (git SHA, platform,
-  numpy/scipy versions, `libdiscon` hash). Commit it alongside — every run
-  prints it, so "what are we comparing against?" is answerable without
-  `git log` archaeology.
-- **Justify it in the commit message**: which scenarios moved, by how much, and
-  the physical reason.
-- **Attach before/after plots** from `plot_regression.py` to the PR.
+1. **Write down what you expect, first.** Which scenarios should move, which
+   arrays within them, roughly how much, and from what time. A prediction made
+   after seeing the diff is not evidence.
+2. **Make the change and run the suite.** Everything you did *not* predict must
+   still be `IDENTICAL`. A scenario you expected to be untouched moving is a
+   bug in your change — stop there.
+3. **Regenerate only the affected scenarios**, never the whole set:
+   ```bash
+   python test/regression/run_regression.py --rebuild --scenario 2 --update-baseline
+   ```
+   Each capture appends a record to `baselines/PROVENANCE.json` naming the
+   scenarios it covers, so the other baselines keep their own history.
+4. **Inspect what actually moved:**
+   ```bash
+   python test/regression/compare_baselines.py --plots /tmp/baseline-change
+   ```
+   It reports, per array: max absolute change, size relative to that signal's
+   peak, how many samples moved, and the time of first divergence — plus
+   before/after and difference plots. Compare it with your step-1 prediction.
+5. **Re-run the full suite** so the new baselines are what a clean run
+   reproduces, and confirm the run is deterministic (run the changed scenarios
+   a few times; the printed MD5s must agree).
+6. **Commit the baselines on their own**, after the code change, with the
+   evidence in the message: which scenarios, which arrays, the magnitudes, the
+   time of first divergence, and *why the controller now behaves differently*.
+   Attach the plots to the PR. `PROVENANCE.json` goes in the same commit.
 
-If a baseline moved and you cannot explain why, you have found a bug, not a
-stale baseline.
+### Reading the evidence
+
+- **First divergence time** matters more than magnitude. A change that starts
+  at t = 0 is a different bug from one that appears at t = 187 s. If you changed
+  a filter's initialisation, expect t = 0; if you changed a mode that only
+  engages above rated, expect the time the wind crosses it.
+- **Size relative to peak** tells you whether you changed the answer or the
+  last bits. ~1e-13 of peak is floating-point reassociation — which is *not*
+  acceptable from a refactor: it means the arithmetic moved, and this suite
+  exists to catch exactly that.
+- **An array you did not expect to move** is the important signal. Cable,
+  structural and flap channels sit at zero in most scenarios; if one wakes up,
+  something is now feeding it.
+
+### Worked example: fixing scenarios 2 and 27
+
+These two are the open case in this repo (see "Two scenarios test less than
+they were written to"). If you take it on, the prediction is already written:
+
+- Pass the synthetic signals through `turbine_state` in `run_synthetic()`
+  instead of writing avrSWAP directly.
+- **Scenario 2:** expect `nac_yaw`, `bld_pitch*` and `gen_torque` to move,
+  starting at t = 0 (the vane is non-zero from the first step), and the yaw
+  channels to become non-trivial rather than flat.
+- **Scenario 27:** expect pitch and torque channels to move from t = 0, since
+  tower damping and floating feedback start contributing pitch immediately.
+- **Expect nothing else to move at all** — no other scenario shares that loop
+  state. If scenario 7 or 8 moves, the change leaked.
+- The commit message should say the scenarios were not testing what they
+  claimed, name the mechanism (`call_controller` overwrites avrSWAP(24), (37),
+  (53), (83) from `turbine_state`), and state that the new baselines are the
+  first ones to exercise those inputs.
 
 ## Determinism — why the machinery is here
 
@@ -251,7 +300,8 @@ way, and scenario 27 set tower and IMU accelerations that way; all four arrive
 at the controller as 0. Their baselines record that behaviour, so it is kept
 exactly. Making them do what was intended means passing the signals through
 `turbine_state`, which will move both baselines — a deliberate decision, not a
-refactor.
+refactor. The procedure, with the expected outcome already written down, is
+under "Changing a baseline on purpose" above.
 
 Scenario 28 has no baseline file of its own. It is scenario 1's simulation with
 HDF5 logging at `LoggingLevel=3`, and logging must not change a single control
@@ -321,6 +371,7 @@ test/regression/
     test_regression.py     pytest wrapper: one test per scenario
     test_tuning.py         tuner still reproduces scenario_01.IN
     test_fixtures.py       each fixture is still scenario_01.IN + its patches
+    compare_baselines.py   what a baseline change actually changed
     mode_coverage.py       which mode values the scenarios and Examples configure
     test_mode_coverage.py  keeps mode_coverage.py in step with the registry
     plot_regression.py     failure-diagnosis plots

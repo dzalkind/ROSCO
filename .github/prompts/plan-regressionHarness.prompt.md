@@ -628,12 +628,15 @@ Neither alone is the answer.
 - *README table validated:* each scenario's mode diff against `scenario_01` matches its
   description. 3/7 and 16/26 share mode sets on purpose (7 drives synthetic inputs, 26 drives
   flaps to non-zero output).
-- *Two `checkinputs.cpp` defects found along the way (not fixed — controller code):*
-  `PS_Mode` accepts 0–3 while its error message says "must be 0 or 1", and the controller
-  only distinguishes 0 from >0; and the `if (TRA_Mode > 1)` block at line 436 can never
-  run, because line 432 already rejects `TRA_Mode > 1` — so the frequency-avoidance input
-  checks are dead code, while `speedsetpoints.cpp` activates the feature at
-  `TRA_Mode > 0`.
+- *Two `checkinputs.cpp` defects found along the way — **fixed 2026-09-22** at Daniel's
+  direction:* `PS_Mode` accepted 0–3 while its error message said "must be 0 or 1" (message
+  corrected, range kept — option A; the rename that would remove the name collision is
+  documented in the input plan's Phase 1 as option C), and the `if (TRA_Mode > 1)` block at
+  line 436 could never run, because line 432 rejects `TRA_Mode > 1` — now `> 0`, matching
+  `speedsetpoints.cpp`. Scenario 9 (`TRA_Mode=1`) exercises the newly live checks and still
+  passes; all 30 baselines identical. Stale registry descriptions for `TRA_Mode` and
+  `TD_Mode` fixed with them. **Follow-up for Daniel:** `Examples/28_tower_resonance.py` sets
+  `TRA_Mode = 2`, which the controller rejects outright — see the input plan's Phase 1.
 
 Adding scenarios is a separate decision: each new one needs a baseline, so it is left for
 Daniel to choose which gaps are worth closing.

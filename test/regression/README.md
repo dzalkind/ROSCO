@@ -1,7 +1,7 @@
 # ROSCO C++ controller regression suite
 
-28 scenarios drive the compiled `libdiscon` through the controller's modes and
-compare **6,660,000 float64 values** (5,772,000 controller outputs, plus the
+30 scenarios drive the compiled `libdiscon` through the controller's modes and
+compare **7,260,000 float64 values** (6,292,000 controller outputs, plus the
 time and wind-speed inputs each baseline records) against frozen baselines — *bit-for-bit,
 not to a tolerance*. It is the strongest guarantee in the repo: if it passes, a
 refactor changed no controller behaviour at all. Full run is about 75 s.
@@ -10,6 +10,37 @@ The baselines were captured from the verified pure-C++ build and are
 byte-identical to the original Fortran outputs (see `REFACTOR_NOTES.md`). They
 are the crown jewels — treat a diff as a bug in your change until proven
 otherwise.
+
+## What these scenarios are — and are not
+
+Read this before trusting a green run to mean more than it does.
+
+- **This is a change detector, not a validation suite.** A passing run says the
+  controller computes exactly what it computed before. It says nothing about
+  whether that is *correct*, or whether the turbine would behave well. Nobody
+  has checked these outputs against measurements.
+- **The plant is a 1-DOF rotor spin-up**, not OpenFAST: one rotor inertia driven
+  by a Cp surface (`sim_ws_series`, or the loop in `run_synthetic`). There is no
+  tower, no blade flexibility, no real wind field. Most signals a real turbine
+  would feed back — blade root moments, tower acceleration, nacelle IMU — are
+  **zero unless a scenario injects them**.
+- **A mode being on does not mean it is exercised.** Several scenarios switch a
+  feature on while its input stays zero, so the feature runs and contributes
+  nothing. That still pins the code path against crashes and bit drift, which is
+  what it is for, but it is weaker than it looks. Scenario 3 says so explicitly;
+  scenarios 2 and 27 turned out to be weaker still (see "Two scenarios test less
+  than they were written to" below).
+- **`mode_coverage.py` tells you what is configured**, not what executed. Neither
+  it nor a green run proves a branch was taken; only coverage instrumentation
+  would.
+- **Scenario numbers are permanent**, fixtures are generated from a table and are
+  never hand-edited, and a baseline changes only by deliberate decision. Those
+  three rules are what keep the suite trustworthy; the sections below give the
+  detail.
+
+If you are adding a feature to the controller, the honest question is not "does
+the suite still pass" — it should — but "does anything here execute my new code,
+with a non-zero input?" If not, add a scenario.
 
 ## Running it
 
@@ -23,7 +54,7 @@ pytest test/regression/test_tuning.py               # tuning only, ~3 s, no DLL
 python test/regression/mode_coverage.py --gaps      # what no scenario configures
 ```
 
-Expected: `RESULT: ALL IDENTICAL — 6,660,000 total float64 values compared`.
+Expected: `RESULT: ALL IDENTICAL — 7,260,000 total float64 values compared`.
 
 No setup steps beyond installing the package (`pip install -e .`, which builds
 the DLL into `rosco/lib/`). The suite regenerates every input it needs from
@@ -209,8 +240,10 @@ would never notice.
 | 26 | `Flp_Mode=3` driven to non-zero flap output |
 | 27 | Stress test: many modes at once — tower damping and floating feedback get zero input (see below) |
 | 28 | HDF5 output format — same sim as 1, `OutputFormat=1`, `LoggingLevel=3` |
+| 29 | Power-based TSR tracking, `VS_ControlMode=3` — what the NREL-2.8 and MHK_RM1 Test_Cases run |
+| 30 | Constant torque above rated, `VS_ConstPower=0` — what the IEA-15, BAR_10 and NREL-2.8 Test_Cases run |
 
-**Two scenarios test less than they were written to.**
+### Two scenarios test less than they were written to
 `ControllerInterface.call_controller()` writes avrSWAP(24), (37), (53) and (83)
 from its `turbine_state` argument on every call, overwriting anything set
 directly beforehand. Scenario 2 set a synthetic nacelle vane and heading that
@@ -242,16 +275,17 @@ depends on what you have run). A setting whose parent mode is off is not
 counted — `IPC_SatMode` means nothing with IPC off. It reports what is
 *configured*, not what *executes*.
 
-As of 2026-09-21, no scenario configures:
+As of 2026-09-22, no scenario configures:
 
-- `VS_ControlMode = 3` (power-based TSR tracking) and `VS_ConstPower = 0` —
-  what the IEA-15 and NREL-2.8 Examples actually use. Every scenario runs
-  `VS_ControlMode = 2` or `1` with constant power.
-- `F_LPFType = 2` (second-order low-pass), `WE_Mode = 0`,
-  `IPC_SatMode = 0/1/3`, `Ext_Mode = 1`, `ZMQ_Mode = 1` — each used by at least
-  one Example.
+- `F_LPFType = 2` (second-order low-pass), `WE_Mode = 0`, `IPC_SatMode = 0/1/3`,
+  `Ext_Mode = 1`, `ZMQ_Mode = 1` — each used by at least one Example. The last
+  two need an external DLL and a ZeroMQ server, so they do not suit this suite.
 - `VS_ControlMode = 0/4`, `VS_FBP = 2/3`, `PRC_Comm = 1/2`, `OL_BP_Mode = 1`,
-  `Ext_Interface = 0` — used by nothing in the repo.
+  `Ext_Interface = 0`, `LoggingLevel = 0/2` — configured nowhere in the repo.
+
+Scenarios 29 and 30 closed the gap that mattered most: `VS_ControlMode = 3` and
+`VS_ConstPower = 0`, the torque control every real turbine configuration in
+`Test_Cases/` uses.
 
 `test_mode_coverage.py` fails if the registry gains a mode the report does not
 know about, so the table cannot silently go stale.
@@ -291,7 +325,7 @@ test/regression/
     test_mode_coverage.py  keeps mode_coverage.py in step with the registry
     plot_regression.py     failure-diagnosis plots
     fixtures/              committed DISCON inputs — one per scenario
-    baselines/             27 compressed .npz files (~9 MB; 28 shares 1's) + PROVENANCE.json
+    baselines/             29 compressed .npz files (~9 MB; 28 shares 1's) + PROVENANCE.json
 ```
 
 This lives at the repo top level rather than under `rosco/` so the baselines

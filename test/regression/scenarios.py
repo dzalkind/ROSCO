@@ -784,6 +784,17 @@ _SCENARIO_LIST = [
     Scenario(28, "HDF5 debug output, OutputFormat=1 + LoggingLevel=3",
              patches={'OutputFormat': 1, 'LoggingLevel': 3},
              tlen=1000, ws0=7, runner=run_hdf5),
+
+    # 29 and 30 cover the torque-control settings real turbine configurations use
+    # but scenarios 1-28 never did: the NREL-2.8 and MHK_RM1 Test_Cases run
+    # VS_ControlMode=3, and the IEA-15, BAR_10 and NREL-2.8 ones run
+    # VS_ConstPower=0. Both winds cross rated (~11.4 m/s), because that is where
+    # either setting changes what the controller does.
+    Scenario(29, "Power-based TSR tracking, VS_ControlMode=3",
+             patches={'VS_ControlMode': 3}, tlen=600, ws0=7),
+
+    Scenario(30, "Constant generator torque above rated, VS_ConstPower=0",
+             patches={'VS_ConstPower': 0}, tlen=400, ws0=11),
 ]
 
 SCENARIOS = {s.num: s for s in _SCENARIO_LIST}
@@ -831,7 +842,7 @@ def main():
     # The order is historical and only matters when running every scenario in
     # one process; run_regression.py isolates each one in its own subprocess.
     scenario_order = [3, 4, 5, 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-                      17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
+                      17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
     selected = [args.scenario] if args.scenario > 0 else scenario_order
 
     if args.benchmark > 0:

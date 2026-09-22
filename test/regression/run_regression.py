@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-run_regression.py — Run all 28 scenarios against the frozen baselines.
+run_regression.py — Run all 30 scenarios against the frozen baselines.
 
 Each scenario runs in a separate subprocess, because the controller DLL keeps
 static state that is only reset by unloading the process.
 
 Usage:
-    python3 test/regression/run_regression.py              # all 28 scenarios
+    python3 test/regression/run_regression.py              # all 30 scenarios
     python3 test/regression/run_regression.py --scenario 1 # single scenario
     python3 test/regression/run_regression.py --rebuild    # cmake build first
 
@@ -38,7 +38,7 @@ LIB_DIR = os.path.join(REPO_ROOT, "rosco", "lib")
 SCRUB_SRC = os.path.join(CONTROLLER_DIR, "src", "scrub_stack.c")
 SCRUB_LIB = os.path.join(LIB_DIR, "libscrub.so")
 
-ALL_SCENARIOS = list(range(1, 29))
+ALL_SCENARIOS = list(range(1, 31))
 
 # Scenarios compared against another scenario's baseline instead of their own.
 # 28 is scenario 1's simulation with HDF5 logging at LoggingLevel 3; logging must
@@ -281,12 +281,17 @@ def _discon_hash():
     return "unknown"
 
 
-def write_provenance():
-    """Record what the baselines were generated from, so the question is answerable
-    without git archaeology."""
+def write_provenance(scenarios_captured):
+    """Prepend a capture record to baselines/PROVENANCE.json.
+
+    One run rarely regenerates every baseline — adding a scenario captures one
+    file — so each record names the scenarios it covers and earlier records are
+    kept. Overwriting would claim baselines were regenerated that were not.
+    """
     import scipy
-    data = {
+    record = {
         "generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "scenarios": sorted(scenarios_captured),
         "git_sha": _git("rev-parse", "HEAD"),
         "git_dirty": bool(_git("status", "--porcelain")),
         "platform": platform.platform(),
@@ -296,24 +301,59 @@ def write_provenance():
         "scipy": scipy.__version__,
         "libdiscon": _discon_hash(),
     }
+    history = [record] + read_provenance()
     with open(PROVENANCE, "w") as f:
-        json.dump(data, f, indent=2, sort_keys=True)
+        json.dump({"history": history}, f, indent=2, sort_keys=True)
         f.write("\n")
-    return data
+    return record
 
 
 def read_provenance():
+    """Capture records, newest first. The pre-2026-09-22 file was a single
+    unwrapped record covering scenarios 1-27; it reads as one entry."""
     try:
         with open(PROVENANCE) as f:
-            return json.load(f)
+            data = json.load(f)
     except (OSError, ValueError):
-        return None
+        return []
+    if isinstance(data, dict) and "history" in data:
+        return data["history"]
+    data.setdefault("scenarios", list(range(1, 28)))
+    return [data]
+
+
+def describe_baselines(scenarios):
+    """One line per capture record that covers any of the scenarios being run."""
+    history = read_provenance()
+    if not history:
+        return ["  (no PROVENANCE.json — origin unknown)"]
+    lines = []
+    for rec in history:
+        covered = sorted(set(rec.get("scenarios", [])) & set(scenarios))
+        if not covered:
+            continue
+        dirty = " (dirty tree)" if rec.get("git_dirty") else ""
+        which = f"scenario{'s' if len(covered) > 1 else ''} {_ranges(covered)}"
+        lines.append(f"  {which}: captured {rec['generated_utc']} from {rec['git_sha'][:12]}{dirty}")
+        lines.append(f"    on {rec['platform']} / numpy {rec['numpy']} / scipy {rec['scipy']}")
+        scenarios = [s for s in scenarios if s not in covered]   # newest record wins
+    return lines
+
+
+def _ranges(nums):
+    """[1,2,3,7] -> '1-3, 7'"""
+    out, start = [], nums[0]
+    for prev, cur in zip(nums, nums[1:] + [None]):
+        if cur != prev + 1:
+            out.append(str(start) if start == prev else f"{start}-{prev}")
+            start = cur
+    return ", ".join(out)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Verify C++ controller against frozen baselines")
     parser.add_argument("--scenario", type=int, default=0,
-                        help="Run single scenario (1-28). Default 0 = all.")
+                        help="Run single scenario (1-30). Default 0 = all.")
     parser.add_argument("--rebuild", action="store_true",
                         help="Run cmake --build before verifying.")
     parser.add_argument("--update-baseline", action="store_true",
@@ -357,13 +397,8 @@ def main():
 
     print(f"Running {len(scenarios)} scenario(s) — each in a separate subprocess")
     print(f"Baseline: {BASELINE_DIR}")
-    prov = read_provenance()
-    if prov:
-        dirty = " (dirty tree)" if prov.get("git_dirty") else ""
-        print(f"  captured {prov['generated_utc']} from {prov['git_sha'][:12]}{dirty}")
-        print(f"  on {prov['platform']} / numpy {prov['numpy']} / scipy {prov['scipy']}")
-    else:
-        print("  (no PROVENANCE.json — origin unknown)")
+    for line in describe_baselines([SHARED_BASELINE.get(s, s) for s in scenarios]):
+        print(line)
     print()
 
     if args.update_baseline:
@@ -379,9 +414,10 @@ def main():
                 sys.stdout.flush()
                 ok = run_scenario(s, BASELINE_DIR, work_dir=workdir, asan_env=asan_env)
                 print("saved" if ok else "FAILED")
-        prov = write_provenance()
+        prov = write_provenance([s for s in scenarios if s not in SHARED_BASELINE])
         print()
-        print(f"Provenance: {prov['git_sha'][:12]} on {prov['platform']}")
+        print(f"Provenance: scenarios {_ranges(prov['scenarios'])} from "
+              f"{prov['git_sha'][:12]} on {prov['platform']}")
         print("Baseline updated. Commit test/regression/baselines/ to lock in the new reference.")
         return
 

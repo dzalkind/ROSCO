@@ -20,15 +20,31 @@ All of P0 and P1 is committed: task 1 in `66e0e9da`, tasks 2–6 in `e08c79f1`, 
 both touch C++ build files the parallel CI work is editing, so both wait on Daniel — then
 input modernization with 8b folded in.
 
-**Hard gate as of `ffb1d605`:** `run_regression.py` → `ALL IDENTICAL — 6,660,000 total float64
-values` (28 scenarios; 5,772,000 controller outputs + recorded t/ws); `pytest test/regression`
-→ 62 passed.
+**Hard gate as of 2026-09-22:** `run_regression.py` → `ALL IDENTICAL — 7,260,000 total float64
+values` (30 scenarios; 6,292,000 controller outputs + recorded t/ws); `pytest test/regression`
+→ 67 passed.
+
+**Scenarios 29 and 30 added 2026-09-22** (Daniel's request), closing the biggest coverage
+gap task 11 found: `VS_ControlMode=3` (power-based TSR tracking — NREL-2.8, MHK_RM1) and
+`VS_ConstPower=0` (constant torque above rated — IEA-15, BAR_10, NREL-2.8). Both winds cross
+rated, since that is where either setting changes the controller's behaviour; each was run
+three times to confirm determinism before its baseline was captured. Measured effect of
+`VS_ConstPower=0` vs `=1` on the same wind: 11,925 of 16,000 samples differ, up to 1.46% of
+rated torque and 0.14° of pitch — the two coincide while speed sits exactly at rated, so the
+difference lives in the transients.
+
+`--update-baseline` also had to change: it overwrote `PROVENANCE.json` with a single record,
+which after a two-scenario capture would have claimed all 27 earlier baselines were
+regenerated today. It now **prepends a capture record** naming the scenarios it covers, and
+the runner prints the record(s) covering the scenarios being run. The 2026-04-03 backfill is
+preserved as the oldest entry, covering 1-27.
 
 **Open decisions for Daniel, surfaced by this round:**
 - Scenarios 2 and 27 test less than intended (task 13 finding). Fixing them moves two
   baselines.
-- No scenario runs `VS_ControlMode=3` / `VS_ConstPower=0`, the IEA-15/NREL-2.8 configuration
-  (task 11). A new scenario needs a new baseline.
+- Remaining uncovered modes, none of them urgent: `F_LPFType=2` and `WE_Mode=0` are cheap
+  scenarios if wanted; `IPC_SatMode=0/1/3` needs IPC on with a saturating pitch; `Ext_Mode=1`
+  and `ZMQ_Mode=1` need an external DLL and a ZeroMQ server, so they do not suit this suite.
 - Two `checkinputs.cpp` defects: `PS_Mode` range vs message, and the unreachable
   `TRA_Mode > 1` block (task 11).
 

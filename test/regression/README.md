@@ -190,24 +190,44 @@ and the evidence has to match your prediction.**
   structural and flap channels sit at zero in most scenarios; if one wakes up,
   something is now feeding it.
 
-### Worked example: fixing scenarios 2 and 27
+### Worked example: the 2026-09-22 change
 
-These two are the open case in this repo (see "Two scenarios test less than
-they were written to"). If you take it on, the prediction is already written:
+Three things moved together, and it is worth reading as a case where the
+prediction was right about *what* and wrong about *how much*.
 
-- Pass the synthetic signals through `turbine_state` in `run_synthetic()`
-  instead of writing avrSWAP directly.
-- **Scenario 2:** expect `nac_yaw`, `bld_pitch*` and `gen_torque` to move,
-  starting at t = 0 (the vane is non-zero from the first step), and the yaw
-  channels to become non-trivial rather than flat.
-- **Scenario 27:** expect pitch and torque channels to move from t = 0, since
-  tower damping and floating feedback start contributing pitch immediately.
-- **Expect nothing else to move at all** — no other scenario shares that loop
-  state. If scenario 7 or 8 moves, the change leaked.
-- The commit message should say the scenarios were not testing what they
-  claimed, name the mechanism (`call_controller` overwrites avrSWAP(24), (37),
-  (53), (83) from `turbine_state`), and state that the new baselines are the
-  first ones to exercise those inputs.
+The intended change was narrow: scenarios 2 and 27 were passing their synthetic
+signals through avrSWAP indices that `call_controller` overwrites, so the
+controller saw zeros (see "Two scenarios test less than they were written to",
+below, as it read at the time). Routing them through `turbine_state` was
+predicted to move those two baselines and nothing else.
+
+It moved 27 of them. Chasing the unpredicted ones found a second, larger
+problem: the harness built every `ControllerInterface` at the toolbox's default
+`DT = 0.1` and then simulated at 0.025. Every filter in the controller sizes its
+coefficients on the `iStatus == 0` call, so every filtered signal in the suite
+had been running at four times its configured corner frequency. That is a
+harness defect, not a controller one, and fixing it is what moved the other 25.
+
+Two pieces of evidence closed it:
+
+- The gate reproduces the new set exactly, twice over, and the two scenarios
+  that did *not* move (13 and 14) are the two whose outputs never pass through
+  a filter — 14 is a pure open-loop table lookup, 13 is a degenerate run with
+  torque pinned. Nothing moved that had no mechanism to move.
+- Upstream Fortran ROSCO 2.9.0, built from `main` with `-ffp-contract=off` and
+  driven through the same harness, reproduces the new baselines bit-for-bit on
+  27 of 30 scenarios. Before the fix it reproduced 26. The three that remain
+  are known and documented: scenario 2 (an aliasing bug in the Fortran, where
+  the C++ is correct — `Controllers.f90:517` passes `objInst%instSecLPF` to
+  `LPFilter`, colliding with the nacelle-vane sine filter), scenario 8 (4.3e-19,
+  rounding), and scenario 4 (the 2.9.0 parser cannot read the fixture).
+
+Note the second point in particular: the old baselines were *also* cross-checked
+against Fortran and *also* agreed, because the Fortran was mis-driven in exactly
+the same way. `HPFilter` in the Fortran recomputes `K = 2/DT` on every call and
+self-corrected, which is why scenario 27 was the one place the two disagreed —
+and why it now agrees. Agreement with the reference implementation does not
+prove the harness is driving either one correctly.
 
 ## Determinism — why the machinery is here
 
@@ -230,6 +250,15 @@ are easy to break by accident.
    (dev note 202603261512). `run_regression.py` builds the library on demand
    with `gcc`; if that fails it warns and continues, and scenario 3 may then
    flap.
+4. **One `DT`, declared once.** `scenarios.py` passes `DT=DT` when it builds
+   every `ControllerInterface`, and the simulation loop steps at that same
+   `DT`. The controller sizes every filter coefficient on its first call
+   (`iStatus == 0`) and caches them, so a `ControllerInterface` built at the
+   toolbox default of 0.1 and then stepped at 0.025 runs every filter in the
+   suite at four times its configured corner frequency. This is not a variable
+   timestep — the suite does not test those — it is a single constant `DT` that
+   the construction call and the loop must agree on. Changing `DT` moves 28 of
+   the 30 baselines.
 
 HDF5 output is optional. `--hdf5` and `test_hdf5_matches_text_output` skip
 rather than fail when `h5py` or libhdf5 is absent.
@@ -343,16 +372,21 @@ would never notice.
 | 29 | Power-based TSR tracking, `VS_ControlMode=3` — what the NREL-2.8 and MHK_RM1 Test_Cases run |
 | 30 | Constant torque above rated, `VS_ConstPower=0` — what the IEA-15, BAR_10 and NREL-2.8 Test_Cases run |
 
-### Two scenarios test less than they were written to
+### Synthetic inputs go through `turbine_state`, not avrSWAP
 `ControllerInterface.call_controller()` writes avrSWAP(24), (37), (53) and (83)
 from its `turbine_state` argument on every call, overwriting anything set
-directly beforehand. Scenario 2 set a synthetic nacelle vane and heading that
-way, and scenario 27 set tower and IMU accelerations that way; all four arrive
-at the controller as 0. Their baselines record that behaviour, so it is kept
-exactly. Making them do what was intended means passing the signals through
-`turbine_state`, which will move both baselines — a deliberate decision, not a
-refactor. The procedure, with the expected outcome already written down, is
-under "Changing a baseline on purpose" above.
+directly beforehand. Scenarios 2 and 27 once set a synthetic nacelle vane,
+heading and tower/IMU accelerations by writing those indices, and all four
+arrived at the controller as 0 — so for two years those scenarios recorded a
+controller that was being fed nothing. Fixed 2026-09-22. If you add a synthetic
+input, set it in `turbine_state` inside `run_synthetic()`, and confirm the
+baseline actually moves; a new input that changes nothing is the symptom.
+
+Scenario 7 has a related but different weakness: its tower and floating inputs
+*do* reach the controller, but the fixture leaves `FA_KI`, `FA_IntSat` and
+`Fl_Kp` at zero, so those paths contribute exactly zero however hard they are
+driven. Scenario 27 was given non-zero gains for this reason; scenario 7 has
+not been, and its tower/floating coverage is still nominal only.
 
 Scenario 28 has no baseline file of its own. It is scenario 1's simulation with
 HDF5 logging at `LoggingLevel=3`, and logging must not change a single control

@@ -268,8 +268,13 @@ RPM2RADSEC = 2.0 * np.pi / 60.0
 
 
 def _controller(num, suffix=''):
+    # DT must match the timestep the scenario then simulates at. The toolbox
+    # defaults to 0.1, and the controller's first call (iStatus 0) is what sizes
+    # every filter's coefficients — leaving the default would tune them for a
+    # timestep the simulation never uses.
     return ROSCO_ci.ControllerInterface(
-        lib_name, param_filename=fixture_path(num), sim_name=f'regression_{num}{suffix}'
+        lib_name, param_filename=fixture_path(num), sim_name=f'regression_{num}{suffix}',
+        DT=DT,
     )
 
 
@@ -331,6 +336,9 @@ def run_synthetic(s, turbine):
     simulation leaves at zero. `s.synthetic` selects them:
 
       azimuth    rotor azimuth from the simulated speed -> avrSWAP(60)
+      yaw_by_ipc 20 deg vane oscillation as the yaw error, with the heading
+                 ramping -45 to 405 deg, so heading + vane spans <0, 0-360 and
+                 >=360 — the three branches of wrap_360 that ipc.cpp feeds
       root_moop  1000 N·m, 1P per blade, 120° apart -> avrSWAP(30..32)
       tower      fore-aft tower-top and nacelle IMU accelerations, 1/3 Hz
       yaw_rate   20° vane oscillation as the yaw error; the commanded yaw rate
@@ -385,6 +393,9 @@ def run_synthetic(s, turbine):
         if 'yaw_rate' in inputs:
             turbine_state['Yaw_fromNorth'] = nac_yaw[i-1]
             turbine_state['Y_MeasErr'] = 20.0 * np.sin(2 * np.pi * ti / 50.0) * deg2rad
+        if 'yaw_by_ipc' in inputs:
+            turbine_state['Y_MeasErr'] = 20.0 * np.sin(2 * np.pi * ti / 50.0) * deg2rad
+            turbine_state['Yaw_fromNorth'] = (-45.0 + 450.0 * ti / t[-1]) * deg2rad
         if 'tower' in inputs:
             turbine_state['FA_Acc_TT'] = 0.5 * np.sin(2 * np.pi * ti / 3.0)
             turbine_state['NacIMU_FA_RAcc'] = 0.3 * np.sin(2 * np.pi * ti / 3.0)
@@ -481,12 +492,13 @@ _SCENARIO_LIST = [
     Scenario(1, "Standard step-wind simulation; re-run checks DLL deallocation",
              tlen=1000, ws0=7, runner=run_twice),
 
-    # Intended to exercise wrap_360 with a synthetic NacVane/NacHeading. Those
-    # signals never arrive: call_controller() overwrites avrSWAP(24)/(37) from
-    # turbine_state, which holds 0. See plan-regressionHarness, task 13.
-    Scenario(2, "Yaw-by-IPC, Y_ControlMode=2",
+    # The vane and heading reach the controller through turbine_state, because
+    # call_controller() overwrites avrSWAP(24)/(37) from it on every call. Until
+    # 2026-09-22 this scenario wrote those indices directly and the controller
+    # saw 0, so wrap_360 never left its middle branch.
+    Scenario(2, "Yaw-by-IPC, Y_ControlMode=2, with a yaw error that wraps",
              patches={'Y_ControlMode': 2},
-             tlen=100, step_wind=False, synthetic=('azimuth',),
+             tlen=100, step_wind=False, synthetic=('azimuth', 'yaw_by_ipc'),
              legacy_power=True, record_yaw_output=True),
 
     # Flp_Mode > 0 excludes IPC_ControlMode > 0, so NotchFilterSlopes lives in 6.
@@ -748,10 +760,10 @@ _SCENARIO_LIST = [
                  **_NOTCH,
              }, step_wind=False, synthetic=('azimuth', 'root_moop')),
 
-    # Intended to sum six pitch contributions. Tower damping and floating
-    # feedback see zero input: their accelerations were written to avrSWAP(53)
-    # and (83), which call_controller() overwrites with 0. See
-    # plan-regressionHarness, task 13.
+    # Six simultaneous pitch contributions: collective PI, IPC, tower damping,
+    # floating feedback, AWC and the pitch fault offset, through a second-order
+    # actuator. Until 2026-09-22 the tower and IMU accelerations were written to
+    # avrSWAP(53)/(83) directly and arrived as 0, so two of the six were absent.
     Scenario(27, "Stress test: many modes active at once",
              patches={
                  'IPC_ControlMode': 1,
@@ -766,7 +778,18 @@ _SCENARIO_LIST = [
                  'AWC_CntrGains': '0.0100 0.0050',
                  'Y_ControlMode': 1,
                  'TD_Mode': 1,
+                 # The tuner leaves FA_* and Fl_Kp at zero for this turbine, so
+                 # tower damping and floating feedback would contribute exactly
+                 # zero however hard they are driven. No config in the repo uses
+                 # the tower damper, and this turbine is not floating, so these
+                 # gains are chosen small enough to keep the rotor operating
+                 # normally rather than tuned — a code-path test, not a physical
+                 # one. The IEA-15 semi's Fl_Kp (-9.2) feathers this rotor.
+                 'FA_KI': '0.001',
+                 'FA_HPFCornerFreq': '0.1',
+                 'FA_IntSat': '0.0873',
                  'Fl_Mode': 2,
+                 'Fl_Kp': '-1.0',
                  'F_FlCornerFreq': '1.0 0.7',
                  'CC_Mode': 1, 'CC_Group_N': 1, 'CC_GroupIndex': '2601',
                  'StC_Mode': 1, 'StC_Group_N': 1, 'StC_GroupIndex': '2801',
@@ -777,7 +800,7 @@ _SCENARIO_LIST = [
                  'PRC_Mode': 1,
                  'Flp_Mode': 0,
                  **_NOTCH,
-             }, tlen=600, synthetic=('azimuth', 'yaw_rate', 'root_moop')),
+             }, tlen=600, synthetic=('azimuth', 'yaw_rate', 'tower', 'root_moop')),
 
     # avrSWAP-level outputs do not depend on OutputFormat; the .RO.h5 itself is
     # compared against scenario 1's text output by run_regression.py --hdf5.

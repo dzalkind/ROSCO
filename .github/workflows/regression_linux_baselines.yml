@@ -1,0 +1,68 @@
+name: Regression baselines (Linux)
+
+# Manual only. The regression baselines are compared bit-for-bit, and that is a
+# property of the machine: the C++ controller reproduces exactly everywhere,
+# but the Python plant model it is driven by does not, so a set captured on
+# macOS arm64 differs from a Linux one by 1-2 ULP. The linux-x86_64 set
+# therefore cannot be generated on a developer's macOS machine — this job
+# generates it, in the same conda environment build_and_test_conda uses to run
+# the suite, and uploads it as an artifact.
+#
+# Fetch and commit the result with test/regression/fetch_linux_baselines.sh.
+on:
+    workflow_dispatch:
+
+jobs:
+    generate_linux_baselines:
+        name: Generate linux-x86_64 baselines
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                shell: bash -el {0}
+
+        steps:
+            - name: checkout repository
+              uses: actions/checkout@v5
+
+            - uses: conda-incubator/setup-miniconda@v3
+              # Matches build_and_test_conda in CI_rosco-compile.yml, so the
+              # baselines are captured in the environment that checks them.
+              with:
+                  miniforge-version: "latest"
+                  auto-update-conda: true
+                  python-version: "3.12"
+                  environment-file: environment.yml
+                  activate-environment: test
+                  auto-activate-base: false
+
+            # --no-deps: environment.yml already supplies the dependencies. Letting pip
+            # resolve them pulls PyPI polars-lts-cpu (via wisdem -> wombat), which ships its
+            # own copy of the polars package and clobbers the conda-installed one.
+            - name: Conda Install ROSCO
+              run: |
+                  python -m pip install -e . --no-build-isolation --no-deps
+
+            - name: Generate Registry
+              run: |
+                  python rosco/controller/rosco_registry/write_registry.py
+
+            - name: Fix example file extensions
+              run: |
+                  python Examples/Test_Cases/update_libdiscon_extension.py
+
+            - name: Generate baselines
+              run: |
+                  python test/regression/run_regression.py --update-baseline
+
+            # A capture that cannot reproduce itself is not a baseline. This is
+            # the same plain run the suite does, against what was just written.
+            - name: Verify the new baselines reproduce
+              run: |
+                  python test/regression/run_regression.py
+
+            - name: Upload linux-x86_64 baselines
+              uses: actions/upload-artifact@v5
+              with:
+                  name: linux-x86_64-baselines
+                  path: test/regression/baselines/linux-x86_64/
+                  if-no-files-found: error

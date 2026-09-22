@@ -19,7 +19,10 @@ dependencies:
   - scipy
   - sphinx_rtd_theme
   - treon
-  - wisdem >=3.16
+  # >=4.2, not >=3.16: adding h5py gave the solver room to satisfy everything by
+  # dropping to wisdem 4.1.0, whose package does not pull jsonmerge, so importing
+  # wisdem died. CI already resolved to 4.2.6 before h5py existed here.
+  - wisdem >=4.2
   - zeromq
   - openfast=5.0
   - openfast-io=5.0

@@ -47,7 +47,7 @@ def main():
     
     # Set DISCON input dynamically through yaml/dict
     controller_params = {}
-    controller_params['TRA_Mode'] = 2    
+    controller_params['TRA_Mode'] = 1
     controller_params['vs_minspd'] = 0.    # Reduce minimum rotor speed so that saturation does not interfere with exclusion
     controller_params['VS_ControlMode'] = 3.   
     

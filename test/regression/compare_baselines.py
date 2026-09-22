@@ -31,7 +31,14 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
-BASELINE_DIR = os.path.join(HERE, "baselines")
+
+# Baselines are per platform, so this compares the set for the machine it runs
+# on — the same one --update-baseline just rewrote. The other platform's set is
+# regenerated from CI and reviewed the same way, on that platform's numbers.
+sys.path.insert(0, HERE)
+from run_regression import PLATFORM_TAG  # noqa: E402
+
+BASELINE_REL = f"test/regression/baselines/{PLATFORM_TAG}"
 DT = 0.025
 
 
@@ -43,7 +50,7 @@ def _git_show(ref, relpath):
 
 def changed_scenarios(ref):
     """Scenario numbers whose baseline file differs from `ref`."""
-    r = subprocess.run(["git", "diff", "--name-only", ref, "--", "test/regression/baselines"],
+    r = subprocess.run(["git", "diff", "--name-only", ref, "--", BASELINE_REL],
                        cwd=REPO_ROOT, capture_output=True, text=True, check=True)
     nums = []
     for line in r.stdout.split():
@@ -55,7 +62,7 @@ def changed_scenarios(ref):
 
 def compare(num, ref):
     """(status, rows) for one scenario. rows: (array, max_abs, frac_of_peak, n_diff, first_t)."""
-    relpath = f"test/regression/baselines/scenario_{num}.npz"
+    relpath = f"{BASELINE_REL}/scenario_{num}.npz"
     path = os.path.join(REPO_ROOT, relpath)
     if not os.path.exists(path):
         return "missing in working tree", []
@@ -93,7 +100,7 @@ def plot(num, ref, out_dir):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    relpath = f"test/regression/baselines/scenario_{num}.npz"
+    relpath = f"{BASELINE_REL}/scenario_{num}.npz"
     blob = _git_show(ref, relpath)
     if blob is None:
         return None
@@ -142,7 +149,7 @@ def main():
 
     sha = subprocess.run(["git", "rev-parse", "--short", args.against],
                          cwd=REPO_ROOT, capture_output=True, text=True).stdout.strip()
-    print(f"Comparing working tree against {args.against} ({sha})")
+    print(f"Comparing working tree against {args.against} ({sha}) — {PLATFORM_TAG} baselines")
     print()
     for num in scenarios:
         status, rows = compare(num, args.against)

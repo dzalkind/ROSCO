@@ -86,6 +86,32 @@ python test/regression/plot_regression.py --scenario 13 --output /tmp/plots
 Then re-run just that scenario while you bisect:
 `python test/regression/run_regression.py --scenario 13 --rebuild`.
 
+## Baselines are per platform
+
+Baselines live in `baselines/<system>-<machine>/` — today `darwin-arm64/` and
+`linux-x86_64/`. Every run prints the folder it is using, so a green run cannot
+be mistaken for one that checked a different platform's numbers.
+
+The split is not about the controller. **The controller's output reproduces
+bit-for-bit across platforms** — that much was checked, and it is the thing this
+suite exists to pin. What does not reproduce is the Python plant model that
+drives it (`rosco/toolbox/sim.py`). On Linux x86_64 its `gen_speed` lands 1-2
+ULP from the macOS arm64 value, and `gen_power` about 1e-9 from it on a
+MW-scale signal. That is libm and FMA contraction inside numpy/scipy, not in
+anything this repo compiles — `-ffp-contract=off` covers the controller, and
+cannot reach into scipy. Against a single frozen set, that was enough to fail
+most scenarios on Ubuntu while the controller was provably unchanged.
+
+The alternative — comparing to a tolerance loose enough to absorb it — would
+throw away exactly what the suite is for. A 1-ULP move in the controller is a
+finding; a tolerance that hides the plant's last bits hides the controller's
+too. So each platform keeps its own frozen set and the comparison stays exact.
+
+A platform with no folder yet **skips** rather than fails: `pytest` skips all
+31 tests, and `run_regression.py` exits 1 naming the folder it looked for, the
+sets that do exist, and the command to generate each. Missing baselines are an
+absent reference, not a regression, and should not read as one.
+
 ## Changing a baseline on purpose
 
 Almost never. A baseline changes only when the controller's output is *meant*
@@ -104,12 +130,32 @@ and the evidence has to match your prediction.**
 2. **Make the change and run the suite.** Everything you did *not* predict must
    still be `IDENTICAL`. A scenario you expected to be untouched moving is a
    bug in your change — stop there.
-3. **Regenerate only the affected scenarios**, never the whole set:
+3. **Regenerate only the affected scenarios**, never the whole set — and
+   regenerate them **on both platforms**. `--update-baseline` only ever writes
+   the folder for the machine it runs on, so macOS is done locally and Linux
+   comes from CI:
    ```bash
+   # darwin-arm64, locally:
    python test/regression/run_regression.py --rebuild --scenario 2 --update-baseline
+
+   # linux-x86_64, from CI. The branch must be pushed first — GitHub can only
+   # run a workflow from a ref it has.
+   git push
+   test/regression/fetch_linux_baselines.sh
    ```
-   Each capture appends a record to `baselines/PROVENANCE.json` naming the
-   scenarios it covers, so the other baselines keep their own history.
+   `fetch_linux_baselines.sh` dispatches
+   `.github/workflows/regression_linux_baselines.yml` with `gh workflow run`,
+   watches it, and unpacks the artifact into `baselines/linux-x86_64/`. The
+   workflow installs ROSCO exactly as the CI job that runs this suite does, so
+   the environment matches. It needs the GitHub CLI, authenticated
+   (`gh auth login`). Note it regenerates **every** scenario, since the job
+   runs `--update-baseline` with no `--scenario`; the ones you did not intend
+   to change must come back byte-identical, and `git status` is how you check.
+
+   Each capture appends a record to that platform's
+   `baselines/<platform>/PROVENANCE.json` naming the scenarios it covers, so
+   the other baselines keep their own history. The histories are per platform
+   deliberately: each set has its own dates, SHAs and numpy/scipy versions.
 4. **Inspect what actually moved:**
    ```bash
    python test/regression/compare_baselines.py --plots /tmp/baseline-change
@@ -123,7 +169,12 @@ and the evidence has to match your prediction.**
 6. **Commit the baselines on their own**, after the code change, with the
    evidence in the message: which scenarios, which arrays, the magnitudes, the
    time of first divergence, and *why the controller now behaves differently*.
-   Attach the plots to the PR. `PROVENANCE.json` goes in the same commit.
+   Attach the plots to the PR. Both platform folders and both
+   `PROVENANCE.json` files go in that one commit — leaving a set stale means
+   the next person's CI fails for a reason that has nothing to do with their
+   change. The two sets must move *together and for the same reason*: a
+   scenario that moves on one platform and not the other is a finding, not a
+   baseline update.
 
 ### Reading the evidence
 
@@ -306,7 +357,7 @@ under "Changing a baseline on purpose" above.
 Scenario 28 has no baseline file of its own. It is scenario 1's simulation with
 HDF5 logging at `LoggingLevel=3`, and logging must not change a single control
 output, so `run_regression.py` compares it bit-for-bit against
-`baselines/scenario_1.npz` (`SHARED_BASELINE`). Separately, `--hdf5` and
+its platform's `scenario_1.npz` (`SHARED_BASELINE`). Separately, `--hdf5` and
 `test_hdf5_matches_text_output` check its `.RO.h5` against scenario 1's text
 `.RO.dbg`, and its `/avrSWAP` dataset against the avrSWAP values captured in the
 sim loop.
@@ -356,8 +407,11 @@ in `REFACTOR_NOTES.md` and commit history. Never renumber one.
    `scenario_01.IN` reads as the scenario you meant to write.
 4. Confirm it is deterministic: run it 5+ times and check the MD5s printed for
    each array agree.
-5. Capture the baseline:
-   `python test/regression/run_regression.py --scenario N --update-baseline`.
+5. Capture the baseline on both platforms —
+   `python test/regression/run_regression.py --scenario N --update-baseline`
+   locally, then `test/regression/fetch_linux_baselines.sh` for
+   `linux-x86_64` (see "Baselines are per platform"). A scenario with only one
+   platform's baseline fails on the other.
 6. Add a row to the table above, and confirm
    `python test/regression/run_regression.py` is still `ALL IDENTICAL`.
 
@@ -375,8 +429,11 @@ test/regression/
     mode_coverage.py       which mode values the scenarios and Examples configure
     test_mode_coverage.py  keeps mode_coverage.py in step with the registry
     plot_regression.py     failure-diagnosis plots
+    fetch_linux_baselines.sh  download the linux-x86_64 baselines from CI
     fixtures/              committed DISCON inputs — one per scenario
-    baselines/             29 compressed .npz files (~9 MB; 28 shares 1's) + PROVENANCE.json
+    baselines/             one folder per platform, each holding
+        darwin-arm64/      29 compressed .npz files (~9 MB; 28 shares 1's) + PROVENANCE.json
+        linux-x86_64/      the same set, captured on ubuntu-latest
 ```
 
 This lives at the repo top level rather than under `rosco/` so the baselines

@@ -5,6 +5,7 @@ channels:
 dependencies:
   - cmake
   - cmake-build-extension
+  - h5py
   - make
   - matplotlib
   - ninja

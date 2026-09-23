@@ -331,6 +331,70 @@ def run_hdf5(s, turbine):
     return result
 
 
+SYNTHETIC_LABELS = {
+    'Y_MeasErr': ('Yaw error (vane)', 'deg', 180.0 / np.pi),
+    'Yaw_fromNorth': ('Nacelle heading', 'deg', 180.0 / np.pi),
+    'FA_Acc_TT': ('Tower-top FA accel', 'm/s²', 1.0),
+    'NacIMU_FA_RAcc': ('Nacelle IMU FA rate', 'rad/s²', 1.0),
+    'avrSWAP_60': ('Rotor azimuth', 'deg', 180.0 / np.pi),
+    'avrSWAP_30': ('Blade 1 root OoP moment', 'kN·m', 1e-3),
+    'avrSWAP_31': ('Blade 2 root OoP moment', 'kN·m', 1e-3),
+    'avrSWAP_32': ('Blade 3 root OoP moment', 'kN·m', 1e-3),
+}
+
+
+def synthetic_signals(inputs, ti, t_end, rot_speed, nac_yaw_prev):
+    """Every synthetic drive signal, for one timestep.
+
+    Returns ``(turbine_state_updates, avrswap_updates)``. This is the single
+    definition of what the harness injects: ``run_synthetic()`` feeds it to the
+    controller, and ``baseline_report.py`` replays it over a captured baseline
+    to plot the stimulus beside the response, so the two cannot drift apart.
+
+    The arithmetic here is inside the bit-for-bit comparison. Changing an
+    expression moves every baseline that injects it.
+    """
+    deg2rad = np.pi / 180.0
+    state, avr = {}, {}
+    if 'yaw_rate' in inputs:
+        state['Yaw_fromNorth'] = nac_yaw_prev
+        state['Y_MeasErr'] = 20.0 * np.sin(2 * np.pi * ti / 50.0) * deg2rad
+    if 'yaw_by_ipc' in inputs:
+        state['Y_MeasErr'] = 20.0 * np.sin(2 * np.pi * ti / 50.0) * deg2rad
+        state['Yaw_fromNorth'] = (-45.0 + 450.0 * ti / t_end) * deg2rad
+    if 'tower' in inputs:
+        state['FA_Acc_TT'] = 0.5 * np.sin(2 * np.pi * ti / 3.0)
+        state['NacIMU_FA_RAcc'] = 0.3 * np.sin(2 * np.pi * ti / 3.0)
+    if 'azimuth' in inputs:
+        avr[59] = (rot_speed * ti) % (2 * np.pi)                 # avrSWAP(60)
+    if 'root_moop' in inputs:
+        t_rotor = 2 * np.pi / rot_speed if rot_speed > 0.1 else 100.0
+        for k in range(3):                                       # avrSWAP(30..32)
+            avr[29 + k] = 1000.0 * np.sin(2 * np.pi * ti / t_rotor + k * 2 * np.pi / 3)
+    return state, avr
+
+
+def replay_synthetic(s, t, rot_speed, nac_yaw):
+    """Replay a scenario's injected signals over arrays a run already captured.
+
+    `rot_speed` and `nac_yaw` come from the baseline, so nothing is simulated
+    and nothing is re-derived — this calls the same `synthetic_signals()` the
+    run itself used. Returns {name: array}, keyed as in SYNTHETIC_LABELS.
+    """
+    inputs = set(s.synthetic)
+    out = {}
+    for i, ti in enumerate(t):
+        if i == 0:
+            continue
+        state, avr = synthetic_signals(inputs, ti, t[-1], rot_speed[i],
+                                       nac_yaw[i-1] if i else 0.0)
+        for name, val in state.items():
+            out.setdefault(name, np.zeros_like(t))[i] = val
+        for idx, val in avr.items():
+            out.setdefault(f'avrSWAP_{idx + 1}', np.zeros_like(t))[i] = val
+    return out
+
+
 def run_synthetic(s, turbine):
     """A hand-written 1-DOF loop that feeds the controller signals the toolbox
     simulation leaves at zero. `s.synthetic` selects them:
@@ -390,22 +454,10 @@ def run_synthetic(s, turbine):
             'Yaw_fromNorth': 0.0,
             'Y_MeasErr': 0.0,
         }
-        if 'yaw_rate' in inputs:
-            turbine_state['Yaw_fromNorth'] = nac_yaw[i-1]
-            turbine_state['Y_MeasErr'] = 20.0 * np.sin(2 * np.pi * ti / 50.0) * deg2rad
-        if 'yaw_by_ipc' in inputs:
-            turbine_state['Y_MeasErr'] = 20.0 * np.sin(2 * np.pi * ti / 50.0) * deg2rad
-            turbine_state['Yaw_fromNorth'] = (-45.0 + 450.0 * ti / t[-1]) * deg2rad
-        if 'tower' in inputs:
-            turbine_state['FA_Acc_TT'] = 0.5 * np.sin(2 * np.pi * ti / 3.0)
-            turbine_state['NacIMU_FA_RAcc'] = 0.3 * np.sin(2 * np.pi * ti / 3.0)
-
-        if 'azimuth' in inputs:
-            ci.avrSWAP[59] = (rot_speed[i] * ti) % (2 * np.pi)  # avrSWAP(60)
-        if 'root_moop' in inputs:
-            t_rotor = 2 * np.pi / rot_speed[i] if rot_speed[i] > 0.1 else 100.0
-            for k in range(3):                                   # avrSWAP(30..32)
-                ci.avrSWAP[29 + k] = 1000.0 * np.sin(2 * np.pi * ti / t_rotor + k * 2 * np.pi / 3)
+        state, avr = synthetic_signals(inputs, ti, t[-1], rot_speed[i], nac_yaw[i-1])
+        turbine_state.update(state)
+        for idx, val in avr.items():
+            ci.avrSWAP[idx] = val
 
         gen_torque[i], bld_pitch[i], yaw_out = ci.call_controller(turbine_state)
         # call_controller returns float32; widen before arithmetic, or NumPy keeps

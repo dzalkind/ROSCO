@@ -41,9 +41,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 from compare_baselines import (  # noqa: E402
-    PLATFORM_TAG, changed_scenarios, compare, plot,
+    BASELINE_REL, PLATFORM_TAG, changed_scenarios, compare, plot,
 )
-from scenarios import SCENARIOS  # noqa: E402
+from scenarios import (  # noqa: E402
+    SCENARIOS, SYNTHETIC_LABELS, fixture_path, replay_synthetic,
+)
+
+REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
 
 STYLE = """<style>
 :root {
@@ -160,12 +164,93 @@ def _fmt_rows(rows):
     return "".join(trs)
 
 
+def _gearbox_ratio(num):
+    """Ng from the scenario's own fixture — the baseline records gen_speed, and
+    the injected signals are functions of rotor speed."""
+    with open(fixture_path(num)) as fh:
+        for line in fh:
+            if "WE_GearboxRatio" in line:
+                return float(line.split("!")[0].strip())
+    return 1.0
+
+
+def plot_inputs(num, out_dir):
+    """Plot what the harness injects, beside what the controller did with it.
+
+    A baseline records the response only. This replays the stimulus from the
+    same code the run used, so a reviewer can judge whether the response is
+    consistent with the drive rather than taking the numbers on faith.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    s = SCENARIOS.get(num)
+    if not s or not s.synthetic:
+        return None
+    path = os.path.join(REPO_ROOT, f"{BASELINE_REL}/scenario_{num}.npz")
+    if not os.path.exists(path):
+        return None
+    d = np.load(path)
+    if "t" not in d.files:
+        return None
+
+    t = d["t"]
+    rot_speed = d["gen_speed"] / _gearbox_ratio(num)
+    nac_yaw = d["nac_yaw"] if "nac_yaw" in d.files else np.zeros_like(t)
+    signals = replay_synthetic(s, t, rot_speed, nac_yaw)
+    if not signals:
+        return None
+
+    # The response channels worth seeing next to the drive.
+    responses = [(k, u) for k, u in (("bld_pitch", "rad"), ("gen_torque", "N·m"),
+                                     ("nac_yaw", "rad")) if k in d.files]
+    keys = sorted(signals) + [k for k, _ in responses]
+    units = {k: u for k, u in responses}
+
+    # Full run on the left, a short window on the right. Several of these
+    # signals run at rotor speed or 1/3 Hz; over 600 s they alias into a solid
+    # block, and a reviewer cannot tell a sine from a sawtooth.
+    zoom = float(min(30.0, t[-1]))
+    fig, axes = plt.subplots(len(keys), 2, figsize=(12.5, 1.5 * len(keys)),
+                             squeeze=False, sharex="col",
+                             gridspec_kw={"width_ratios": [2.2, 1]})
+    for row, key in enumerate(keys):
+        if key in signals:
+            label, unit, scale = SYNTHETIC_LABELS.get(key, (key, "", 1.0))
+            y, color = signals[key] * scale, "#14657f"
+        else:
+            label, unit = key, units.get(key, "")
+            y, color = d[key], "#9a5410"
+        for col, ax in enumerate(axes[row]):
+            ax.plot(t, y, lw=0.9, color=color)
+            ax.grid(True, alpha=0.3)
+            ax.tick_params(labelsize=7.5)
+            if col:
+                ax.set_xlim(0, zoom)
+            else:
+                ax.set_ylabel(f"{label}\n[{unit}]", fontsize=7.5)
+    axes[0][0].set_title("Full run", fontsize=8.5, color="#53616e")
+    axes[0][1].set_title(f"First {zoom:.0f} s", fontsize=8.5, color="#53616e")
+    for ax in axes[-1]:
+        ax.set_xlabel("Time [s]")
+    fig.suptitle(f"Scenario {num}: injected signals (blue) and response (orange)",
+                 fontweight="bold", fontsize=10)
+    fig.tight_layout()
+    os.makedirs(out_dir, exist_ok=True)
+    out = os.path.join(out_dir, f"scenario_{num}_inputs.png")
+    fig.savefig(out, dpi=120, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
 def _title(num):
     s = SCENARIOS.get(num)
     return s.title if s else f"scenario {num}"
 
 
-def section(num, rows, note, has_plot):
+def section(num, rows, note, has_plot, has_inputs=False):
     tag = note.get("tag", "moved")
     why = note.get("why", "")
     cls = "tag-i" if note.get("tag") else "tag-d"
@@ -192,6 +277,14 @@ def section(num, rows, note, has_plot):
                  '    <figcaption>Old baseline (blue) against new (orange), with the '
                  'difference at right.</figcaption>',
                  '  </figure>']
+    if has_inputs:
+        body += [f'  <figure><img src="plots/scenario_{num}_inputs.png" loading="lazy"',
+                 f'    alt="Scenario {num}: injected drive signals and the response">',
+                 '    <figcaption>What the harness injects (blue) above what the '
+                 'controller did with it (orange), on the new baseline. The baseline '
+                 'records only the response; the drive is replayed from the same '
+                 '<code>synthetic_signals()</code> the run used.</figcaption>',
+                 '  </figure>']
     body.append('</section>')
     return "\n".join(body)
 
@@ -204,6 +297,8 @@ def main():
     p.add_argument("--notes", help="JSON: {scenario: {tag, why}} for per-scenario labels.")
     p.add_argument("--title", default="Baseline Change", help="Page title.")
     p.add_argument("--lede", default="", help="One-sentence standfirst under the title.")
+    p.add_argument("--no-inputs", action="store_true",
+                   help="Skip the injected-signal plots (scenarios with synthetic inputs).")
     args = p.parse_args()
 
     notes = {}
@@ -228,7 +323,11 @@ def main():
             if os.path.abspath(src) != os.path.abspath(dst):
                 shutil.move(src, dst)
             file_map[f"plots/scenario_{num}.png"] = f"plots/scenario_{num}.png"
-        sections.append(section(num, rows, notes.get(num, {}), bool(src)))
+        inp = None if args.no_inputs else plot_inputs(num, plots_dir)
+        if inp:
+            name = f"plots/scenario_{num}_inputs.png"
+            file_map[name] = name
+        sections.append(section(num, rows, notes.get(num, {}), bool(src), bool(inp)))
 
     # Scenarios called out in --notes that did NOT move: the ones held still on
     # purpose. They belong in the report exactly because they have no plot.
@@ -250,7 +349,7 @@ def main():
   <h1>{html.escape(args.title)}</h1>
   {f'<p class="lede">{html.escape(args.lede)}</p>' if args.lede else ''}
   <div class="meta">
-    <span><b>against</b> {html.escape(args.against)} {sha}</span>
+    <span><b>against</b> {html.escape(args.against)}{'' if sha in args.against else ' ' + sha}</span>
     <span><b>platform</b> {PLATFORM_TAG}</span>
     <span><b>moved</b> {len(moved)} of {len(SCENARIOS)} scenarios</span>
   </div>

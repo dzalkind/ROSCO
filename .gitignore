@@ -104,3 +104,7 @@ outputs/
 compile_commands.json
 .mscppls/
 rosco/lib_copy/
+
+# Claude Code: share skills, keep local settings and worktrees out
+.claude/settings.local.json
+.claude/worktrees/

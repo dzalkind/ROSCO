@@ -542,7 +542,17 @@ _SCENARIO_LIST = [
              patches={
                  'Y_ControlMode': 1,
                  'TD_Mode': 1,
+                 # Without these the tower damper and floating feedback are
+                 # switched on but multiply their inputs by zero, so the
+                 # synthetic 'tower' signals reach them and change nothing.
+                 # Same values as scenario 27: small enough to keep the rotor
+                 # operating normally, since this is a code-path test and this
+                 # turbine is neither floating nor tower-damped.
+                 'FA_KI': '0.001',
+                 'FA_HPFCornerFreq': '0.1',
+                 'FA_IntSat': '0.0873',
                  'Fl_Mode': 1,
+                 'Fl_Kp': '-1.0',
                  'StC_Mode': 1, 'StC_Group_N': 1, 'StC_GroupIndex': '2801',
                  'CC_Mode': 1, 'CC_Group_N': 1, 'CC_GroupIndex': '2601',
                  'Flp_Mode': 1,

@@ -10,6 +10,14 @@
         "CMAKE_C_FLAGS": "-fsanitize=address -fno-omit-frame-pointer",
         "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=address"
       }
+    },
+    {
+      "name": "coverage",
+      "binaryDir": "${sourceDir}/build-coverage",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ROSCO_COVERAGE": "ON"
+      }
     }
   ]
 }

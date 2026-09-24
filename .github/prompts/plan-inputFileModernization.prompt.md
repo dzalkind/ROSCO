@@ -84,6 +84,12 @@ produces a different controller from the `.IN` path.*
       two dumps must be identical. This exercises the generated TOML reader, and is the
       check that would have caught the `OutputFormat` defaults bug
       (`plan-outputFileModernization.prompt.md` follow-up #4).
+
+      **Measured 2026-09-24 (regression plan task 10): `src/rosco_types_io.cpp` is at 0%
+      line coverage — all 1,062 lines of it.** Every fixture is a `.IN` file, so the
+      generated TOML reader is not merely undertested, it never executes in the suite at
+      all. That is the largest single hole the coverage run found, and this check is what
+      closes it.
    3. *Behaviour:* run the scenarios from the TOML dumps, and all **30** baselines must be
       byte-identical — on **both** platform folders, `darwin-arm64` and `linux-x86_64`
       (added 2026-09-22; see the regression README). This is step 13's acceptance test,

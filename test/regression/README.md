@@ -31,6 +31,31 @@ directory that is deleted on exit. Nothing is left in the working tree.
 `--rebuild` builds into `rosco/controller/build` and copies `libdiscon.*` into
 `rosco/lib/`.
 
+## Coverage
+
+Which controller lines and branches do the 30 scenarios actually reach?
+
+```bash
+pip install gcovr                       # once
+test/regression/run_coverage.sh         # ~2 min; --open to open the HTML
+```
+
+It builds an instrumented `libdiscon` (`-DROSCO_COVERAGE=ON`, or the `coverage`
+CMake preset), swaps it into `rosco/lib/` for the run, restores the real one
+afterwards, and writes `coverage-report/`. Local only — there is no CI job and
+no threshold, because the number is for reading, not for gating.
+
+The suite must still report `ALL IDENTICAL` under instrumentation. That is a
+live check on `-ffp-contract=off`: the coverage build is `-O0` where the
+baselines were captured at `RelWithDebInfo`, so a green run proves the
+reproducibility flags do what [BACKGROUND.md](BACKGROUND.md#determinism--why-the-machinery-is-here)
+claims. A mismatch is a finding about the flags, never a baseline to update.
+**Never capture a baseline from this build.**
+
+Coverage tells you what *executed*; `mode_coverage.py` tells you what is
+*configured*. A file at 0% is usually the second kind of gap — read them
+together.
+
 ## Reading a failure
 
 A mismatch reports the array, `max_diff`, and `first_diff_idx`:

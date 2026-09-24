@@ -103,7 +103,7 @@ same generator and parser files the rename touches. Order: see
 | 2 | Consolidate into `test/regression/` | P0 | DONE — commit `e08c79f1`; suite re-verified 27/27 (5,252,000 values) from the new path |
 | 2b | Align build directory + CMake presets | P0 | DONE — commit `e08c79f1`; `rosco/controller/build` everywhere, presets dropped to `"version": 1`, `default` preset removed, `--rebuild` now configures an unconfigured build dir |
 | 3 | Rename VIT-era vocabulary | P0 | DONE for the harness — commit `e08c79f1`; `vit_sim`→`scenarios`, `verify_cpp`→`run_regression`, `baseline_arrays`→`baselines`, sim names→`regression_N`. C++ source vocabulary split out as task 3b. |
-| 3b | Rename VIT-era vocabulary in the C++ source | P3 | DEFERRED — after the rest of P2/P3, but **before** input modernization starts (resequenced 2026-09-21). It is pure cosmetics across ~49 files; that plan edits `write_registry.py` and `readcontrolparameterfilesub.cpp`, which the rename also touches. |
+| 3b | Rename VIT-era vocabulary in the C++ source | P3 | PLANNED separately (2026-09-24) in `plan-cppVocabularyRename.prompt.md`. Still lands **before** input modernization. Not purely cosmetic after all: it includes ~900 lines of dead view-bridge code that `write_registry.py` keeps regenerating |
 | 4 | Write `test/regression/README.md` | P0 | DONE — commit `e08c79f1` |
 | 5 | Remove the hidden `01_turbine_model.py` dependency | P0 | DONE — commit `e08c79f1`; pickle load replaced with `Turbine(inps['turbine_params'])`; verified 27/27 from a fresh clone with no prior steps |
 | 6 | Add CI job | P0 | DONE — commit `e08c79f1`; `pytest -v test/regression` step in `build_and_test_conda`, ubuntu only. **Still never observed passing on a real runner** — latest CI run on `c++` is 2026-07-15 and failed, which predates this step. |
@@ -112,7 +112,7 @@ same generator and parser files the rename touches. Order: see
 | 8c | Assert fixtures still equal scenario_01 + patches | P2 | DONE — `test_fixtures.py`: each fixture == `apply_patches(scenario_01.IN, patches)`, byte for byte; plus one-fixture-per-scenario. Landed with 13 |
 | 8b | Input-parsing test: DISCON → parsed parameters | P1 | DEFERRED to input modernization Phase 0 (decision 2026-09-21). The TOML path skips the `.IN` parser's post-processing, so a dump of parsed state is not a valid input file, and a `.IN`-only test would not have caught the `OutputFormat` bug that motivates it. See 8b. |
 | 9 | Baseline provenance metadata | P1 | DONE — commit `4523559c`; `baselines/PROVENANCE.json`, written by `--update-baseline`, printed in every run header; initial file backfilled honestly from git rather than fabricated |
-| 10 | C++ line/branch coverage (gcovr) | P2 | TODO — after the CI work in `CMakeLists.txt` settles; local only, no CI job from this plan |
+| 10 | C++ line/branch coverage (gcovr) | P2 | DONE — `ROSCO_COVERAGE` CMake option + `coverage` preset + `test/regression/run_coverage.sh`. **56.3% lines / 37.6% branches overall; 85.8% / 60.4% over the control algorithms.** See 10 |
 | 11 | Mode-coverage table: regression vs Examples | P2 | DONE — `mode_coverage.py` + `test_mode_coverage.py` (registry sync, no DLL); README "What is *not* covered". Headline: no scenario runs `VS_ControlMode=3` or `VS_ConstPower=0`, the IEA-15/NREL-2.8 configuration. See 11 for findings |
 | 12 | HDF5 scenario symmetry | P3 | DONE — scenario 28 is in `ALL_SCENARIOS` and compared bit-for-bit against `scenario_1.npz` (`SHARED_BASELINE`) rather than a new baseline file; gate is now 28 scenarios, **5,772,000** values. See 12 |
 | 13 | Data-driven scenario definitions | P3 | DONE — `scenarios.py` 2,080 → 866 lines: a `Scenario` table + four runners. All 27 baselines identical. Found two scenarios whose synthetic inputs never reach the controller; see 13 |
@@ -320,6 +320,12 @@ which `compare_hdf5_debug()` hardcodes. Rename both together. (Done — renamed 
 The C++ source keeps its VIT-era filenames — split out as task 3b below.
 
 ### 3b. Rename VIT-era vocabulary in the C++ source — **DEFERRED, before input modernization**
+
+> **Superseded 2026-09-24 by [`plan-cppVocabularyRename.prompt.md`](plan-cppVocabularyRename.prompt.md).**
+> The text below is the original scoping. The new plan found that `vit_types.h` is
+> hand-maintained despite its "Auto-generated" header, and that ~900 lines of the
+> `controlparameters_view_t` bridge are dead but still generated. It also found that
+> `CMakeLists.txt` still includes the deleted `translations/` directory.
 Decision 2026-09-21: do this after the rest of P2/P3, not partway through. Two reasons: the
 suite is what makes the rename safe to do at all, and the rename is purely cosmetic across
 ~49 files — landing it mid-plan would churn the diff of every remaining task for no
@@ -601,11 +607,52 @@ header so every run states what it is comparing against.
 
 ## P2 — Coverage
 
-### 10. C++ line/branch coverage
-Add a CMake option (`ROSCO_COVERAGE=ON` → `--coverage`), run the suite, report with
-`gcovr`. One dependency, no custom tooling. Output: which controller branches 27 scenarios
-never reach. Run it in CI as a non-gating informational job first; only consider a threshold
-once the baseline number is known.
+### 10. C++ line/branch coverage — **DONE** (2026-09-24)
+
+`ROSCO_COVERAGE=ON` adds `--coverage -O0 -g` *after* the reproducibility flags, never
+replacing them; a `coverage` CMake preset builds into `build-coverage`;
+`test/regression/run_coverage.sh` builds, swaps the instrumented library into `rosco/lib/`,
+runs the full suite, reports with gcovr, and restores the real library on any exit. No CI
+job and no threshold, as planned.
+
+**The instrumented build is still `ALL IDENTICAL` across all 7,260,000 values.** Worth
+stating plainly: the baselines were captured at `RelWithDebInfo` and this build is `-O0`
+with instrumentation, so this is a live demonstration that `-ffp-contract=off` (finding 11)
+does what `CMakeLists.txt` claims. The script keeps running the suite for that reason, not
+merely to produce `.gcda` files.
+
+**Headline: 56.3% lines, 57.1% functions, 37.6% branches** over `src/`. That number is
+misleading on its own — it is dragged down by four subsystems no scenario can reach and by
+error-handling paths. Excluding `rosco_types_io.cpp`, the ZMQ and external-controller files,
+the restart files and `checkinputs.cpp`, the control algorithms themselves are at
+**85.8% lines / 82.4% functions / 60.4% branches**. Both numbers are worth keeping: the
+first says what the suite covers, the second says how well it covers what it aims at.
+
+**Findings, in order of how much they matter:**
+
+1. **`src/rosco_types_io.cpp` — 1,062 lines, 0%.** The generated TOML reader is completely
+   unexecuted by the suite, because every fixture is a `.IN` file. This is the file the
+   `OutputFormat` defaults bug lived in (output-plan follow-up #4), and it is now measured
+   rather than suspected. **Direct evidence for input-modernization Phase 0d** — its round
+   trip and behaviour tests are what would take this from 0%.
+2. **The warm-restart path is untouched**, as predicted: `readrestartfile.cpp`,
+   `writerestartfile.cpp` and `restart_fields.h` (396 lines) are all 0%. No scenario calls
+   `iStatus == -9`. A scenario could close this without much trouble and it is the largest
+   *reachable* gap.
+3. **`extcontroller.cpp`, `updatezeromq.cpp`, `zmq_client.c` — 0%,** matching task 11's mode
+   gaps (`Ext_Mode=1`, `ZMQ_Mode=1`). These need an external DLL and a ZeroMQ server, so
+   they stay out of scope; noted so the headline number is not read as a surprise.
+4. **`checkinputs.cpp` — 54%,** and the missing lines are almost entirely the error returns.
+   Expected, since fixtures are valid, but it means **nothing tests that bad input is
+   rejected.** A cheap "controller refuses malformed input" test would be a genuine addition
+   — this is the same hole that let the dead `TRA_Mode > 1` block sit unnoticed.
+5. **`powercontrolsetpoints.cpp` — 47%,** the `PRC_Comm=1/2` gap from task 11, now confirmed
+   as unexecuted rather than merely unconfigured.
+6. **`shutdown.cpp` — 58%.** Scenario 9 runs shutdown, but only one of its paths.
+7. **Dead code found: `identity()` in `src/Functions/linalg.cpp`** — defined, declared in
+   `rosco_functions.h`, called from nowhere. A Fortran `Functions.f90` leftover. Candidate
+   for deletion with task 3b; not removed here, since that is an API-surface decision rather
+   than a coverage one.
 
 *Sequencing note 2026-09-21:* `CMakeLists.txt` is being edited by the parallel CI work
 (e.g. `-fno-gnu-unique`). Wait for that to land before adding `ROSCO_COVERAGE`, and keep
@@ -866,9 +913,12 @@ be skipped and the one that leaves CI red.
    `git status` on that folder: only the scenarios that moved locally may appear, and they
    must move for the same reason and by comparable amounts. A scenario that moves on one
    platform and not the other is a finding, not a baseline update.
-10. **Task 10** — gcovr, once the CI edits to `CMakeLists.txt` have landed. Local only.
+10. ~~**Task 10**~~ — DONE 2026-09-24. Two gaps it opened that are worth scheduling: a
+    warm-restart (`iStatus == -9`) scenario, and a malformed-input test for
+    `checkinputs.cpp`'s error paths.
 11. **Task 3b** — the C++ vocabulary rename, after all of the above but *before* input
-    modernization, which edits the same generator and parser files.
+    modernization, which edits the same generator and parser files. Planned in
+    `plan-cppVocabularyRename.prompt.md`.
 12. **Input modernization, starting with its Phase 0** — separates parsing from
     post-processing, adds the parameter dump, and lands **8b** there.
 

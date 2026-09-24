@@ -29,6 +29,24 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-gnu-unique")
 endif()
 
+# Coverage instrumentation, driven by test/regression/run_coverage.sh. Off by
+# default. Note these flags are *appended* to the reproducibility flags set
+# above and must never replace them: a coverage build forces -O0, and the point
+# of -ffp-contract=off is that an -O0 build still reproduces the baselines
+# bit-for-bit. The coverage script runs the full suite for exactly that reason —
+# if an instrumented build stops being ALL IDENTICAL, that is a finding about
+# the flags, not about coverage.
+option(ROSCO_COVERAGE "Instrument for gcov/llvm-cov line and branch coverage" OFF)
+if(ROSCO_COVERAGE)
+  if(MSVC)
+    message(FATAL_ERROR "ROSCO_COVERAGE needs a gcov-compatible compiler; MSVC is unsupported.")
+  endif()
+  message(STATUS "Coverage instrumentation ON — do not capture baselines from this build")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage -O0 -g")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage -O0 -g")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} --coverage")
+endif()
+
 # toml++ (single-header, C++17, no external deps)
 include(FetchContent)
 FetchContent_Declare(

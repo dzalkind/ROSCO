@@ -84,11 +84,41 @@ produces a different controller from the `.IN` path.*
       two dumps must be identical. This exercises the generated TOML reader, and is the
       check that would have caught the `OutputFormat` defaults bug
       (`plan-outputFileModernization.prompt.md` follow-up #4).
-   3. *Behaviour:* run the scenarios from the TOML dumps, and all 27 baselines must be
-      byte-identical. This is step 13's acceptance test, reached early.
+   3. *Behaviour:* run the scenarios from the TOML dumps, and all **30** baselines must be
+      byte-identical — on **both** platform folders, `darwin-arm64` and `linux-x86_64`
+      (added 2026-09-22; see the regression README). This is step 13's acceptance test,
+      reached early, and it is the only one of the three that would catch a post-processing
+      change that re-times the filters (0f).
 
    Write "input parsing" in anything a contributor reads, not "layer B".
    *Depends on 0c.*
+
+0e. **Array-length semantics, and the scenario 4 finding.** *Added 2026-09-24.* Upstream
+   Fortran ROSCO 2.9.0 cannot read `test/regression/fixtures/scenario_04.IN` at all — it
+   dies with `Did not find correct size F_NotchBetaDen` — while the C++ `.IN` parser accepts
+   it and runs. This surfaced during the Fortran cross-check (regression plan task 16),
+   where scenario 4 is the one scenario of 30 that cannot be checked against the reference
+   implementation.
+
+   Two things make this a Phase 0 item rather than a curiosity. First, it means the two
+   `.IN` parsers disagree about how an array field's declared length relates to the values
+   on the line, so "the `.IN` format" is not one format — worth knowing before writing a
+   migration tool that claims to read every DISCON in the wild. Second, TOML arrays carry
+   their own length, so the mismatch has to be resolved explicitly when a field is declared
+   in `rosco_types.yaml`: is the count a separate input field, or derived from the array?
+   Decide it with 0b, since it is the same question as input-vs-computed.
+
+   *Check:* diff the C++ and Fortran readers on `F_NotchBetaDen` and its `*_N` companion,
+   and establish which fixture is malformed — scenario 4's, or the Fortran's expectation.
+   If the fixture is wrong, fixing it moves scenario 4's baseline.
+
+0f. **Do not let post-processing quietly re-time the filters.** *Added 2026-09-24.* 0a moves
+   post-processing to run after either reader, and it takes `LocalVar.DT`. Regression task
+   16 is the cautionary tale: every filter in the controller sizes its coefficients on the
+   `iStatus == 0` call and caches them, so anything that changes what `DT` is at that moment
+   silently changes every filtered signal — in that case by a factor of four, undetected for
+   the life of the baselines. The 0d behaviour test (scenarios run from TOML, bit-identical
+   against the baselines) is what catches this, which is another reason 0d is not optional.
 
 **Open decision — how the test gets a dump.** Recommended: via `Echo = 1`. The test copies
 a fixture to a temp dir, sets `Echo = 1`, makes one `iStatus = 0` call, and reads the
@@ -123,8 +153,16 @@ but a new public symbol.
   validates it. The resulting DISCON makes the controller refuse: verified 2026-09-22,
   `ROSCO ERROR: CheckInputs: TRA_Mode must be 0 or 1.` Either the example means
   `TRA_Mode = 1`, or frequency exclusion was meant to be mode 2 of a 0-3 scheme that the C++
-  never implemented. **Needs Daniel's call** — it is an Examples/CI question, not a
-  regression-suite one.
+  never implemented. *Resolved 2026-09-22 (`9505fc08`): the example now sets `TRA_Mode = 1`.*
+  The deeper question — whether frequency exclusion was meant to be mode 2 of a 0-3 scheme
+  the C++ never implemented — is still open and belongs to this phase's audit.
+- **The toolbox schema's own ranges are unreliable** (found by regression task 11, restated
+  here because this phase owns the fix): `AWC_Mode` max 2 though 5 exists, `Flp_Mode` max 2
+  though 3 exists, `PF_Mode` max 1 though 2 exists, and its two sections disagree with each
+  other. `mode_coverage.py` had to take its value domains from `checkinputs.cpp` and the
+  controller source instead. Step 3 below — generating the DISCON section of
+  `toolbox_schema.yaml` from `rosco_types.yaml` — is what stops this recurring; until then,
+  treat the schema's maxima as advisory.
 
 1. **Audit descriptions in both YAMLs** — diff `rosco_types.yaml` vs `toolbox_schema.yaml` for mismatches and gaps
 2. **Make `rosco_types.yaml` the canonical source** — enhance its descriptions and add `units` fields where missing

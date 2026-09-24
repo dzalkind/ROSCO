@@ -16,13 +16,19 @@ deliberate `--update-baseline` commit with justification.
 ## Current Status
 All of P0 and P1 is committed: task 1 in `66e0e9da`, tasks 2–6 in `e08c79f1`, tasks 7/8a/9 in
 `4523559c`. Task 11 in `88fbd114`, 13 + 8c in `e87dad3c`, 12 in `193af959`, 14 + 15 in
-`ffb1d605` (2026-09-21, local, not pushed). **Remaining: 10 (gcovr) and 3b (C++ rename)** —
-both touch C++ build files the parallel CI work is editing, so both wait on Daniel — then
-input modernization with 8b folded in.
+`ffb1d605`, 16 in `89ca779f`, 17 in `744f7bea`, 18 in `80aa04fa` + `0f0aa65a`.
+**Remaining: 10 (gcovr) and 3b (C++ rename)** — both touch C++ build files the parallel CI
+work is editing, so both wait on Daniel — then input modernization with 8b folded in.
 
-**Hard gate as of 2026-09-22:** `run_regression.py` → `ALL IDENTICAL — 7,260,000 total float64
+**The one thing blocking a green CI right now is not a task in this plan:** the
+`linux-x86_64` baselines are stale as of `89ca779f`. Tasks 16 and 17 moved 28 of the 30
+darwin baselines; the Linux set still holds the pre-`DT` numbers. It needs a push and
+`test/regression/fetch_linux_baselines.sh` — see "Regenerating the linux-x86_64 baselines"
+in the README. Do this before anything else.
+
+**Hard gate as of 2026-09-24:** `run_regression.py` → `ALL IDENTICAL — 7,260,000 total float64
 values` (30 scenarios; 6,292,000 controller outputs + recorded t/ws); `pytest test/regression`
-→ 67 passed.
+→ 67 passed. Reproduced after every commit in the 16/17/18 series.
 
 **Scenarios 29 and 30 added 2026-09-22** (Daniel's request), closing the biggest coverage
 gap task 11 found: `VS_ControlMode=3` (power-based TSR tracking — NREL-2.8, MHK_RM1) and
@@ -40,13 +46,34 @@ the runner prints the record(s) covering the scenarios being run. The 2026-04-03
 preserved as the oldest entry, covering 1-27.
 
 **Open decisions for Daniel, surfaced by this round:**
-- Scenarios 2 and 27 test less than intended (task 13 finding). Fixing them moves two
-  baselines.
+- ~~Scenarios 2 and 27 test less than intended~~ — **CLOSED 2026-09-22**, task 16.
+- ~~Two `checkinputs.cpp` defects~~ — **CLOSED 2026-09-22**, `0ed6ba4a`.
+- **The synthetic azimuth and root-moment drives are not what they claim.** Found while
+  plotting the injected signals (task 18). `synthetic_signals()` builds them as
+  `sin(2π·t / T_rotor(t))`, recomputing `T_rotor` from the instantaneous rotor speed each
+  step. A time-varying period inside a phase proportional to `t` gives an instantaneous
+  frequency of `2π/T − 2π·t·T′/T²`, so during spin-up the waveforms are visibly distorted
+  and the "azimuth" is not the integral of rotor speed. Amplitude and range are right, so
+  it works as a stimulus and the code paths it feeds are genuinely exercised — but it is not
+  the clean 1P signal the docstring describes. A true azimuth would integrate `ω·DT`.
+  **Fixing it moves the baselines of every scenario injecting `azimuth` or `root_moop`** —
+  2, 3, 7, 8, 26, 27. Deliberately left alone; decide separately.
+- **Report the upstream Fortran aliasing bug to NREL.** `Controllers.f90:517` in ROSCO 2.9.0
+  passes `objInst%instSecLPF` to `LPFilter`, so the yaw-by-IPC filter and the nacelle-vane
+  sine filter share `lpf1` slot 5. Traced with instrumentation and confirmed against an
+  independent Python reference: the C++ is correct, the Fortran is not. Affects anyone
+  running `Y_ControlMode = 2`.
+- **Scenario 4's fixture cannot be read by the Fortran 2.9.0 parser** ("Did not find correct
+  size F_NotchBetaDen"), so it is the one scenario the cross-check cannot cover. Worth
+  understanding rather than shrugging at: the C++ `.IN` parser accepts an array spelling the
+  Fortran rejects. Routed to the input plan — see its Phase 0.
 - Remaining uncovered modes, none of them urgent: `F_LPFType=2` and `WE_Mode=0` are cheap
   scenarios if wanted; `IPC_SatMode=0/1/3` needs IPC on with a saturating pitch; `Ext_Mode=1`
   and `ZMQ_Mode=1` need an external DLL and a ZeroMQ server, so they do not suit this suite.
-- Two `checkinputs.cpp` defects: `PS_Mode` range vs message, and the unreachable
-  `TRA_Mode > 1` block (task 11).
+- Scenario 7 and 27 now carry invented `FA_*` / `Fl_Kp` gains chosen to keep the rotor
+  operating rather than tuned for this turbine. Fine for a code-path test, and stated as such
+  in `BACKGROUND.md`, but if a physically meaningful tower-damper scenario is ever wanted it
+  needs a turbine that actually has one.
 
 **Resequenced 2026-09-21:** 8b is deferred to the input-modernization plan (its new
 Phase 0). A useful input-parsing test needs design decisions that plan owns — which
@@ -91,6 +118,9 @@ same generator and parser files the rename touches. Order: see
 | 13 | Data-driven scenario definitions | P3 | DONE — `scenarios.py` 2,080 → 866 lines: a `Scenario` table + four runners. All 27 baselines identical. Found two scenarios whose synthetic inputs never reach the controller; see 13 |
 | 14 | Store `t`/`ws` in baselines, delete `SCENARIO_WIND` | P3 | DONE — with 15, one commit. Every baseline gains `t`/`ws`; `plot_regression.py` reads them. All 5,252,000 original values verified byte-identical to the previous commit. Gate total now **6,660,000** (5,772,000 outputs + inputs) |
 | 15 | Compress baselines | P3 | DONE — with 14. `savez_compressed`; `baselines/` 40 MB → 8.7 MB. `--update-baseline` writes compressed |
+| 16 | One constant `DT`; scenarios 2/27 fed real inputs | P1 | DONE — commit `89ca779f`. **Moved 27 of 30 baselines.** See 16 |
+| 17 | Scenario 7's tower/floating gains | P2 | DONE — commit `744f7bea`. The last inert-coverage case from 13/16. One baseline, exactly as predicted |
+| 18 | Reviewable baseline-change reports | P2 | DONE — `baseline_report.py` + `.claude/skills/baseline-report/`, commits `80aa04fa`, `0f0aa65a`. README split into README + BACKGROUND. See 18 |
 
 ---
 
@@ -752,6 +782,68 @@ which 5,772,000 are controller outputs.
 
 ---
 
+## P1 (late) — what the harness was actually doing
+
+### 16. One constant `DT`; scenarios 2 and 27 fed real inputs — **DONE** (`89ca779f`)
+
+Started as task 13's open decision (route 2 and 27's synthetic signals through
+`turbine_state`, moving two baselines). Predicted: those two move, nothing else. **27 moved.**
+
+Chasing the other 25 found the larger defect. `_controller()` built every
+`ControllerInterface` without passing `DT`, so it took the toolbox default of `0.1`, and the
+loop then stepped at `0.025`. Every filter sizes its coefficients on the `iStatus == 0` call
+and caches them — the same pattern as the Fortran's `LPFilter`/`SecLPFilter`/`NotchFilter`,
+which only enter their coefficient block at initialisation. **Every filtered signal in the
+suite had been running at four times its configured corner frequency**, in every scenario,
+since the baselines were first captured. Fixed with `DT=DT`; the suite still uses one
+constant timestep, and variable timesteps stay out of scope (Daniel, 2026-09-22).
+
+Three things closed it:
+- The gate reproduces the new set exactly. The only two scenarios that did *not* move are 13
+  and 14 — the two whose outputs never pass through a filter (14 is a pure open-loop table
+  lookup; 13 is degenerate, torque pinned at 1.0). Nothing moved that had no mechanism to.
+- Upstream Fortran 2.9.0, rebuilt from `main` with `-ffp-contract=off` and driven through the
+  same corrected harness, reproduces the new baselines bit-for-bit on **27 of 30**, up from
+  26 against the old set. The three exceptions are known: scenario 2 (the Fortran aliasing
+  bug), scenario 8 (4.3e-19, rounding), scenario 4 (unparseable by the 2.9.0 reader).
+- Scenario 27 — previously the *only* place C++ and Fortran disagreed — now agrees, because
+  the Fortran `HPFilter` recomputes `K = 2/DT` every call and had been silently
+  self-correcting for the harness defect while the C++ cached.
+
+**The lesson worth carrying into the input plan:** the old baselines were cross-checked
+against Fortran and agreed, because the Fortran was mis-driven identically. Agreement with a
+reference implementation does not prove the harness drives either one correctly.
+
+### 17. Scenario 7's tower and floating gains — **DONE** (`744f7bea`)
+`TD_Mode` and `Fl_Mode` were on and (after 16) the accelerations really arrived, but the
+fixture left `FA_KI`, `FA_IntSat` and `Fl_Kp` at zero, so both paths multiplied real inputs
+by nothing. Same defect as 27, one step less severe, and the last one outstanding.
+Prediction held exactly: 29/30 identical; scenario 7's pitch from index 1 with `gen_*`
+following at 360; `nac_yaw`, `cc_*`, `flp_*` all still. New peak pitch 16.5°, so the rotor
+operates rather than feathering.
+
+### 18. Reviewable baseline-change reports — **DONE** (`80aa04fa`, `0f0aa65a`)
+A baseline diff is tens of MB of binary and `git diff` says only "differs". `compare_baselines.py`
+already printed the evidence; `baseline_report.py` now turns it into a self-contained page —
+per-array magnitudes, first-divergence times, before/after/difference plots — plus, for
+scenarios with synthetic inputs, **the injected drive signals beside the response**, since a
+baseline records only the response and a reviewer otherwise takes the stimulus on faith.
+Those plots call the same `synthetic_signals()` the run uses (extracted in `0f0aa65a`, pure
+refactor, gate still ALL IDENTICAL), so they cannot drift from the harness.
+
+It deliberately cannot write the *argument* for a change: `--narrative` takes that as an HTML
+fragment, and with none supplied the page says in its place that nobody made the case.
+`--notes` labels per-scenario causes and lists scenarios that were expected to move and did
+not. `.claude/skills/baseline-report/` drives the whole procedure, including insisting the
+prediction came first.
+
+`test/regression/README.md` was split at Daniel's request (476 lines → 270 + 236): README is
+the task reference, `BACKGROUND.md` holds the reasoning, coverage and case history.
+Regenerating the `linux-x86_64` set got its own section, since it is the step most likely to
+be skipped and the one that leaves CI red.
+
+---
+
 ## Recommended sequence
 
 1. **Task 1 alone, first** ("remove translation-era scaffolding"). Tag, delete, push. It
@@ -767,11 +859,23 @@ which 5,772,000 are controller outputs.
 5. ~~**Task 13, then 8c**~~ — DONE `e87dad3c`.
 6. ~~**Task 12**~~ — DONE `193af959` (shared baseline, no new file).
 7. ~~**Tasks 14 + 15**~~ — DONE `ffb1d605`.
-8. **Task 10** — gcovr, once the CI edits to `CMakeLists.txt` have landed. Local only.
-9. **Task 3b** — the C++ vocabulary rename, after all of the above but *before* input
-   modernization, which edits the same generator and parser files.
-10. **Input modernization, starting with its Phase 0** — separates parsing from
+8. ~~**Tasks 16, 17, 18**~~ — DONE `89ca779f`, `744f7bea`, `80aa04fa` + `0f0aa65a`.
+9. **Regenerate the `linux-x86_64` baselines.** *Do this first of what remains.* Tasks 16
+   and 17 moved 28 of the 30 darwin baselines and CI stays red until the Linux set matches,
+   from the same commit. Push, then `test/regression/fetch_linux_baselines.sh`, then check
+   `git status` on that folder: only the scenarios that moved locally may appear, and they
+   must move for the same reason and by comparable amounts. A scenario that moves on one
+   platform and not the other is a finding, not a baseline update.
+10. **Task 10** — gcovr, once the CI edits to `CMakeLists.txt` have landed. Local only.
+11. **Task 3b** — the C++ vocabulary rename, after all of the above but *before* input
+    modernization, which edits the same generator and parser files.
+12. **Input modernization, starting with its Phase 0** — separates parsing from
     post-processing, adds the parameter dump, and lands **8b** there.
+
+Not on the critical path, but do not lose them: report the Fortran aliasing bug upstream;
+decide on the synthetic azimuth/root-moment phase artifact; delete or refresh the stale
+`handoff-regressionHarness.md`; clean up the `fortran-main` and `cpp-probe` scratch
+worktrees (the latter still carries `printf` instrumentation in `hpfilter.cpp`).
 
 ## Open questions for review
 - ~~Top-level `test/` vs folding into the existing `rosco/test/`?~~ **Decided 2026-09-21:**

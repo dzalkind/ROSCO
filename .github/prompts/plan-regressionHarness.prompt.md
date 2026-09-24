@@ -630,11 +630,30 @@ first says what the suite covers, the second says how well it covers what it aim
 
 **Findings, in order of how much they matter:**
 
-1. **`src/rosco_types_io.cpp` — 1,062 lines, 0%.** The generated TOML reader is completely
-   unexecuted by the suite, because every fixture is a `.IN` file. This is the file the
-   `OutputFormat` defaults bug lived in (output-plan follow-up #4), and it is now measured
-   rather than suspected. **Direct evidence for input-modernization Phase 0d** — its round
-   trip and behaviour tests are what would take this from 0%.
+1. **`src/rosco_types_io.cpp` — 1,062 executable lines, 0%.** *Revised 2026-09-24 after
+   Daniel asked whether this file is VIT-era.* It is two different things, and they need
+   different answers:
+   - **`load_from_toml()`, lines 15-486 — live but unexercised.** `readconfigfiles.cpp:32`
+     dispatches `.toml` inputs straight to it. Every fixture is a `.IN` file, so nothing in
+     the repo executes it — not the suite, not `rosco/test`, not one Example (checked: no
+     Example references TOML). This is the file the `OutputFormat` defaults bug lived in
+     (output-plan follow-up #4), now measured rather than suspected. **Direct evidence for
+     input-modernization Phase 0d.**
+   - **`populate_view()` and `sync_from_view()`, lines 487-1091 — dead VIT scaffolding.**
+     Declared in `rosco_types.hpp`, generated into this file, and **called from nowhere**.
+     They marshal `ControlParameters` to and from `controlparameters_view_t`, which is
+     defined in `vit_types.h` and used by nothing else in the tree — it existed so the
+     translation harness could compare C++ state against Fortran. That job is finished.
+     Note `vit_types.h` itself is *not* dead (22 files include it for other types); only
+     this view type and its two marshallers are. Roughly **55% of the file's source lines
+     are dead code that no test could ever cover.**
+
+   The fix belongs with task 3b / `plan-cppVocabularyRename`, and it is a generator change:
+   stop emitting the two functions from `write_registry.py`, drop their declarations, and
+   remove `controlparameters_view_t` from `vit_types.h`. Never hand-edit the generated file.
+   The headline coverage number improves as a side effect, which is the wrong reason to do
+   it — the right reason is that it is 600 lines of translation harness in a shipped
+   library.
 2. **The warm-restart path is untouched**, as predicted: `readrestartfile.cpp`,
    `writerestartfile.cpp` and `restart_fields.h` (396 lines) are all 0%. No scenario calls
    `iStatus == -9`. A scenario could close this without much trouble and it is the largest

@@ -37,13 +37,26 @@ Which controller lines and branches do the 30 scenarios actually reach?
 
 ```bash
 pip install gcovr                       # once
-test/regression/run_coverage.sh         # ~2 min; --open to open the HTML
+test/regression/run_coverage.sh         # ~2 min, the 30 scenarios only
+test/regression/run_coverage.sh --all   # ...plus rosco/test and the Examples
+test/regression/run_coverage.sh --open  # ...and open the HTML
 ```
 
 It builds an instrumented `libdiscon` (`-DROSCO_COVERAGE=ON`, or the `coverage`
 CMake preset), swaps it into `rosco/lib/` for the run, restores the real one
-afterwards, and writes `coverage-report/`. Local only — there is no CI job and
-no threshold, because the number is for reading, not for gating.
+afterwards, and writes **`coverage-report/`** at the repo root — gitignored,
+`COVERAGE_OUT=/some/dir` to move it. Local only: there is no CI job and no
+threshold, because the number is for reading, not for gating.
+
+Counters accumulate across every process that loads the instrumented library,
+which is why `--all` is worth the extra minutes. It reaches code the 30
+scenarios structurally cannot: `rosco/test/test_checkpoint.py` is the only
+thing in the repo that drives the warm-restart path (`iStatus == -9`), and
+Examples `16_external_dll` and `17a/b/c` + `33` are the only things that drive
+the external-controller and ZeroMQ paths. Those extra workloads need OpenFAST,
+a ZeroMQ server and a network, so they are allowed to fail without killing the
+report — the run prints which ones actually contributed. The regression suite
+is not allowed to fail.
 
 The suite must still report `ALL IDENTICAL` under instrumentation. That is a
 live check on `-ffp-contract=off`: the coverage build is `-O0` where the

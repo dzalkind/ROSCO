@@ -621,7 +621,10 @@ with instrumentation, so this is a live demonstration that `-ffp-contract=off` (
 does what `CMakeLists.txt` claims. The script keeps running the suite for that reason, not
 merely to produce `.gcda` files.
 
-**Headline: 56.3% lines, 57.1% functions, 37.6% branches** over `src/`. That number is
+**Headline: 56.3% lines, 57.1% functions, 37.6% branches** over `src/` from the 30
+scenarios alone; **69.3% / 86.6% / 44.7%** with `--all` (the scenarios plus `rosco/test` and
+the Examples, all three passing). Excluding `rosco_types_io.cpp` and the dead `linalg.cpp`,
+`--all` reaches **87.3% lines / 88.7% functions / 67.0% branches**. That number is
 misleading on its own — it is dragged down by four subsystems no scenario can reach and by
 error-handling paths. Excluding `rosco_types_io.cpp`, the ZMQ and external-controller files,
 the restart files and `checkinputs.cpp`, the control algorithms themselves are at
@@ -654,14 +657,27 @@ first says what the suite covers, the second says how well it covers what it aim
    The headline coverage number improves as a side effect, which is the wrong reason to do
    it — the right reason is that it is 600 lines of translation harness in a shipped
    library.
-2. **The warm-restart path is untouched**, as predicted: `readrestartfile.cpp`,
-   `writerestartfile.cpp` and `restart_fields.h` (396 lines) are all 0%. No scenario calls
-   `iStatus == -9`. A scenario could close this without much trouble and it is the largest
-   *reachable* gap.
-3. **`extcontroller.cpp`, `updatezeromq.cpp`, `zmq_client.c` — 0%,** matching task 11's mode
-   gaps (`Ext_Mode=1`, `ZMQ_Mode=1`). These need an external DLL and a ZeroMQ server, so
-   they stay out of scope; noted so the headline number is not read as a surprise.
-4. **`checkinputs.cpp` — 54%,** and the missing lines are almost entirely the error returns.
+2. **Three of the four 0% subsystems are reachable — just not by the 30 scenarios.**
+   Daniel's point, and `--all` confirms it, since gcov counters accumulate across every
+   process that loads the instrumented library:
+
+   | subsystem | scenarios only | `--all` | what reaches it |
+   |---|---|---|---|
+   | `restart_fields.h` | 0% | **99%** | `rosco/test/test_checkpoint.py`, and nothing else |
+   | `readrestartfile.cpp` / `writerestartfile.cpp` | 0% | 73% | same |
+   | `extcontroller.cpp` | 0% | 86% | Example `16_external_dll` |
+   | `zmq_client.c` | 0% | 78% | Examples 17a/17b/17c, 33 |
+   | `powercontrolsetpoints.cpp` | 47% | 73% | an Example configures `PRC_Comm` |
+
+   So the warm-restart path is *not* untested, as this plan previously assumed — it is
+   tested outside the regression suite. Whether it also deserves a scenario is now a real
+   question rather than an obvious yes: a scenario would pin it bit-for-bit, which
+   `test_checkpoint.py` does not.
+3. **`load_from_toml()` stays at exactly 0% even under `--all`** — predicted before the run
+   and confirmed. Nothing in the repo feeds the controller a TOML file; the only `.toml`
+   present is `Examples/DISCON_template.toml`, which nothing loads. No amount of running
+   existing code moves this; only Phase 0d does.
+4. **`checkinputs.cpp` — 54%, and only 56% with `--all`,** and the missing lines are almost entirely the error returns.
    Expected, since fixtures are valid, but it means **nothing tests that bad input is
    rejected.** A cheap "controller refuses malformed input" test would be a genuine addition
    — this is the same hole that let the dead `TRA_Mode > 1` block sit unnoticed.
@@ -669,7 +685,8 @@ first says what the suite covers, the second says how well it covers what it aim
    as unexecuted rather than merely unconfigured.
 6. **`shutdown.cpp` — 58%.** Scenario 9 runs shutdown, but only one of its paths.
 7. **Dead code found: `identity()` in `src/Functions/linalg.cpp`** — defined, declared in
-   `rosco_functions.h`, called from nowhere. A Fortran `Functions.f90` leftover. Candidate
+   `rosco_functions.h`, called from nowhere. Still 0% under `--all`, so it is now measured
+   dead against the whole repo — suite, toolbox tests and every Example — not just the suite. A Fortran `Functions.f90` leftover. Candidate
    for deletion with task 3b; not removed here, since that is an API-surface decision rather
    than a coverage one.
 
